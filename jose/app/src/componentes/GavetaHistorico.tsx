@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as TecladoReact } from 'react';
 import { ROTULO_GRUPO, agruparPorPeriodo, FUSO_PADRAO } from '@compartilhado/datas';
 import type { ConversaResumo } from '@compartilhado/schemas';
 import { apagarConversa, listarConversas } from '../api/conversas';
 import { apagarComDesfazer, estaPendente } from '../estado/apagar-com-desfazer';
 import { Botao } from './Botao';
 import { Esqueleto } from './Esqueleto';
+import { useUsuario } from '../estado/sessao';
 import { useToast } from './Toast';
 
 interface Props {
@@ -16,12 +17,20 @@ interface Props {
   aoApagarAtual: () => void;
 }
 
-const hora = new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO_PADRAO, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-const data = new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO_PADRAO, day: '2-digit', month: '2-digit' });
+const FOCAVEIS = 'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Gaveta lateral com o Histórico de conversas (telas.md, tela 4). */
 export function GavetaHistorico({ aberta, aoFechar, conversaAtualId, aoAbrir, aoApagarAtual }: Props) {
   const toast = useToast();
+  const fuso = useUsuario().fuso_horario ?? FUSO_PADRAO;
+  const { hora, data } = useMemo(
+    () => ({
+      hora: new Intl.DateTimeFormat('pt-BR', { timeZone: fuso, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }),
+      data: new Intl.DateTimeFormat('pt-BR', { timeZone: fuso, day: '2-digit', month: '2-digit' }),
+    }),
+    [fuso],
+  );
+  const gavetaRef = useRef<HTMLElement>(null);
   const [itens, setItens] = useState<ConversaResumo[] | null>(null);
   const [erro, setErro] = useState(false);
   const [menuAbertoId, setMenuAbertoId] = useState<string | null>(null);
@@ -46,7 +55,35 @@ export function GavetaHistorico({ aberta, aoFechar, conversaAtualId, aoAbrir, ao
     return () => document.removeEventListener('keydown', aoTeclar);
   }, [aberta, aoFechar]);
 
+  // Foco (aria-modal): ao abrir vai para dentro da gaveta; ao fechar volta ao botão que a abriu.
+  useEffect(() => {
+    if (!aberta) return;
+    const origem = document.activeElement as HTMLElement | null;
+    gavetaRef.current?.querySelector<HTMLElement>('button')?.focus();
+    return () => origem?.focus();
+  }, [aberta]);
+
   if (!aberta) return null;
+
+  // Prende o Tab dentro da gaveta.
+  const prenderTab = (e: TecladoReact<HTMLElement>) => {
+    if (e.key !== 'Tab') return;
+    const lista = Array.from(gavetaRef.current?.querySelectorAll<HTMLElement>(FOCAVEIS) ?? []);
+    if (lista.length === 0) return e.preventDefault();
+    const primeiro = lista[0]!;
+    const ultimo = lista[lista.length - 1]!;
+    const ativo = document.activeElement;
+    if (!gavetaRef.current?.contains(ativo)) {
+      e.preventDefault();
+      primeiro.focus();
+    } else if (e.shiftKey && ativo === primeiro) {
+      e.preventDefault();
+      ultimo.focus();
+    } else if (!e.shiftKey && ativo === ultimo) {
+      e.preventDefault();
+      primeiro.focus();
+    }
+  };
 
   const apagar = (c: ConversaResumo) => {
     setMenuAbertoId(null);
@@ -68,7 +105,7 @@ export function GavetaHistorico({ aberta, aoFechar, conversaAtualId, aoAbrir, ao
 
   return (
     <div className="gaveta-fundo" onClick={aoFechar}>
-      <aside className="gaveta" role="dialog" aria-modal="true" aria-label="Histórico de conversas" onClick={(e) => e.stopPropagation()}>
+      <aside ref={gavetaRef} className="gaveta" role="dialog" aria-modal="true" aria-label="Histórico de conversas" onClick={(e) => e.stopPropagation()} onKeyDown={prenderTab}>
         <header className="gaveta__topo">
           <h2 className="gaveta__titulo">Histórico</h2>
           <Botao variante="link" onClick={aoFechar} aria-label="Fechar histórico">

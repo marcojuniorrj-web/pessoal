@@ -12,6 +12,7 @@ export function rotasConta() {
       email: u.email,
       foto_url: u.foto_url,
       boas_vindas_concluida: u.boas_vindas_concluida === 1,
+      fuso_horario: u.fuso_horario,
     };
     if (u.boas_vindas_concluida !== 1) {
       const conversa = await c.env.DB

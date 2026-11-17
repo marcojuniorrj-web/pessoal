@@ -63,6 +63,74 @@ test.describe('Gaveta de Histórico (2.9)', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
+  test('toast "Apagado" não cobre o campo de digitação nem o Enviar', async ({ page }) => {
+    await simularApi(page);
+    await simularChat(page, { conversas: conversas(), hoje: 'a' });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Histórico' }).click();
+    const gaveta = page.getByRole('dialog', { name: 'Histórico de conversas' });
+    await gaveta.getByRole('button', { name: 'Mais opções de Conversa antiga' }).click();
+    await gaveta.getByRole('menuitem', { name: 'Apagar' }).click();
+    const aviso = page.locator('.toast');
+    await expect(aviso).toContainText('Apagado.');
+    await page.getByRole('button', { name: 'Fechar histórico' }).click();
+    await expect(aviso).toBeVisible();
+    await page.waitForTimeout(300); // fim da animação de entrada
+    const t = (await aviso.boundingBox())!;
+    for (const alvo of [page.getByLabel('Mensagem para o José'), page.getByRole('button', { name: 'Enviar' })]) {
+      const b = (await alvo.boundingBox())!;
+      const sobrepoe = t.x < b.x + b.width && t.x + t.width > b.x && t.y < b.y + b.height && t.y + t.height > b.y;
+      expect(sobrepoe).toBe(false);
+    }
+  });
+
+  test('título de 80 caracteres sem espaço não estoura a gaveta: hora e ⋯ continuam visíveis', async ({ page }) => {
+    await simularApi(page);
+    const longo = 'x'.repeat(80);
+    await simularChat(page, { conversas: [novaConversa('a', 'Plano do dia', 30), novaConversa('l', longo, 40)], hoje: 'a' });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Histórico' }).click();
+    const gaveta = page.getByRole('dialog', { name: 'Histórico de conversas' });
+    await page.waitForTimeout(400); // fim da animação de deslizar
+    const caixa = (await gaveta.boundingBox())!;
+    const linha = gaveta.locator('li', { hasText: longo });
+    const mais = linha.getByRole('button', { name: /^Mais opções/ });
+    const quando = linha.locator('.gaveta__quando');
+    await expect(mais).toBeVisible();
+    await expect(quando).toBeVisible();
+    for (const el of [mais, quando]) {
+      const b = (await el.boundingBox())!;
+      expect(b.x).toBeGreaterThanOrEqual(caixa.x);
+      expect(b.x + b.width).toBeLessThanOrEqual(caixa.x + caixa.width + 0.5);
+    }
+    expect(await gaveta.locator('.gaveta__corpo').evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+  });
+
+  test('foco: entra na gaveta, o Tab fica preso nela e volta ao botão Histórico ao fechar (Esc e X)', async ({ page }) => {
+    await simularApi(page);
+    await simularChat(page, { conversas: conversas(), hoje: 'a' });
+    await page.goto('/');
+    const abrir = page.getByRole('button', { name: 'Histórico' });
+    await abrir.click();
+    const gaveta = page.getByRole('dialog', { name: 'Histórico de conversas' });
+    await expect(gaveta.getByRole('button', { name: 'Fechar histórico' })).toBeFocused();
+    await expect(gaveta.getByRole('button', { name: /^Plano do dia/ })).toBeVisible();
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('Tab');
+      expect(await gaveta.evaluate((g) => g.contains(document.activeElement))).toBe(true);
+    }
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('Shift+Tab');
+      expect(await gaveta.evaluate((g) => g.contains(document.activeElement))).toBe(true);
+    }
+    await page.keyboard.press('Escape');
+    await expect(gaveta).toHaveCount(0);
+    await expect(abrir).toBeFocused();
+    await abrir.click();
+    await page.getByRole('button', { name: 'Fechar histórico' }).click();
+    await expect(abrir).toBeFocused();
+  });
+
   test('apagar → Desfazer: nada é apagado (nem depois de esperar mais de 5 s)', async ({ page }) => {
     await simularApi(page);
     const f = await simularChat(page, { conversas: conversas(), hoje: 'a' });

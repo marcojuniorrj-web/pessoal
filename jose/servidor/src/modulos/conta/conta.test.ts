@@ -14,7 +14,7 @@ describe('GET /api/eu', () => {
     const { cookie } = await entrar(t);
     const r = await t.chamar('/api/eu', { headers: { cookie } });
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ nome: 'Marco', email: 'marco@gmail.com', foto_url: 'https://foto/m.png', boas_vindas_concluida: false });
+    expect(await r.json()).toEqual({ nome: 'Marco', email: 'marco@gmail.com', foto_url: 'https://foto/m.png', boas_vindas_concluida: false, fuso_horario: 'America/Sao_Paulo' });
   });
   it('inclui a conversa de boas-vindas em aberto', async () => {
     const t = criarAppTeste();

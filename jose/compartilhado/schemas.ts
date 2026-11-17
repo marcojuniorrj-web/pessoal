@@ -51,6 +51,8 @@ export const usuarioSchema = z.object({
   email: z.string(),
   foto_url: z.string().nullable(),
   boas_vindas_concluida: z.boolean(),
+  /** Fuso do usuário (ausente em respostas antigas guardadas no cache do app). */
+  fuso_horario: z.string().optional(),
   conversa_boas_vindas_id: z.string().optional(),
 });
 
