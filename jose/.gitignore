@@ -1,0 +1,7 @@
+node_modules
+app/dist
+.wrangler
+.dev.vars
+backups
+test-results
+playwright-report

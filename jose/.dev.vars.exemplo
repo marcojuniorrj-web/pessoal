@@ -1,0 +1,8 @@
+# Copie para .dev.vars (não versionado) e preencha. Em produção use `wrangler secret put NOME`.
+GOOGLE_CLIENT_ID=preencher
+GOOGLE_CLIENT_SECRET=preencher
+SESSION_SECRET=gere-com-openssl-rand-hex-32
+OWNER_EMAIL=seu-email@gmail.com
+ANTHROPIC_API_KEY=preencher-na-onda-2
+# Opcional: força a URL base do app (ex.: http://localhost:5173 no dev)
+URL_BASE=http://localhost:5173

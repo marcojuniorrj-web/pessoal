@@ -1,0 +1,42 @@
+{
+  "name": "jose",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n api,app -c yellow,cyan \"npm run dev:api\" \"npm run dev:app\"",
+    "dev:api": "wrangler dev --config servidor/wrangler.dev.toml --port 8787",
+    "dev:app": "vite --config app/vite.config.ts",
+    "build": "tsc --noEmit && vite build --config app/vite.config.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "db:migrar:local": "wrangler d1 migrations apply jose --local --config servidor/wrangler.dev.toml",
+    "db:migrar:remoto": "wrangler d1 migrations apply jose --remote --config servidor/wrangler.toml",
+    "deploy": "npm run build && wrangler deploy --config servidor/wrangler.toml",
+    "backup": "bash scripts/backup.sh"
+  },
+  "dependencies": {
+    "arctic": "^3.7.0",
+    "hono": "^4.13.19",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261117.1",
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "concurrently": "^10.0.7",
+    "jsdom": "^31.0.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.164.0"
+  }
+}

@@ -14,7 +14,7 @@ Esta onda também **elimina os 2 maiores riscos técnicos**: o login no PWA do i
 - Antes de começar, o Marco precisa providenciar: chave da API da Anthropic, um projeto no Google Cloud com o OAuth configurado (eu guio o passo a passo) e a conta Cloudflare, que já está conectada.
 
 ## Tarefas (prompts pequenos)
-- [ ] 1.1 Criar o monorepo (`app/`, `servidor/`, `compartilhado/`, `testes/`) com TypeScript, Vite + React, Hono, Vitest, `wrangler.toml` e `.dev.vars.exemplo`. **Aceite:** `npm run dev` sobe a interface e a API localmente; `npm test` roda um teste de exemplo.
+- [x] 1.1 Criar o monorepo (`app/`, `servidor/`, `compartilhado/`, `testes/`) com TypeScript, Vite + React, Hono, Vitest, `wrangler.toml` e `.dev.vars.exemplo`. **Aceite:** `npm run dev` sobe a interface e a API localmente; `npm test` roda um teste de exemplo.
 - [ ] 1.2 Migração `0001_inicial.sql` com **todas** as tabelas de arquitetura.md §4 (NOT NULL, CHECKs, índices, `foreign_keys`). **Aceite:** a migração roda do zero no D1 local e no remoto; um teste insere e lê uma linha de cada tabela.
 - [ ] 1.3 `compartilhado/`: mapa enum → rótulo das áreas e schemas Zod das entidades e do conteúdo das sugestões. **Aceite:** testes de validação (limites de 120 e 300 caracteres, áreas inválidas).
 - [ ] 1.4 Utilitário de datas e fuso (`hoje`, `diaLocal`, `atrasada`, grupos Hoje/Ontem/Esta semana/Mais antigas). **Aceite:** testes Vitest com relógio fixo, incluindo a virada do dia às 23h59 e 00h01 em São Paulo.

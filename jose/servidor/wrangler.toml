@@ -1,0 +1,25 @@
+name = "jose"
+main = "src/index.ts"
+compatibility_date = "2026-06-01"
+
+# Interface (build do Vite) servida pelo mesmo Worker.
+[assets]
+directory = "../app/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/auth/*"]
+
+[ai]
+binding = "AI"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "jose"
+# Preencher com o id devolvido por `wrangler d1 create jose` (ver README).
+database_id = "PREENCHER-APOS-wrangler-d1-create"
+migrations_dir = "migracoes"
+
+[vars]
+MODELO_PADRAO = "claude-haiku-5-5"
+MODELO_PROFUNDO = "claude-sonnet-5-5"
+LIMITE_MENSAGENS_DIA = "200"
