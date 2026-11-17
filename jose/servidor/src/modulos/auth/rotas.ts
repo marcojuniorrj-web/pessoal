@@ -1,14 +1,14 @@
 import { generateCodeVerifier, generateState } from 'arctic';
 import { Hono } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
-import type { Ambiente } from '../../ambiente';
-import { assinar, verificar } from '../../compartilhado/cripto';
+import { assinar, sha256Hex, verificar } from '../../compartilhado/cripto';
 import { urlBase, type Dependencias } from '../../compartilhado/dependencias';
 import { COOKIE_OAUTH, COOKIE_SESSAO, opcoesCookie, voltarSeguro } from './cookies';
-import { concluirLogin, MS_SESSAO } from './servico';
+import { exigirSessao, type AppEnv } from './sessao';
+import { concluirLogin, MS_SESSAO, sair, sairDeTodos } from './servico';
 
 export function rotasAuth(deps: Dependencias) {
-  const rotas = new Hono<{ Bindings: Ambiente }>();
+  const rotas = new Hono<AppEnv>();
 
   rotas.get('/google', async (c) => {
     const state = generateState();
@@ -46,6 +46,21 @@ export function rotasAuth(deps: Dependencias) {
       console.error('erro no login Google', e instanceof Error ? e.name : 'desconhecido');
       return falha();
     }
+  });
+
+  // Sair deste aparelho: apaga a sessão atual (e o cookie), mesmo que já tenha expirado.
+  rotas.post('/sair', async (c) => {
+    const token = getCookie(c, COOKIE_SESSAO);
+    if (token) await sair(c.env.DB, await sha256Hex(token));
+    deleteCookie(c, COOKIE_SESSAO, { path: '/' });
+    return c.body(null, 204);
+  });
+
+  // Sair de todos os aparelhos: apaga todas as sessões do usuário.
+  rotas.post('/sair-todos', exigirSessao(deps), async (c) => {
+    await sairDeTodos(c.env.DB, c.var.usuario.id);
+    deleteCookie(c, COOKIE_SESSAO, { path: '/' });
+    return c.body(null, 204);
   });
 
   return rotas;
