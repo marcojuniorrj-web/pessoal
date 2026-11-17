@@ -69,5 +69,6 @@ export function agruparPorPeriodo<T>(itens: T[], dataDe: (item: T) => string, ag
 export function saudacao(nome: string, agora: Date, fuso: string = FUSO_PADRAO): string {
   const h = horaLocal(agora, fuso);
   const periodo = h >= 5 && h < 12 ? 'Bom dia' : h >= 12 && h < 18 ? 'Boa tarde' : 'Boa noite';
-  return `${periodo}, ${nome}.`;
+  const primeiro = nome.trim().split(/\s+/)[0] ?? '';
+  return primeiro ? `${periodo}, ${primeiro}.` : `${periodo}.`;
 }

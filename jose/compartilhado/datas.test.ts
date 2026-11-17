@@ -72,4 +72,12 @@ describe('saudação', () => {
     expect(saudacao('Marco', sp('2026-11-17T12:00:00'))).toBe('Boa tarde, Marco.');
     expect(saudacao('Marco', sp('2026-11-17T18:00:00'))).toBe('Boa noite, Marco.');
   });
+
+  it('usa só o primeiro nome', () => {
+    const t = sp('2026-11-17T09:00:00');
+    expect(saudacao('Marco Silva', t)).toBe('Bom dia, Marco.');
+    expect(saudacao('  Marco   Antonio  Silva ', t)).toBe('Bom dia, Marco.');
+    expect(saudacao('', t)).toBe('Bom dia.');
+    expect(saudacao('   ', t)).toBe('Bom dia.');
+  });
 });
