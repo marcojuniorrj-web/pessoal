@@ -1,11 +1,11 @@
 # Execução (memória de construção)
 ## Onde paramos
-- Fase atual: PLAN (aguardando aprovação) → depois, BUILD onda 1
+- Fase atual: BUILD onda 1 (em andamento)
 - Última tarefa concluída: nenhuma (Fase 1, nenhuma tarefa concluída)
 - Próximo passo: o Marco aprova o plano; providenciar a chave da Anthropic e o OAuth do Google; `/build` da Fase 1
 ## Aprovações
 - [x] SPEC aprovada (2026-11-17)
-- [ ] PLAN aprovado (data)
+- [x] PLAN aprovado (2026-11-17)
 ## Resumo das fases (decisões fechadas — ler antes dos documentos completos)
 ### SPEC
 - MVP: **enxuto**. Inclui:
