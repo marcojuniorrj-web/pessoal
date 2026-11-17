@@ -7,8 +7,8 @@ type T = ReturnType<typeof criarAppTeste>;
 const sp = (iso: string) => new Date(`${iso}-03:00`);
 const UUID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
-async function preparar(roteiro: Passo[] | Parameters<typeof criarIaFalsa>[0] = [{}], extra: Parameters<typeof criarAppTeste>[0] = {}) {
-  const falsa = criarIaFalsa(roteiro);
+async function preparar(roteiro: Passo[] | Parameters<typeof criarIaFalsa>[0] = [{}], extra: Parameters<typeof criarAppTeste>[0] = {}, titulo?: string | Error) {
+  const falsa = criarIaFalsa(roteiro, { titulo });
   const t = criarAppTeste({ ia: falsa.ia, agora: () => sp('2026-11-17T10:00:00'), ...extra });
   const { cookie } = await entrar(t);
   const { id } = (await (await t.chamar('/api/conversas', { method: 'POST', headers: { cookie, origin: URL_TESTE, 'content-type': 'application/json' }, body: '{"tipo":"normal"}' })).json()) as { id: string };

@@ -10,8 +10,9 @@ import { ErroApi } from '../../compartilhado/erros';
 import { uuidv7 } from '../../compartilhado/id';
 import type { UsuarioLinha } from '../auth/repositorio';
 import { LIMITE_TAREFAS_CONTEXTO, montarContexto, type MensagemCtx } from './contexto';
+import { gerarTitulo } from './titulo';
 import {
-  buscarMensagem, inserirMensagemMarco, inserirRespostaJose, inserirSugestao, mensagensDaConversa, memoriasDoUsuario, metasAtivas,
+  buscarMensagem, inserirMensagemMarco, inserirRespostaJose, inserirSugestao, definirTitulo, mensagensDaConversa, memoriasDoUsuario, metasAtivas,
   respostasDoDia, sugestoesDaConversa, tarefasPendentes, type ConversaLinha, type MensagemLinha,
 } from './repositorio';
 
@@ -171,5 +172,13 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
     yield { evento: 'sugestao', dados: { id, tipo: p.tipo, conteudo: p.conteudo } };
   }
 
-  yield { evento: 'fim', dados: { mensagem_id: respostaId } };
+  // Título automático (regra 4): depois da 1ª resposta, pelo modelo econômico; falhou → 40 primeiros caracteres.
+  let titulo: string | undefined;
+  if (!conversa.titulo) {
+    const primeira = mensagens.find((m) => m.autor === 'marco')?.texto ?? e.mensagem.texto;
+    titulo = await gerarTitulo(ia, { modelo: env.MODELO_PADRAO, promptTitulo: prompt.titulo, primeiraMensagem: primeira, resposta: texto, sinal });
+    await definirTitulo(env.DB, conversa.id, titulo);
+  }
+
+  yield { evento: 'fim', dados: titulo ? { mensagem_id: respostaId, titulo } : { mensagem_id: respostaId } };
 }

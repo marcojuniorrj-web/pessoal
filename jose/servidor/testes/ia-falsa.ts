@@ -10,10 +10,20 @@ export interface Passo {
 }
 
 /** IA simulada: responde conforme o roteiro (um passo por chamada) e guarda os pedidos recebidos. */
-export function criarIaFalsa(roteiro: Passo[] | ((n: number, p: PedidoIA) => Passo)) {
+export function criarIaFalsa(roteiro: Passo[] | ((n: number, p: PedidoIA) => Passo), opcoes: { titulo?: string | Error } = {}) {
   const pedidos: PedidoIA[] = [];
+  /** Chamadas de título (ficam fora de `pedidos` para não bagunçar o roteiro da conversa). */
+  const pedidosTitulo: PedidoIA[] = [];
   const ia: ClienteIA = {
     async *transmitir(pedido): AsyncGenerator<EventoIA> {
+      if (pedido.sistemaEstavel.includes('Você nomeia conversas')) {
+        pedidosTitulo.push(pedido);
+        const t = opcoes.titulo ?? 'Título de teste';
+        if (t instanceof Error) throw t;
+        yield { tipo: 'texto', delta: t };
+        yield { tipo: 'fim', modelo: pedido.modelo, truncada: false, uso: { tokensEntrada: 10, tokensSaida: 5, tokensCache: 0, tokensCacheCriado: 0 } };
+        return;
+      }
       const n = pedidos.push(pedido) - 1;
       const passo = typeof roteiro === 'function' ? roteiro(n, pedido) : (roteiro[n] ?? roteiro.at(-1) ?? {});
       for (const delta of passo.partes ?? ['Resposta do José.']) yield { tipo: 'texto', delta };
@@ -25,7 +35,7 @@ export function criarIaFalsa(roteiro: Passo[] | ((n: number, p: PedidoIA) => Pas
       };
     },
   };
-  return { ia, pedidos };
+  return { ia, pedidos, pedidosTitulo };
 }
 
 export interface EventoSse {
