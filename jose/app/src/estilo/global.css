@@ -39,10 +39,10 @@ button { font: inherit; color: inherit; }
 }
 @keyframes girar { to { transform: rotate(360deg); } }
 
-/* Toast: acima da barra de abas */
+/* Toast: acima da barra de abas (e, no Chat, acima do campo de digitação: --altura-rodape-chat) */
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(var(--altura-barra) + 16px + env(safe-area-inset-bottom));
+  bottom: calc(var(--altura-barra) + 16px + env(safe-area-inset-bottom) + var(--altura-rodape-chat, 0px));
   display: flex; align-items: center; gap: 12px; min-height: var(--alvo-minimo);
   padding: 4px 8px 4px 16px; max-width: calc(100% - 32px);
   background: var(--superficie-2); border: 1px solid var(--borda); border-radius: var(--raio);
@@ -50,6 +50,7 @@ button { font: inherit; color: inherit; }
   animation: subir 0.2s ease-out;
 }
 .toast__acao { background: transparent; border: 0; color: var(--destaque); font-weight: 600; min-height: var(--alvo-minimo); padding: 0 12px; cursor: pointer; }
+html[data-teclado='aberto'] .toast { bottom: calc(16px + var(--altura-rodape-chat, 0px)); }
 @keyframes subir { from { opacity: 0; transform: translate(-50%, 8px); } }
 
 /* Esqueleto de carregamento */

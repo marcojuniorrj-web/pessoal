@@ -57,6 +57,29 @@ test.describe('Estados do Chat (2.8)', () => {
     await expect(campo).toBeEnabled();
   });
 
+  test('offline: com a faixa visível, campo e Enviar ficam inteiros na tela e fora da barra de abas', async ({ page }) => {
+    await simularApi(page);
+    await simularChat(page);
+    await page.goto('/');
+    await page.context().setOffline(true);
+    const faixa = page.getByRole('status').filter({ hasText: 'Offline' });
+    await expect(faixa).toBeVisible();
+    const barra = (await page.locator('.barra-abas').boundingBox())!;
+    const vp = page.viewportSize()!;
+    for (const alvo of [page.getByLabel('Mensagem para o José'), page.getByRole('button', { name: 'Enviar' })]) {
+      const b = (await alvo.boundingBox())!;
+      expect(b.y + b.height).toBeLessThanOrEqual(barra.y + 0.5);
+      expect(b.y + b.height).toBeLessThanOrEqual(vp.height);
+      // o ponto central é o próprio elemento (nada por cima)
+      const topo = await alvo.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        const t = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+        return t === el || el.contains(t);
+      });
+      expect(topo).toBe(true);
+    }
+  });
+
   test('falha de rede ao enviar: "Sem conexão." com Tentar de novo', async ({ page }) => {
     await simularApi(page);
     const f = await simularChat(page);

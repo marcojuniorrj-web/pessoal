@@ -40,6 +40,22 @@ export function Chat() {
   const [texto, setTexto] = useState('');
   const [gavetaAberta, setGavetaAberta] = useState(false);
   const campoRef = useRef<HTMLTextAreaElement>(null);
+  const rodapeRef = useRef<HTMLFormElement>(null);
+
+  // Publica a altura do rodapé (campo + Enviar) para o toast ficar acima dele, sem cobrir o campo.
+  useEffect(() => {
+    const el = rodapeRef.current;
+    if (!el) return;
+    const raiz = document.documentElement;
+    const medir = () => raiz.style.setProperty('--altura-rodape-chat', `${el.offsetHeight}px`);
+    medir();
+    const obs = new ResizeObserver(medir);
+    obs.observe(el);
+    return () => {
+      obs.disconnect();
+      raiz.style.removeProperty('--altura-rodape-chat');
+    };
+  }, []);
   const fimRef = useRef<HTMLDivElement>(null);
   const conversaRef = useRef<string | null>(null);
   conversaRef.current = conversa.id;
@@ -136,7 +152,7 @@ export function Chat() {
         <div ref={fimRef} />
       </div>
 
-      <form className="chat__rodape" onSubmit={aoEnviar}>
+      <form ref={rodapeRef} className="chat__rodape" onSubmit={aoEnviar}>
         <label className="so-leitor" htmlFor="campo-mensagem">
           Mensagem para o José
         </label>
