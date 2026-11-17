@@ -24,6 +24,9 @@ Mínimo que gera valor na primeira semana: **Chat com o José**.
 - (assumido) O José guarda o contexto básico sobre o Marco (rotina, áreas, metas) para as respostas
   serem pessoais e não genéricas.
 - (assumido) Acesso pelo celular como PWA (instalável, abre rápido) e também no computador.
+- Texto **e voz** no chat; login com conta Google.
+- Memórias visíveis e editáveis ("O que o José sabe").
+- O José **sugere** tarefas e metas; o Marco confirma, e elas vão para uma lista simples (concluir/apagar).
 
 ## Fica para depois
 - Integrações (Google Calendar, Gmail, WhatsApp).
