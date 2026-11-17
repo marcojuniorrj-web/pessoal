@@ -60,6 +60,23 @@ test.describe('Ajustes', () => {
     await expect(page).toHaveURL(/\/login/);
     expect(chamado).toBe('POST');
   });
+  test('Esc fecha a confirmação sem sair', async ({ page }) => {
+    await simularApi(page);
+    let chamado = false;
+    await page.route('**/auth/sair*', (r) => {
+      chamado = true;
+      return r.fulfill({ status: 204 });
+    });
+    await page.goto('/ajustes');
+    for (const nome of ['Sair', 'Sair de todos os aparelhos']) {
+      await page.getByRole('button', { name: nome, exact: true }).click();
+      await expect(page.getByRole('alertdialog')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('alertdialog')).toBeHidden();
+    }
+    expect(chamado).toBe(false);
+  });
+
   test('Sair chama /auth/sair', async ({ page }) => {
     await simularApi(page);
     let chamado = false;

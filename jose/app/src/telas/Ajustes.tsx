@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/cliente';
 import { Botao } from '../componentes/Botao';
 import { useToast } from '../componentes/Toast';
@@ -14,6 +14,18 @@ export function Ajustes() {
   const toast = useToast();
   const [confirmar, setConfirmar] = useState<Pergunta>(null);
   const [saindo, setSaindo] = useState(false);
+  const [params] = useSearchParams();
+  const mostrarTesteVoz = import.meta.env.DEV || params.get('teste') === '1';
+
+  // Esc fecha a confirmação, como o Cancelar.
+  useEffect(() => {
+    if (!confirmar) return;
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saindo) setConfirmar(null);
+    };
+    document.addEventListener('keydown', aoTeclar);
+    return () => document.removeEventListener('keydown', aoTeclar);
+  }, [confirmar, saindo]);
 
   const executar = async (qual: Exclude<Pergunta, null>) => {
     setSaindo(true);
@@ -64,9 +76,11 @@ export function Ajustes() {
         </div>
       )}
 
-      <Link to="/teste-voz" className="botao botao--link">
-        Teste de voz (temporário)
-      </Link>
+      {mostrarTesteVoz && (
+        <Link to="/teste-voz" className="botao botao--link">
+          Teste de voz (temporário)
+        </Link>
+      )}
 
       <p className="texto-2 versao">José versão {__VERSAO__}</p>
     </section>
