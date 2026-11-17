@@ -103,3 +103,24 @@ button { font: inherit; color: inherit; }
 .tela__titulo { font-size: var(--titulo); font-weight: 600; }
 .estado-vazio { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center; color: var(--texto-2); padding: 32px 16px; }
 .mensagem-erro { color: var(--erro); }
+
+/* Login */
+.login { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; }
+.login__logo { width: 88px; height: 88px; border-radius: 50%; background: var(--destaque); color: var(--texto-sobre-destaque); display: grid; place-items: center; font-size: 48px; font-weight: 700; }
+.login__nome { font-size: 32px; font-weight: 600; }
+.login__frase { color: var(--texto-2); margin-bottom: 16px; }
+
+/* Chat vazio */
+.chat-vazio { justify-content: center; }
+.chat-vazio__saudacao { font-size: 28px; font-weight: 600; }
+
+/* Ajustes */
+.texto-2 { color: var(--texto-2); }
+.cartao { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); padding: 16px; }
+.conta { display: flex; align-items: center; gap: 16px; }
+.conta__foto { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+.conta__foto--inicial { background: var(--superficie-2); display: grid; place-items: center; font-weight: 600; }
+.lista-acoes { display: grid; gap: 12px; }
+.confirmacao { display: grid; gap: 16px; }
+.confirmacao__acoes { display: flex; gap: 12px; justify-content: flex-end; }
+.versao { font-size: var(--pequeno); text-align: center; margin-top: auto; }

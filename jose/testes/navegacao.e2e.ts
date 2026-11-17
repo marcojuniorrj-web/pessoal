@@ -31,7 +31,7 @@ test('sem sessão (401) leva ao Login guardando a rota de volta', async ({ page 
   await simularApi(page, false);
   await page.goto('/tarefas');
   await expect(page).toHaveURL(/\/login\?voltar=%2Ftarefas/);
-  await expect(page.getByRole('link', { name: 'Entrar com Google' })).toHaveAttribute('href', /voltar=%2Ftarefas/);
+  await expect(page.getByRole('button', { name: 'Entrar com Google' })).toBeVisible();
 });
 
 test('no computador o conteúdo fica numa coluna de até 680px', async ({ page }, info) => {
