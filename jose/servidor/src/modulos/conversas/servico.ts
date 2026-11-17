@@ -56,7 +56,7 @@ function respostaExistente(m: MensagemLinha): MensagemDto {
  * Valida e grava a mensagem do Marco (antes de chamar a IA). Erros de API (404/409/429/500) saem aqui,
  * antes de abrir o fluxo SSE. Devolve um gerador com os eventos da resposta.
  */
-export async function prepararEnvio(e: EntradaEnvio): Promise<(sinal?: AbortSignal) => AsyncGenerator<EventoSaida>> {
+export async function prepararEnvio(e: EntradaEnvio, repetiu = false): Promise<(sinal?: AbortSignal) => AsyncGenerator<EventoSaida>> {
   const { env, deps, usuario, conversa, mensagem } = e;
   const ia = deps.ia(env);
   if (!ia) throw new ErroApi(500, 'ia_indisponivel', 'O José ainda não está configurado neste ambiente.');
@@ -88,7 +88,15 @@ export async function prepararEnvio(e: EntradaEnvio): Promise<(sinal?: AbortSign
   const usadas = await respostasDoDia(env.DB, usuario.id, new Date(agora.getTime() - MS_36H).toISOString(), (iso) => diaLocal(iso, fuso), hoje(agora, fuso));
   if (usadas >= limite) throw new ErroApi(429, 'limite_diario', MENSAGEM_LIMITE);
 
-  if (!jaGravada) await inserirMensagemMarco(env.DB, conversa.id, mensagem, agora);
+  if (!jaGravada) {
+    try {
+      await inserirMensagemMarco(env.DB, conversa.id, mensagem, agora);
+    } catch (erro) {
+      // Dois envios simultâneos do mesmo id: a chave duplicada vira "já existe" (mesma lógica da idempotência).
+      if (!repetiu && /UNIQUE|PRIMARY KEY|constraint/i.test(String((erro as Error)?.message ?? erro))) return prepararEnvio(e, true);
+      throw erro;
+    }
+  }
 
   return (sinal) => responder(e, ia, sinal);
 }
@@ -123,7 +131,8 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
   const profundo = conversa.modo === 'decidir';
   const pedido: PedidoIA = {
     modelo: profundo ? env.MODELO_PROFUNDO : env.MODELO_PADRAO,
-    maxTokens: profundo ? 1500 : 600,
+    // Tetos folgados: o raciocínio adaptativo também conta; só o gerado é cobrado (o tamanho da resposta vem do prompt).
+    maxTokens: profundo ? 4000 : 1500,
     esforco: 'low',
     ...contexto,
     ferramentas: deps.sugestoesAtivas,
@@ -156,6 +165,8 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
     return;
   }
 
+  // Cortada por max_tokens: grava o que veio e marca com reticências para o Marco notar.
+  if (fim.truncada) texto += ' …';
   const respostaId = uuidv7();
   await inserirRespostaJose(
     env.DB,
@@ -164,6 +175,7 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
     deps.agora(),
   );
   // Só ids, modelo, tempos e tokens (nunca o conteúdo); serve para medir se o cache está pegando.
+  if (fim.truncada) console.warn('ia truncada por max_tokens', { conversa: conversa.id, modelo: fim.modelo });
   console.log('ia ok', { conversa: conversa.id, modelo: fim.modelo, ms: Date.now() - inicio, ...fim.uso, truncada: fim.truncada });
 
   for (const p of propostas) {

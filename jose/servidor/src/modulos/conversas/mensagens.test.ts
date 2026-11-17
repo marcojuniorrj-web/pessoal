@@ -128,9 +128,45 @@ describe('POST /api/conversas/:id/mensagens (SSE)', () => {
     const dec = (await (await x.t.chamar('/api/conversas', { method: 'POST', headers: { cookie: x.cookie, origin: URL_TESTE, 'content-type': 'application/json' }, body: '{"tipo":"normal","modo":"decidir"}' })).json()) as { id: string };
     await (await x.enviar({ id: UUID(13), texto: 'oi' })).text();
     await (await x.enviar({ id: UUID(14), texto: 'preciso decidir' }, dec.id)).text();
-    expect(x.pedidos[0]).toMatchObject({ modelo: 'claude-haiku-5-5', maxTokens: 600, fallbackRecusa: false });
-    expect(x.pedidos[1]).toMatchObject({ modelo: 'claude-sonnet-5-5', maxTokens: 1500, esforco: 'low', fallbackRecusa: true });
+    expect(x.pedidos[0]).toMatchObject({ modelo: 'claude-haiku-5-5', maxTokens: 1500, fallbackRecusa: false });
+    expect(x.pedidos[1]).toMatchObject({ modelo: 'claude-sonnet-5-5', maxTokens: 4000, esforco: 'low', fallbackRecusa: true });
     expect(x.pedidos[1]!.sistemaVolatil).toContain('Modo decisão');
+  });
+
+  it('resposta cortada por max_tokens é gravada com " …" no fim', async () => {
+    const x = await preparar([{ partes: ['Texto cortado'], truncada: true }]);
+    await lerEventos(await x.enviar({ id: UUID(40), texto: 'oi' }));
+    const j = await x.t.env.DB.prepare("SELECT texto FROM mensagens WHERE autor='jose'").first<{ texto: string }>();
+    expect(j!.texto).toBe('Texto cortado …');
+  });
+
+  it('dois envios simultâneos do mesmo id não dão 500 e não duplicam a mensagem do Marco', async () => {
+    const x = await preparar([{}, {}]);
+    // Barreira: os dois envios leem "não existe" antes de qualquer um gravar (a corrida real).
+    const db = x.t.env.DB;
+    const prepararOrig = db.prepare.bind(db);
+    let lidos = 0;
+    let liberar!: () => void;
+    const portao = new Promise<void>((r) => (liberar = r));
+    db.prepare = ((sql: string) => {
+      const st = prepararOrig(sql);
+      if (sql !== 'SELECT * FROM mensagens WHERE id = ?') return st;
+      return new Proxy(st, {
+        get: (alvo, prop) => {
+          if (prop !== 'bind') return Reflect.get(alvo, prop);
+          return (...a: unknown[]) => {
+            const b = alvo.bind(...a);
+            return new Proxy(b, { get: (t2, p2) => (p2 === 'first' ? async () => { const r = await t2.first(); if (++lidos >= 2) liberar(); await portao; return r; } : Reflect.get(t2, p2)) });
+          };
+        },
+      });
+    }) as typeof db.prepare;
+    const rs = await Promise.all([x.enviar({ id: UUID(41), texto: 'oi' }), x.enviar({ id: UUID(41), texto: 'oi' })]);
+    for (const r of rs) {
+      expect(r.status).toBe(200);
+      await r.text();
+    }
+    expect(await x.contar("SELECT COUNT(*) AS n FROM mensagens WHERE autor='marco'")).toBe(1);
   });
 
   it('o contexto leva memórias, metas e tarefas do usuário (e só dele)', async () => {

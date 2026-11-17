@@ -6,6 +6,8 @@ export interface Passo {
   sugestoes?: Array<{ nome: string; entrada: unknown }>;
   /** Lança este erro depois de entregar as `partes` (erro no meio do fluxo). */
   erro?: ErroIA;
+  /** Fim com stop_reason max_tokens. */
+  truncada?: boolean;
   uso?: Partial<{ tokensEntrada: number; tokensSaida: number; tokensCache: number }>;
 }
 
@@ -30,7 +32,7 @@ export function criarIaFalsa(roteiro: Passo[] | ((n: number, p: PedidoIA) => Pas
       if (passo.erro) throw passo.erro;
       for (const s of passo.sugestoes ?? []) yield { tipo: 'sugestao', nome: s.nome, entrada: s.entrada };
       yield {
-        tipo: 'fim', modelo: pedido.modelo, truncada: false,
+        tipo: 'fim', modelo: pedido.modelo, truncada: passo.truncada ?? false,
         uso: { tokensEntrada: 100, tokensSaida: 20, tokensCache: 0, tokensCacheCriado: 0, ...passo.uso },
       };
     },
