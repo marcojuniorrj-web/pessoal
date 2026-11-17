@@ -64,6 +64,10 @@ export function Ajustes() {
         </div>
       )}
 
+      <Link to="/teste-voz" className="botao botao--link">
+        Teste de voz (temporário)
+      </Link>
+
       <p className="texto-2 versao">José versão {__VERSAO__}</p>
     </section>
   );

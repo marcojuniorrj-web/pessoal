@@ -3,6 +3,7 @@ import type { Ambiente } from './ambiente';
 import { dependenciasPadrao, type Dependencias } from './compartilhado/dependencias';
 import { naoEncontrado, tratarErro } from './compartilhado/erros';
 import { rotasAuth } from './modulos/auth/rotas';
+import { rotasVoz } from './modulos/voz/rotas';
 import { rotasConta } from './modulos/conta/rotas';
 import { checarOrigem, exigirSessao, type AppEnv } from './modulos/auth/sessao';
 
@@ -20,6 +21,7 @@ export function criarApp(deps: Dependencias = dependenciasPadrao) {
   // Toda rota /api exige sessão; o usuario_id vem sempre dela.
   app.use('/api/*', checarOrigem, exigirSessao(deps));
   app.route('/api', rotasConta());
+  app.route('/api', rotasVoz(deps));
   app.notFound((c) => (c.req.path.startsWith('/api/') ? tratarErro(naoEncontrado(), c) : c.env.ASSETS.fetch(c.req.raw)));
   return app;
 }

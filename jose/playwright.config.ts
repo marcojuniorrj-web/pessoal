@@ -15,11 +15,11 @@ export default defineConfig({
   projects: [
     {
       name: 'celular',
-      use: { ...devices['iPhone 13'], defaultBrowserType: 'chromium', launchOptions: { executablePath, args: ['--no-sandbox'] } },
+      use: { ...devices['iPhone 13'], defaultBrowserType: 'chromium', launchOptions: { executablePath, args: ['--no-sandbox', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] } },
     },
     {
       name: 'computador',
-      use: { ...devices['Desktop Chrome'], launchOptions: { executablePath, args: ['--no-sandbox'] } },
+      use: { ...devices['Desktop Chrome'], launchOptions: { executablePath, args: ['--no-sandbox', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] } },
     },
   ],
 });

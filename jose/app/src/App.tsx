@@ -6,6 +6,7 @@ import { Ajustes } from './telas/Ajustes';
 import { Chat } from './telas/Chat';
 import { JoseSabe } from './telas/JoseSabe';
 import { Login } from './telas/Login';
+import { TesteVoz } from './telas/TesteVoz';
 import { Tarefas } from './telas/Tarefas';
 
 export function App() {
@@ -20,6 +21,7 @@ export function App() {
               <Route path="tarefas" element={<Tarefas />} />
               <Route path="jose-sabe" element={<JoseSabe />} />
               <Route path="ajustes" element={<Ajustes />} />
+              <Route path="teste-voz" element={<TesteVoz />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
