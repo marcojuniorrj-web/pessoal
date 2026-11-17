@@ -1,12 +1,24 @@
 import { Hono } from 'hono';
 import type { Ambiente } from './ambiente';
 import { dependenciasPadrao, type Dependencias } from './compartilhado/dependencias';
+import { naoEncontrado, tratarErro } from './compartilhado/erros';
 import { rotasAuth } from './modulos/auth/rotas';
+import { checarOrigem, exigirSessao, type AppEnv } from './modulos/auth/sessao';
 
 export function criarApp(deps: Dependencias = dependenciasPadrao) {
-  const app = new Hono<{ Bindings: Ambiente }>();
-  app.get('/api/saude', (c) => c.json({ ok: true }));
+  const app = new Hono<AppEnv>();
+  app.onError(tratarErro);
+
+  // Público: verificação de saúde (usada depois do deploy).
+  app.get('/saude', (c) => c.json({ ok: true }));
+
+  // /auth/*: sem sessão; as escritas checam o Origin.
+  app.use('/auth/*', checarOrigem);
   app.route('/auth', rotasAuth(deps));
+
+  // Toda rota /api exige sessão; o usuario_id vem sempre dela.
+  app.use('/api/*', checarOrigem, exigirSessao(deps));
+  app.notFound((c) => (c.req.path.startsWith('/api/') ? tratarErro(naoEncontrado(), c) : c.env.ASSETS.fetch(c.req.raw)));
   return app;
 }
 

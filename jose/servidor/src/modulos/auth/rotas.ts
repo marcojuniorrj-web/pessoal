@@ -4,26 +4,8 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import type { Ambiente } from '../../ambiente';
 import { assinar, verificar } from '../../compartilhado/cripto';
 import { urlBase, type Dependencias } from '../../compartilhado/dependencias';
+import { COOKIE_OAUTH, COOKIE_SESSAO, opcoesCookie, voltarSeguro } from './cookies';
 import { concluirLogin, MS_SESSAO } from './servico';
-
-export const COOKIE_SESSAO = 'jose_sessao';
-const COOKIE_OAUTH = 'jose_oauth';
-
-/** Só aceita caminhos internos (evita redirecionar para outro site). */
-export function voltarSeguro(voltar: string | undefined | null): string {
-  if (!voltar || !voltar.startsWith('/') || voltar.startsWith('//') || voltar.startsWith('/\\')) return '/';
-  return voltar;
-}
-
-export function opcoesCookie(urlRequisicao: string, maxAgeSegundos: number) {
-  return {
-    httpOnly: true,
-    secure: new URL(urlRequisicao).protocol === 'https:',
-    sameSite: 'Lax' as const,
-    path: '/',
-    maxAge: maxAgeSegundos,
-  };
-}
 
 export function rotasAuth(deps: Dependencias) {
   const rotas = new Hono<{ Bindings: Ambiente }>();
