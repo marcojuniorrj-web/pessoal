@@ -5,3 +5,5 @@ app/dist
 backups
 test-results
 playwright-report
+servidor/embutido/arquivos.gerado.ts
+servidor/wrangler.embutido.toml

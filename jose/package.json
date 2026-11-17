@@ -14,6 +14,7 @@
     "db:migrar:local": "wrangler d1 migrations apply jose --local --config servidor/wrangler.dev.toml",
     "db:migrar:remoto": "wrangler d1 migrations apply jose --remote --config servidor/wrangler.toml",
     "deploy": "npm run build && wrangler deploy --config servidor/wrangler.toml",
+    "deploy:embutido": "node scripts/deploy-embutido.mjs",
     "backup": "bash scripts/backup.sh"
   },
   "dependencies": {

@@ -46,6 +46,9 @@ curl -i https://jose.<subdominio>.workers.dev/saude     # deve responder 200 {"o
 ```
 Depois de saber a URL, volte ao Google Cloud e cadastre o redirecionamento de produção (passo 2 acima).
 
+### Deploy sem o upload de assets (`npm run deploy:embutido`)
+Alguns ambientes (proxies que reescrevem o cabeçalho de autorização) derrubam o upload de arquivos do `wrangler deploy` com 401. Nesse caso use `npm run deploy:embutido`: ele faz o build, embute os arquivos da interface dentro do Worker (`servidor/embutido/`, gerado, fora do git) e publica com `servidor/wrangler.embutido.toml` (gerado a partir do `wrangler.toml`, sem `[assets]`). O resultado para o usuário é idêntico. O deploy normal (`npm run deploy`) continua valendo num computador comum.
+
 ### Backup semanal
 ```bash
 npm run backup        # gera backups/jose-AAAA-MM-DD.sql e mantém as 4 cópias mais recentes

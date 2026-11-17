@@ -1,6 +1,8 @@
 name = "jose"
 main = "src/index.ts"
 compatibility_date = "2026-06-01"
+workers_dev = true
+preview_urls = false
 
 # Interface (build do Vite) servida pelo mesmo Worker.
 [assets]
@@ -16,7 +18,7 @@ binding = "AI"
 binding = "DB"
 database_name = "jose"
 # Preencher com o id devolvido por `wrangler d1 create jose` (ver README).
-database_id = "PREENCHER-APOS-wrangler-d1-create"
+database_id = "44bc8c56-0e72-4aa8-8da7-e45749d90673"
 migrations_dir = "migracoes"
 
 [vars]
