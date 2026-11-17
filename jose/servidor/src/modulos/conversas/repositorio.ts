@@ -75,3 +75,85 @@ export async function conversaCompleta(db: D1Database, conversa: ConversaLinha):
 export async function apagarConversa(db: D1Database, conversaId: string): Promise<void> {
   await db.prepare('DELETE FROM conversas WHERE id = ?').bind(conversaId).run();
 }
+
+// ---- leitura para montar o contexto da IA (regra 1) ----
+
+export async function memoriasDoUsuario(db: D1Database, usuarioId: string) {
+  const { results } = await db
+    .prepare('SELECT texto, area FROM memorias WHERE usuario_id = ? ORDER BY criada_em ASC, rowid ASC')
+    .bind(usuarioId)
+    .all<{ texto: string; area: 'sobre_mim' | 'trabalho' | 'financas' | 'saude' | 'casa' }>();
+  return results;
+}
+
+export async function metasAtivas(db: D1Database, usuarioId: string) {
+  const { results } = await db
+    .prepare("SELECT titulo, area, prazo FROM metas WHERE usuario_id = ? AND status = 'ativa' ORDER BY criada_em ASC, rowid ASC")
+    .bind(usuarioId)
+    .all<{ titulo: string; area: 'trabalho' | 'financas' | 'saude' | 'casa'; prazo: string | null }>();
+  return results;
+}
+
+/** Tarefas pendentes na ordem da regra 5: atrasadas, de hoje, futuras (mais próximas primeiro) e sem prazo; empate: mais nova primeiro. */
+export async function tarefasPendentes(db: D1Database, usuarioId: string, diaHoje: string, limite: number) {
+  const { results } = await db
+    .prepare(
+      `SELECT titulo, area, prazo FROM tarefas WHERE usuario_id = ? AND concluida = 0
+       ORDER BY CASE WHEN prazo IS NULL THEN 3 WHEN prazo < ?2 THEN 0 WHEN prazo = ?2 THEN 1 ELSE 2 END,
+                CASE WHEN prazo > ?2 THEN prazo END ASC,
+                criada_em DESC, rowid DESC
+       LIMIT ?3`,
+    )
+    .bind(usuarioId, diaHoje, limite)
+    .all<{ titulo: string; area: 'trabalho' | 'financas' | 'saude' | 'casa'; prazo: string | null }>();
+  return results;
+}
+
+/** Quantas respostas do José o usuário já recebeu no dia local `diaHoje` (regra 9). */
+export async function respostasDoDia(db: D1Database, usuarioId: string, desdeIso: string, diaDe: (iso: string) => string, diaHoje: string): Promise<number> {
+  const { results } = await db
+    .prepare(
+      "SELECT m.criada_em FROM mensagens m JOIN conversas c ON c.id = m.conversa_id WHERE c.usuario_id = ? AND m.autor = 'jose' AND m.criada_em >= ?",
+    )
+    .bind(usuarioId, desdeIso)
+    .all<{ criada_em: string }>();
+  return results.filter((r) => diaDe(r.criada_em) === diaHoje).length;
+}
+
+export async function buscarMensagem(db: D1Database, id: string) {
+  return db.prepare('SELECT * FROM mensagens WHERE id = ?').bind(id).first<MensagemLinha>();
+}
+
+export async function inserirMensagemMarco(db: D1Database, conversaId: string, m: { id: string; texto: string; origem: 'texto' | 'voz' }, agora: Date) {
+  const iso = agora.toISOString();
+  await db.batch([
+    db.prepare("INSERT INTO mensagens (id, conversa_id, autor, texto, origem, criada_em) VALUES (?, ?, 'marco', ?, ?, ?)").bind(m.id, conversaId, m.texto, m.origem, iso),
+    db.prepare('UPDATE conversas SET atualizada_em = ? WHERE id = ?').bind(iso, conversaId),
+  ]);
+}
+
+export async function inserirRespostaJose(
+  db: D1Database,
+  conversaId: string,
+  r: { id: string; texto: string; modelo: string; tokensEntrada: number; tokensSaida: number; tokensCache: number },
+  agora: Date,
+) {
+  const iso = agora.toISOString();
+  await db.batch([
+    db
+      .prepare("INSERT INTO mensagens (id, conversa_id, autor, texto, origem, modelo, tokens_entrada, tokens_saida, tokens_cache, criada_em) VALUES (?, ?, 'jose', ?, 'texto', ?, ?, ?, ?, ?)")
+      .bind(r.id, conversaId, r.texto, r.modelo, r.tokensEntrada, r.tokensSaida, r.tokensCache, iso),
+    db.prepare('UPDATE conversas SET atualizada_em = ? WHERE id = ?').bind(iso, conversaId),
+  ]);
+}
+
+export async function inserirSugestao(db: D1Database, s: { id: string; mensagemId: string; tipo: string; conteudo: unknown }, agora: Date) {
+  await db
+    .prepare('INSERT INTO sugestoes (id, mensagem_id, tipo, conteudo, criada_em) VALUES (?, ?, ?, ?, ?)')
+    .bind(s.id, s.mensagemId, s.tipo, JSON.stringify(s.conteudo), agora.toISOString())
+    .run();
+}
+
+export async function definirTitulo(db: D1Database, conversaId: string, titulo: string) {
+  await db.prepare('UPDATE conversas SET titulo = ? WHERE id = ?').bind(titulo, conversaId).run();
+}

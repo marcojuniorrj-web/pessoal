@@ -36,13 +36,14 @@ export function provedorFalso(perfil: PerfilGoogle | Error): ProvedorOAuth {
 
 export const PERFIL_MARCO: PerfilGoogle = { email: 'marco@gmail.com', emailVerificado: true, nome: 'Marco', fotoUrl: 'https://foto/m.png' };
 
-export function criarAppTeste(opcoes: { perfil?: PerfilGoogle | Error; agora?: () => Date; env?: Partial<Ambiente>; transcritor?: Transcritor; ia?: ClienteIA } = {}) {
+export function criarAppTeste(opcoes: { perfil?: PerfilGoogle | Error; agora?: () => Date; env?: Partial<Ambiente>; transcritor?: Transcritor; ia?: ClienteIA; sugestoesAtivas?: boolean } = {}) {
   const env = criarAmbienteTeste(opcoes.env);
   const deps: Dependencias = {
     agora: opcoes.agora ?? (() => new Date()),
     provedorOAuth: () => provedorFalso(opcoes.perfil ?? PERFIL_MARCO),
     transcritor: () => opcoes.transcritor,
     ia: () => opcoes.ia,
+    sugestoesAtivas: opcoes.sugestoesAtivas ?? false,
   };
   const app = criarApp(deps);
   const chamar = (caminho: string, init: RequestInit = {}) => app.request(`${URL_TESTE}${caminho}`, init, env);

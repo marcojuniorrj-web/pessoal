@@ -1,9 +1,12 @@
 import { conversaEntradaSchema } from '@compartilhado/schemas';
 import { hoje } from '@compartilhado/datas';
 import { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
+import { mensagemEntradaSchema } from '@compartilhado/schemas';
 import type { Dependencias } from '../../compartilhado/dependencias';
 import { requisicaoInvalida } from '../../compartilhado/erros';
 import { buscarDoUsuario } from '../../compartilhado/posse';
+import { prepararEnvio } from './servico';
 import type { AppEnv } from '../auth/sessao';
 import {
   apagarConversa, conversaCompleta, criarConversa, listarConversas, ultimaConversaNormal, type ConversaLinha,
@@ -38,6 +41,20 @@ export function rotasConversas(deps: Dependencias) {
     const conversa = await buscarDoUsuario<ConversaLinha>(c.env.DB, 'conversas', c.req.param('id'), c.var.usuario.id);
     await apagarConversa(c.env.DB, conversa.id);
     return c.body(null, 204);
+  });
+
+  // Enviar mensagem: SSE com `texto`, `sugestao`, `fim` e `erro`.
+  rotas.post('/conversas/:id/mensagens', async (c) => {
+    const conversa = await buscarDoUsuario<ConversaLinha>(c.env.DB, 'conversas', c.req.param('id'), c.var.usuario.id);
+    const corpo = mensagemEntradaSchema.safeParse(await c.req.json().catch(() => null));
+    if (!corpo.success) throw requisicaoInvalida('Mensagem inválida: envie id, texto (1 a 4000 caracteres) e origem.');
+    const executar = await prepararEnvio({ env: c.env, deps, usuario: c.var.usuario, conversa, mensagem: corpo.data });
+    return streamSSE(c, async (stream) => {
+      const sinal = c.req.raw.signal;
+      for await (const ev of executar(sinal)) {
+        await stream.writeSSE({ event: ev.evento, data: JSON.stringify(ev.dados) });
+      }
+    });
   });
 
   return rotas;
