@@ -15,21 +15,26 @@ Só **1 pessoa** usa o app. Não há outros perfis humanos (sem família nem equ
 | Ver o histórico de conversas | Sim | Lê para dar contexto |
 | Apagar uma conversa | Sim | Não |
 | Ver, editar e apagar as **memórias** (fatos sobre o Marco) | Sim | Só **sugere** novas memórias |
+| Editar uma sugestão antes de salvar | Sim | Não |
 | Criar tarefa ou meta | Sim | Só **sugere**. Nada é salvo sem o OK do Marco |
 | Editar, concluir ou apagar tarefa/meta | Sim | Não |
-| Acessar o app | Só com a conta Google do Marco | — |
+| Acessar o app | Só com a conta Google do Marco (e-mail verificado) | — |
+| Sair deste aparelho / de todos os aparelhos | Sim | — |
+| Apagar todos os dados | Sim (confirmação dupla) | Não |
 
 Regra-chave: **o José nunca salva nada sozinho**. Toda tarefa, meta ou memória sugerida aparece como
-cartão com os botões "Salvar" / "Descartar".
+cartão com os botões "Salvar", "Editar" e "Descartar".
 
 ## Jornadas (passo a passo por perfil)
 
 **Primeiro acesso**
 1. Abre o link no celular e toca em "Entrar com Google". Só o e-mail do Marco é aceito.
-2. O app sugere "Instalar na tela inicial".
-3. O José começa uma **conversa de boas-vindas** com 5 perguntas rápidas: rotina, áreas da vida, metas
-   principais, o que mais trava e o horário em que acorda e dorme.
-4. As respostas viram **memórias** (o Marco confirma) e o chat fica liberado.
+2. O José começa uma **conversa de boas-vindas** com 5 perguntas rápidas: rotina, áreas da vida, metas
+   principais, o que mais trava e o horário em que acorda e dorme. Dá para **Pular**, e o chat nunca fica bloqueado.
+   Se o Marco fechar o app no meio, a conversa continua de onde parou.
+3. No fim, o José mostra "O que aprendi sobre você", uma lista de memórias marcáveis. O Marco confirma as que quer
+   e toca em "Salvar selecionadas".
+4. No Chat aparece, uma única vez, a faixa "Instalar na tela inicial".
 
 **Ao acordar**
 1. Abre o app e já cai no chat.
@@ -48,7 +53,7 @@ cartão com os botões "Salvar" / "Descartar".
 
 **À noite**
 1. Despeja tudo o que está na cabeça, por texto ou voz.
-2. O José organiza em tarefas, ideias e preocupações e sugere o que salvar para amanhã.
+2. O José organiza em tarefas, ideias e preocupações. Ideias e preocupações ficam só no texto; o que for ação vira cartão de tarefa (no máximo 3) para salvar para amanhã.
 
 ## Histórias de usuário do MVP (com critério de aceite)
 
@@ -57,14 +62,18 @@ cartão com os botões "Salvar" / "Descartar".
 2. **Conversar por texto.** Como Marco, quero escrever para o José e receber resposta curta, para destravar rápido.
    - Aceite: a resposta começa a aparecer em até 3 segundos. O padrão é até ~5 linhas e 1 próximo passo, salvo se eu pedir mais.
 3. **Conversar por voz.** Como Marco, quero mandar áudio, para usar na rua ou sem paciência de digitar.
-   - Aceite: segurar o botão do microfone grava o áudio, que vira texto e é enviado. O texto transcrito fica visível.
+   - Aceite: tocar no microfone grava e tocar de novo para e envia (✕ cancela). O áudio vira texto e é enviado, e o texto transcrito fica visível. Funciona no PWA do iPhone e do Android.
 4. **José me conhece.** Como Marco, quero que o José use o que sabe sobre mim, para as respostas não serem genéricas.
    - Aceite: as memórias salvas entram no contexto de toda conversa. A resposta cita minha rotina ou minhas metas quando for relevante.
 5. **Ver e controlar memórias.** Como Marco, quero ver, editar e apagar o que o José sabe sobre mim, para manter a privacidade.
    - Aceite: a tela "O que o José sabe" lista as memórias por área. Editar e apagar funcionam. Uma memória apagada não volta a ser usada.
 6. **Sugestões viram tarefas e metas.** Como Marco, quero que o José sugira tarefas e metas e eu confirme, para nada se perder sem eu ter que organizar.
-   - Aceite: a sugestão aparece como cartão Salvar/Descartar. A tarefa salva vai para uma lista simples, onde dá para concluir e apagar. Nada é salvo sem toque meu.
+   - Aceite: a sugestão aparece como cartão Salvar/Editar/Descartar, com no máximo 3 por resposta. A tarefa salva vai para uma lista simples, onde dá para concluir (com Desfazer) e apagar (com Desfazer). Nada é salvo sem toque meu.
 7. **Boas-vindas.** Como Marco, quero uma conversa inicial curta, para o José já começar me conhecendo.
    - Aceite: são no máximo 5 perguntas. Dá para pular. As respostas viram memórias confirmadas.
 8. **Histórico.** Como Marco, quero rever conversas antigas, para retomar um raciocínio.
    - Aceite: a lista de conversas mostra data e título automático. Dá para abrir e apagar.
+9. **Decidir com mais profundidade.** Como Marco, quero um modo de decisão, para pensar melhor nas escolhas importantes.
+   - Aceite: o atalho "⚖️ Preciso decidir" abre a conversa em "Modo decisão", respondida pelo modelo profundo. O José faz até 3 perguntas, mostra prós e contras curtos e dá uma recomendação.
+10. **Controle e privacidade.** Como Marco, quero sair de todos os aparelhos e apagar todos os meus dados, para me proteger se perder o celular.
+   - Aceite: "Sair de todos os aparelhos" derruba todas as sessões, e um cookie antigo passa a receber 401. "Apagar todos os meus dados", com confirmação dupla, não deixa nenhuma linha minha no banco.

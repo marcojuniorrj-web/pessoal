@@ -15,8 +15,12 @@
 - Não há um lugar único nem alguém que ajude a começar, priorizar e retomar o foco.
 
 ## Métricas de sucesso
-- **Uso diário**: abrir o José todo dia, sem esforço, por 30 dias seguidos. (escolhida)
-- (assumido) Início de uso: a conversa do dia começa em menos de 10 segundos após abrir o app.
+- **Uso diário** (escolhida): **30 dias ativos seguidos**. Dia ativo = pelo menos 1 mensagem do Marco no dia (fuso de São Paulo).
+- (assumido) **Valor, não só uso**:
+  - taxa de sugestões salvas ≥ 50% (salvas ÷ salvas + descartadas);
+  - tarefas concluídas por semana, acompanhadas.
+- (assumido) **Rapidez**: com o app instalado, o campo de texto fica utilizável em até 3 s depois de abrir.
+- Medição por script SQL sobre as próprias tabelas, revisada no 7º e no 30º dia.
 
 ## Escopo do MVP
 Mínimo que gera valor na primeira semana: **Chat com o José**.
@@ -27,8 +31,23 @@ Mínimo que gera valor na primeira semana: **Chat com o José**.
 - Texto **e voz** no chat; login com conta Google.
 - Memórias visíveis e editáveis ("O que o José sabe").
 - O José **sugere** tarefas e metas; o Marco confirma, e elas vão para uma lista simples (concluir/apagar).
+- **Modo decisão** (atalho "⚖️ Preciso decidir"), com o modelo de IA mais profundo.
+- Privacidade: "Sair de todos os aparelhos" e "Apagar todos os meus dados".
+
+**MVP enxuto** (decisão do Marco). Ficam para a **V1.1**:
+- progresso de metas e ligação de tarefa a meta;
+- meta pausada;
+- filtros por área;
+- busca no histórico;
+- "Pensar melhor";
+- exportar meus dados.
+
+**MVP pronto** quando:
+- as 10 histórias de `usuarios.md` passarem nos testes;
+- o Marco usar 7 dias seguidos sem bloqueio.
 
 ## Fica para depois
+- Itens da V1.1 listados acima.
 - Integrações (Google Calendar, Gmail, WhatsApp).
 - Finanças detalhadas (gastos, contas a pagar, metas financeiras).
 - Saúde e hábitos (sono, remédios, exercício, sequências).
