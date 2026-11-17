@@ -7,11 +7,11 @@ export default defineConfig({
   testDir: 'testes',
   testMatch: '**/*.e2e.ts',
   use: { baseURL: 'http://localhost:5173' },
-  webServer: {
-    command: 'npx vite --config app/vite.config.ts --port 5173 --strictPort',
-    url: 'http://localhost:5173',
-    reuseExistingServer: true,
-  },
+  webServer: [
+    { command: 'npx vite --config app/vite.config.ts --port 5173 --strictPort', url: 'http://localhost:5173', reuseExistingServer: true },
+    // Versão compilada (com service worker) para o teste de PWA/offline.
+    { command: 'npm run build && npx vite preview --config app/vite.config.ts --port 4173 --strictPort', url: 'http://localhost:4173', reuseExistingServer: true, timeout: 120_000 },
+  ],
   projects: [
     {
       name: 'celular',
