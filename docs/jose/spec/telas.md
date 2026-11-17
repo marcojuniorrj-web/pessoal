@@ -68,7 +68,8 @@ O app sempre abre no **Chat**, na conversa de hoje.
   - enviar mensagem: a resposta do José aparece em streaming;
   - Salvar no cartão: o cartão vira "✓ Salvo em Tarefas" (ou em José sabe);
   - Editar abre um campo inline;
-  - Descartar recolhe o cartão.
+  - Descartar recolhe o cartão;
+  - **🧠 Pensar melhor**, um link discreto sob a última resposta do José, refaz a resposta com o modelo mais profundo. Conversas abertas por "⚖️ Preciso decidir" já usam esse modelo e mostram um selo "Modo decisão" no topo.
 - **Estados:**
   - vazio: saudação conforme o horário ("Bom dia, Marco.") e os 4 atalhos;
   - carregando: "José está pensando…" com três pontinhos;

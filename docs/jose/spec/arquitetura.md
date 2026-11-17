@@ -13,11 +13,13 @@ O repositório está vazio, então a escolha parte das restrições: **1 usuári
 | Banco | **Cloudflare D1** (SQLite) com migrações SQL versionadas | Gratuito até 5 GB; suficiente para 1 usuário por anos |
 | Hospedagem | **Cloudflare** (Worker com assets estáticos) — um único deploy (`wrangler deploy`) | HTTPS e domínio `*.workers.dev` grátis; conta Cloudflare já conectada |
 | Autenticação | **Google OAuth 2.0** implementado no Worker (lib `arctic`), sessão em cookie `HttpOnly; Secure; SameSite=Lax` guardada em D1 (30 dias, renovada no uso) | 1 toque; só o e-mail `OWNER_EMAIL` entra |
-| IA (José) | **Claude API** — `claude-sonnet-5-5` para conversa (streaming + tool use para sugestões); `claude-haiku-5-5` para título da conversa | Bom português, segue tom; Haiku barateia tarefas simples |
+| IA (José) | **Claude API**: `claude-haiku-5-5` como padrão (conversa, sugestões e título). Usa `claude-sonnet-5-5` só no modo **Decidir** (conversa iniciada por "⚖️ Preciso decidir") ou quando o Marco toca em **"Pensar melhor"**. Streaming + tool use + **prompt caching** do prefixo estável | O Haiku custa 1/20 do Sonnet e é ótimo em respostas curtas. O Sonnet fica onde a profundidade importa. Os dados não são usados para treinar modelos |
 | Transcrição de voz | **Cloudflare Workers AI — Whisper** (`@cf/openai/whisper-large-v3-turbo`) | Mesmo provedor, sem nova conta; custo de centavos/mês; áudio processado em memória e descartado |
 | Testes | **Vitest** (regras e serviços) + **Playwright** (fluxos principais no celular) | Padrão do ecossistema Vite |
 
-Custo estimado (assumido, uso diário intenso): Cloudflare R$ 0; Claude ≈ US$ 5–15/mês; Whisper < US$ 1/mês.
+Custo estimado (assumido, ~30 mensagens/dia, ~10 mil tokens de contexto cada): Cloudflare R$ 0; Claude ≈ **US$ 1–3/mês** (Haiku no dia a dia, Sonnet só em decisões, com cache); Whisper < US$ 1/mês. **Total ≈ R$ 10–20/mês.**
+
+Alternativa avaliada e descartada: Gemini. A assinatura Google One não inclui a API, e o plano gratuito da API pode usar os dados para melhorar produtos, o que não serve para dados de saúde e finanças. O preço pago é equivalente ao do Haiku.
 
 ## 2. Boas práticas obrigatórias
 - Separar camadas: interface → rotas/API → serviço (regra de negócio) → repositório (dados).
@@ -76,9 +78,11 @@ usuarios(id PK, email UNIQUE NOT NULL, nome NOT NULL, foto_url, boas_vindas_conc
          fuso_horario DEFAULT 'America/Sao_Paulo', criado_em NOT NULL)
 sessoes(id PK /* hash do token */, usuario_id FK→usuarios, expira_em NOT NULL, criada_em NOT NULL)
 conversas(id PK, usuario_id FK, titulo, tipo CHECK(tipo IN('normal','boas_vindas')) NOT NULL,
+          modo CHECK(modo IN('padrao','decidir')) DEFAULT 'padrao',
           criada_em, atualizada_em)                       -- índice (usuario_id, atualizada_em DESC)
 mensagens(id PK, conversa_id FK ON DELETE CASCADE, autor CHECK(IN('marco','jose')),
-          texto NOT NULL, origem CHECK(IN('texto','voz')), criada_em)   -- índice (conversa_id, criada_em)
+          texto NOT NULL, origem CHECK(IN('texto','voz')), modelo /* modelo que respondeu */,
+          tokens_entrada INT, tokens_saida INT, criada_em)   -- índice (conversa_id, criada_em)
 sugestoes(id PK, mensagem_id FK ON DELETE CASCADE, tipo CHECK(IN('tarefa','meta','memoria')),
           conteudo TEXT /*JSON*/ NOT NULL, status CHECK(IN('pendente','salva','descartada')) DEFAULT 'pendente',
           item_id, criada_em)
@@ -108,10 +112,10 @@ Todas as rotas abaixo de `/api` exigem sessão (cookie). Erros: `{ erro: { codig
 | Sair | `POST /auth/sair` | Ajustes | — | 204 | apaga sessão |
 | Quem sou | `GET /api/eu` | app ao abrir | — | `{nome, email, foto_url, boas_vindas_concluida}` | 401 se sem sessão |
 | Listar conversas | `GET /api/conversas?busca=` | Histórico | busca opcional | `[{id, titulo, tipo, atualizada_em}]` | ordem `atualizada_em DESC` |
-| Criar conversa | `POST /api/conversas` | + Nova / Boas-vindas | `{tipo}` | `{id}` | boas_vindas: José inicia com a 1ª pergunta |
+| Criar conversa | `POST /api/conversas` | + Nova / Boas-vindas / atalho Decidir | `{tipo, modo?}` | `{id}` | boas_vindas: José inicia com a 1ª pergunta |
 | Abrir conversa | `GET /api/conversas/:id` | Chat | — | `{conversa, mensagens[], sugestoes[]}` | só do próprio usuário (senão 404) |
 | Apagar conversa | `DELETE /api/conversas/:id` | Histórico | — | 204 | cascata; itens salvos ficam |
-| Enviar mensagem | `POST /api/conversas/:id/mensagens` | Chat | `{texto (1–4000), origem}` | **SSE**: eventos `texto` (delta), `sugestao` ({id,tipo,conteudo}), `fim` ({mensagem_id, titulo?}), `erro` | monta contexto (regra 1 de dados.md); grava msg do Marco antes de chamar a IA; grava a do José ao fim; gera título na 1ª resposta |
+| Enviar mensagem | `POST /api/conversas/:id/mensagens` | Chat | `{texto (1–4000), origem, pensar_melhor?: bool}` | **SSE**: eventos `texto` (delta), `sugestao` ({id,tipo,conteudo}), `fim` ({mensagem_id, titulo?}), `erro` | monta contexto (regra 1 de dados.md); grava msg do Marco antes de chamar a IA; grava a do José ao fim; gera título na 1ª resposta |
 | Transcrever áudio | `POST /api/voz` | Botão 🎤 | `multipart: audio` (≤ 2 min / 10 MB) | `{texto}` | áudio processado em memória e descartado; 413 se grande |
 | Salvar sugestão | `POST /api/sugestoes/:id/salvar` | Cartão | `{conteudo?}` (editado) | `{item}` | só se `pendente`; cria Tarefa/Meta/Memória; grava `item_id` |
 | Descartar sugestão | `POST /api/sugestoes/:id/descartar` | Cartão | — | 204 | só se `pendente` |
@@ -129,7 +133,7 @@ Todas as rotas abaixo de `/api` exigem sessão (cookie). Erros: `{ erro: { codig
 |------|--------|---------|
 | Transcrição de voz | Web Speech API do navegador (grátis, mas falha em PWA no iPhone) · Whisper no Workers AI · ElevenLabs/OpenAI | **Workers AI Whisper**: funciona em qualquer celular, mesmo provedor, barato |
 | Autenticação | Cloudflare Access · OAuth próprio · senha | **OAuth Google próprio**: controle da sessão longa no PWA; Access tem atrito em PWA instalado |
-| Custo da IA fora de controle | sem limite · limite diário | Limite diário configurável (`LIMITE_MENSAGENS_DIA`, padrão 200) → 429 com mensagem amigável; contexto limitado a 30 mensagens |
+| Custo da IA | Sonnet em tudo (~US$ 25/mês) · Haiku + Sonnet sob demanda · só Haiku · IA gratuita da Cloudflare | **Haiku padrão + Sonnet no modo Decidir/"Pensar melhor"**. Também: prompt caching (prompt do José + memórias + tarefas ficam no prefixo, e data/hora vão depois do ponto de cache), contexto de 20 mensagens, limite diário configurável (`LIMITE_MENSAGENS_DIA`, padrão 200, que devolve 429 com mensagem amigável) e log de tokens por resposta (`usage`) para acompanhar o gasto |
 | Memórias crescendo demais no contexto | enviar todas · busca semântica | **Enviar todas** no MVP (300 chars × poucas centenas cabe); reavaliar acima de ~300 memórias |
 | Resposta da IA longa demais (TDAH) | confiar no prompt · limite técnico | Prompt de sistema firme (≤ 5 linhas, 1 próximo passo) + `max_tokens` moderado; ajuste após uso real |
 | Privacidade de dados sensíveis | criptografar colunas · confiar no isolamento | D1 criptografado em repouso pela Cloudflare + acesso só via Worker autenticado; logs sem conteúdo. Criptografia por coluna fica para depois |
