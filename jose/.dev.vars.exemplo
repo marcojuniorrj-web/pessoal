@@ -1,4 +1,4 @@
-# Copie para .dev.vars (não versionado) e preencha. Em produção use `wrangler secret put NOME`.
+# Copie para servidor/.dev.vars (não versionado) e preencha. Em produção use `wrangler secret put NOME`.
 GOOGLE_CLIENT_ID=preencher
 GOOGLE_CLIENT_SECRET=preencher
 SESSION_SECRET=gere-com-openssl-rand-hex-32

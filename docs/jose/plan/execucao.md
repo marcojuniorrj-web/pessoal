@@ -1,8 +1,8 @@
 # Execução (memória de construção)
 ## Onde paramos
 - Fase atual: BUILD onda 1 (em andamento)
-- Última tarefa concluída: nenhuma (Fase 1, nenhuma tarefa concluída)
-- Próximo passo: o Marco aprova o plano; providenciar a chave da Anthropic e o OAuth do Google; `/build` da Fase 1
+- Última tarefa concluída: 1.11 (Fase 1: 1.1 a 1.11 feitas e testadas; 1.12 e 1.13 prontas no código, falta o aceite real)
+- Próximo passo: o Marco faz o deploy e o teste no iPhone/Android seguindo `jose/README.md` (Google OAuth, `wrangler d1 create`, segredos, `npm run deploy`, página Teste de voz); depois fecha 1.12 e 1.13 e segue para a onda 2
 ## Aprovações
 - [x] SPEC aprovada (2026-11-17)
 - [x] PLAN aprovado (2026-11-17)

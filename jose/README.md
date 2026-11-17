@@ -12,7 +12,7 @@ scripts/      backup e geração de ícones
 ## Rodar localmente
 ```bash
 npm install
-cp .dev.vars.exemplo .dev.vars        # preencha GOOGLE_*, SESSION_SECRET e OWNER_EMAIL
+cp .dev.vars.exemplo servidor/.dev.vars   # (o wrangler lê ao lado do wrangler.toml) preencha GOOGLE_*, SESSION_SECRET e OWNER_EMAIL
 npm run db:migrar:local               # cria as tabelas no D1 local
 npm run dev                           # interface em http://localhost:5173 (a API sobe em :8787)
 ```
