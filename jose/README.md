@@ -59,7 +59,7 @@ Agende uma vez por semana (cron/launchd ou um lembrete). O Time Travel do D1 gua
 4. Peça a alguém para tentar entrar com outro Gmail: deve aparecer "Acesso negado".
 5. Toque nas 3 abas e em Ajustes > ←.
 6. Modo avião: o app abre e mostra "Offline".
-7. **Voz:** Ajustes > *Teste de voz (temporário)*. Grave "amanhã preciso ligar para o cliente às dez" e confira o texto. Anote o "Formato gravado" mostrado (esperado `audio/mp4` no iPhone). Repita no Android (webm). Se o iPhone falhar, registre em `docs/jose/plan/execucao.md` e acione o plano B (converter no cliente ou trocar o provedor atrás de `servidor/src/adaptadores/voz/`).
+7. **Voz:** o link *Teste de voz (temporário)* só aparece em desenvolvimento; em produção abra `/ajustes?teste=1` (ou vá direto a `/teste-voz`) e toque no link. Grave "amanhã preciso ligar para o cliente às dez" e confira o texto. Anote o "Formato gravado" mostrado (esperado `audio/mp4` no iPhone). Repita no Android (webm). Se o iPhone falhar, registre em `docs/jose/plan/execucao.md` e acione o plano B (converter no cliente ou trocar o provedor atrás de `servidor/src/adaptadores/voz/`).
 8. Ajustes > **Sair de todos os aparelhos**: volta ao Login.
 
 ## Emergência (celular perdido)
