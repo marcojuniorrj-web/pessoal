@@ -1,4 +1,5 @@
 @import './tokens.css';
+@import './chat.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #raiz { height: 100%; margin: 0; }
@@ -110,9 +111,6 @@ button { font: inherit; color: inherit; }
 .login__nome { font-size: 32px; font-weight: 600; }
 .login__frase { color: var(--texto-2); margin-bottom: 16px; }
 
-/* Chat vazio */
-.chat-vazio { justify-content: center; }
-.chat-vazio__saudacao { font-size: 28px; font-weight: 600; }
 
 /* Ajustes */
 .texto-2 { color: var(--texto-2); }

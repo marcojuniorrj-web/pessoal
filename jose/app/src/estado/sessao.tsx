@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Usuario } from '@compartilhado/schemas';
-import { api, ErroHttp, ErroRede } from '../api/cliente';
+import { api, ErroHttp, ErroRede, registrarAoNaoAutenticado } from '../api/cliente';
 
 type Estado =
   | { situacao: 'carregando' }
@@ -67,6 +67,15 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', aoVisivel);
     };
   }, [carregar]);
+
+  // 401 em qualquer chamada da API: sessão expirou → o guarda de rota leva ao Login com a rota de volta.
+  useEffect(() => {
+    registrarAoNaoAutenticado(() => {
+      localStorage.removeItem(CHAVE_CACHE);
+      setEstado((atual) => (atual.situacao === 'deslogado' ? atual : { situacao: 'deslogado' }));
+    });
+    return () => registrarAoNaoAutenticado(null);
+  }, []);
 
   const valor = useMemo<ContextoSessao>(
     () => ({

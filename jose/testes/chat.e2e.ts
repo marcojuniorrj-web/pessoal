@@ -1,0 +1,110 @@
+import { expect, test } from '@playwright/test';
+import { novaConversa, simularApi, simularChat } from './apoio';
+
+test.describe('Chat (2.7)', () => {
+  test('vazio: saudação e os 4 atalhos', async ({ page }) => {
+    await simularApi(page);
+    await simularChat(page);
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: /^(Bom dia|Boa tarde|Boa noite), Marco\.$/ })).toBeVisible();
+    for (const nome of ['O que faço hoje?', 'Travei', 'Descarregar a cabeça', 'Preciso decidir']) {
+      await expect(page.getByRole('button', { name: new RegExp(nome) })).toBeVisible();
+    }
+    await expect(page.getByRole('heading', { name: 'Nova conversa' })).toBeVisible();
+  });
+
+  test('atalho envia o próprio texto; a primeira parte da resposta aparece em até 3 s; título aparece no topo', async ({ page }) => {
+    await simularApi(page);
+    const f = await simularChat(page);
+    await page.goto('/');
+    const inicio = Date.now();
+    await page.getByRole('button', { name: /O que faço hoje\?/ }).click();
+    await expect(page.locator('.balao--marco')).toHaveText('O que faço hoje?');
+    await expect(page.locator('.balao--jose').first()).toContainText('Resposta do José.', { timeout: 3000 });
+    expect(Date.now() - inicio).toBeLessThan(3000);
+    await expect(page.getByRole('heading', { name: 'Título de teste' })).toBeVisible();
+    expect(f.postsConversa).toEqual([{ tipo: 'normal', modo: 'padrao' }]);
+    expect(f.postsMensagem.map((p) => p.texto)).toEqual(['O que faço hoje?']);
+    // a URL passa a apontar para a conversa criada; os atalhos somem
+    await expect(page).toHaveURL(/\/\?c=c1$/);
+    await expect(page.getByRole('button', { name: /Travei/ })).toHaveCount(0);
+  });
+
+  test('mostra "José está pensando…" enquanto a resposta não chega', async ({ page }) => {
+    await simularApi(page);
+    await simularChat(page, { atrasoMs: 1200 });
+    await page.goto('/');
+    await page.getByLabel('Mensagem para o José').fill('travei no relatório de vendas');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByText('José está pensando')).toBeVisible();
+    await expect(page.locator('.balao--jose')).toContainText('Resposta do José.');
+    await expect(page.getByText('José está pensando')).toHaveCount(0);
+  });
+
+  test('digitar e enviar pelo botão; o campo limpa e o botão só vale com texto', async ({ page }) => {
+    await simularApi(page);
+    const f = await simularChat(page);
+    await page.goto('/');
+    const enviar = page.getByRole('button', { name: 'Enviar' });
+    await expect(enviar).toBeDisabled();
+    const campo = page.getByLabel('Mensagem para o José');
+    await campo.fill('travei no relatório de vendas');
+    await expect(enviar).toBeEnabled();
+    await enviar.click();
+    await expect(campo).toHaveValue('');
+    await expect(page.locator('.balao--marco')).toHaveText('travei no relatório de vendas');
+    await expect(page.locator('.balao--jose')).toContainText('Próximo passo');
+    expect(f.postsMensagem).toHaveLength(1);
+  });
+
+  test('abre na conversa de hoje, com as mensagens e o título', async ({ page }) => {
+    await simularApi(page);
+    await simularChat(page, { conversas: [novaConversa('h1', 'Plano do dia', 10, 'padrao', [['marco', 'oi'], ['jose', 'Bom dia, Marco.']])], hoje: 'h1' });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Plano do dia' })).toBeVisible();
+    await expect(page.locator('.balao--marco')).toHaveText('oi');
+    await expect(page.locator('.balao--jose')).toHaveText('Bom dia, Marco.');
+    await expect(page.getByRole('button', { name: /Travei/ })).toHaveCount(0);
+  });
+
+  test('+ Nova abre o Chat vazio com os atalhos', async ({ page }) => {
+    await simularApi(page);
+    await simularChat(page, { conversas: [novaConversa('h1', 'Plano do dia', 10, 'padrao', [['marco', 'oi'], ['jose', 'Bom dia, Marco.']])], hoje: 'h1' });
+    await page.goto('/');
+    await expect(page.locator('.balao--marco')).toBeVisible();
+    await page.getByRole('button', { name: '+ Nova' }).click();
+    await expect(page).toHaveURL(/nova=1/);
+    await expect(page.locator('.balao')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /O que faço hoje\?/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Nova conversa' })).toBeVisible();
+  });
+
+  test('"Preciso decidir" cria a conversa em modo decisão e mostra o selo', async ({ page }) => {
+    await simularApi(page);
+    const f = await simularChat(page);
+    await page.goto('/');
+    await page.getByRole('button', { name: /Preciso decidir/ }).click();
+    await expect(page.getByText('Modo decisão', { exact: true }).first()).toBeVisible();
+    expect(f.postsConversa).toEqual([{ tipo: 'normal', modo: 'decidir' }]);
+    await expect(page.getByRole('button', { name: /Travei/ })).toHaveCount(0);
+    // ao reabrir a conversa o selo continua; + Nova sai do modo
+    await page.reload();
+    await expect(page.locator('.chat__selo')).toHaveText('Modo decisão');
+    await page.getByRole('button', { name: '+ Nova' }).click();
+    await expect(page.locator('.chat__selo')).toHaveCount(0);
+  });
+
+  test('o campo de digitação fica à vista logo acima da barra de abas', async ({ page }) => {
+    await simularApi(page);
+    await simularChat(page);
+    await page.goto('/');
+    const campo = await page.getByLabel('Mensagem para o José').boundingBox();
+    const barra = await page.getByRole('navigation', { name: 'Navegação principal' }).boundingBox();
+    const vp = page.viewportSize()!;
+    expect(campo!.y + campo!.height).toBeLessThanOrEqual(barra!.y + 1);
+    expect(barra!.y + barra!.height).toBeLessThanOrEqual(vp.height + 1);
+    // alvos de toque de pelo menos 48px
+    const enviar = await page.getByRole('button', { name: 'Enviar' }).boundingBox();
+    expect(enviar!.height).toBeGreaterThanOrEqual(48);
+  });
+});

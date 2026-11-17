@@ -21,10 +21,10 @@ export function criarFilaToast() {
   };
 
   return {
-    mostrar(mensagem: string, acao?: ToastDados['acao']) {
+    mostrar(mensagem: string, acao?: ToastDados['acao'], duracaoMs: number = DURACAO_TOAST_MS) {
       clearTimeout(timer);
       atual = { id: proximoId++, mensagem, acao };
-      timer = setTimeout(fechar, DURACAO_TOAST_MS);
+      timer = setTimeout(fechar, duracaoMs);
       avisar();
     },
     fechar,
