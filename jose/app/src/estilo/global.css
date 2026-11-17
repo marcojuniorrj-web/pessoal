@@ -46,7 +46,7 @@ button { font: inherit; color: inherit; }
   display: flex; align-items: center; gap: 12px; min-height: var(--alvo-minimo);
   padding: 4px 8px 4px 16px; max-width: calc(100% - 32px);
   background: var(--superficie-2); border: 1px solid var(--borda); border-radius: var(--raio);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); z-index: 50;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); z-index: 80;
   animation: subir 0.2s ease-out;
 }
 .toast__acao { background: transparent; border: 0; color: var(--destaque); font-weight: 600; min-height: var(--alvo-minimo); padding: 0 12px; cursor: pointer; }

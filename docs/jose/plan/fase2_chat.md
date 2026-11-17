@@ -27,7 +27,7 @@ Fase 1.
 - [x] 2.6 Título automático (Haiku, até 6 palavras), com fallback nos 40 primeiros caracteres; sai no evento `fim`. **Aceite:** teste com a IA falhando usa o fallback.
 - [x] 2.7 Tela Chat: balões, streaming, "José está pensando…", teclado que sobe, abrir na "conversa de hoje", atalhos de início e "Nova conversa" no topo. **Aceite:** a primeira parte da resposta aparece em até 3 s (medido no Playwright contra a API simulada e manualmente contra a real).
 - [x] 2.8 Estados do Chat: erro e resposta interrompida mostram **Tentar de novo** (mesmo id), mais offline, limite diário e rascunho guardado em caso de 401. **Aceite:** testes Playwright de cada estado com a API simulada.
-- [ ] 2.9 Gaveta de Histórico: grupos, hora ou data, esqueleto, vazio e erro; apagar com "Desfazer" (espera 5 s antes de chamar a API); apagar a conversa aberta leva ao Chat vazio. **Aceite:** teste Playwright de apagar → desfazer, em que nada é apagado.
+- [x] 2.9 Gaveta de Histórico: grupos, hora ou data, esqueleto, vazio e erro; apagar com "Desfazer" (espera 5 s antes de chamar a API); apagar a conversa aberta leva ao Chat vazio. **Aceite:** teste Playwright de apagar → desfazer, em que nada é apagado.
 
 ## Como testar (roteiro para o Marco)
 1. Abra o app: aparece a saudação com os 4 atalhos.
