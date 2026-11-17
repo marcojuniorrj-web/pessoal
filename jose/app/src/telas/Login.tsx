@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
+import { voltarSeguro } from '@compartilhado/voltar';
 import { Botao } from '../componentes/Botao';
 import { useSessao } from '../estado/sessao';
 import { mensagemDeErro } from './login-mensagens';
@@ -12,7 +13,7 @@ export function Login() {
   const erro = mensagemDeErro(params.get('erro'));
 
   // Já logado: sucesso, vai para onde estava indo.
-  if (estado.situacao === 'logado' && !estado.offline) return <Navigate to={voltar?.startsWith('/') ? voltar : '/'} replace />;
+  if (estado.situacao === 'logado' && !estado.offline) return <Navigate to={voltarSeguro(voltar)} replace />;
 
   const entrar = () => {
     setCarregando(true);
