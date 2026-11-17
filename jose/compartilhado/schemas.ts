@@ -40,6 +40,11 @@ export const mensagemEntradaSchema = z.object({
   origem: z.enum(['texto', 'voz']),
 });
 
+export const conversaEntradaSchema = z.object({
+  tipo: z.enum(['normal', 'boas_vindas']),
+  modo: z.enum(['padrao', 'decidir']).optional(),
+});
+
 // Entidades (como a API devolve).
 export const usuarioSchema = z.object({
   nome: z.string(),
@@ -77,3 +82,38 @@ export type MetaEntrada = z.infer<typeof metaEntradaSchema>;
 export type MemoriaEntrada = z.infer<typeof memoriaEntradaSchema>;
 export type Sugestao = z.infer<typeof sugestaoSchema>;
 export type Usuario = z.infer<typeof usuarioSchema>;
+
+export type ConversaEntrada = z.infer<typeof conversaEntradaSchema>;
+export type ModoConversa = 'padrao' | 'decidir';
+
+/** Conversa como a API devolve (sem dados internos). */
+export interface ConversaDto {
+  id: string;
+  titulo: string | null;
+  tipo: 'normal' | 'boas_vindas';
+  modo: ModoConversa;
+  criada_em: string;
+  atualizada_em: string;
+}
+export interface MensagemDto {
+  id: string;
+  autor: 'marco' | 'jose';
+  texto: string;
+  origem: 'texto' | 'voz';
+  modelo: string | null;
+  criada_em: string;
+}
+export interface SugestaoDto {
+  id: string;
+  mensagem_id: string;
+  tipo: 'tarefa' | 'meta' | 'memoria';
+  conteudo: unknown;
+  status: 'pendente' | 'salva' | 'descartada';
+  item_id: string | null;
+}
+export interface ConversaCompleta {
+  conversa: ConversaDto;
+  mensagens: MensagemDto[];
+  sugestoes: SugestaoDto[];
+}
+export type ConversaResumo = Pick<ConversaDto, 'id' | 'titulo' | 'tipo' | 'modo' | 'atualizada_em'>;

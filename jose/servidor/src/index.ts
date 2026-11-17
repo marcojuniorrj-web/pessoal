@@ -5,6 +5,7 @@ import { naoEncontrado, tratarErro } from './compartilhado/erros';
 import { rotasAuth } from './modulos/auth/rotas';
 import { rotasVoz } from './modulos/voz/rotas';
 import { rotasConta } from './modulos/conta/rotas';
+import { rotasConversas } from './modulos/conversas/rotas';
 import { checarOrigem, exigirSessao, type AppEnv } from './modulos/auth/sessao';
 
 export function criarApp(deps: Dependencias = dependenciasPadrao) {
@@ -22,6 +23,7 @@ export function criarApp(deps: Dependencias = dependenciasPadrao) {
   app.use('/api/*', checarOrigem, exigirSessao(deps));
   app.route('/api', rotasConta());
   app.route('/api', rotasVoz(deps));
+  app.route('/api', rotasConversas(deps));
   app.notFound((c) => (c.req.path.startsWith('/api/') ? tratarErro(naoEncontrado(), c) : c.env.ASSETS.fetch(c.req.raw)));
   return app;
 }

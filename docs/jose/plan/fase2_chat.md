@@ -14,7 +14,7 @@ Fase 1.
 - [ ] 2.1 Escrever `prompt-jose.md` (regras de arquitetura.md §4) e 4 casos "golden", um por momento do dia. **Aceite:** um script roda os 4 casos no Haiku e confere: no máximo ~5 linhas, 1 próximo passo e nenhum conselho médico ou financeiro profissional. O resultado é revisado pelo Marco.
 - [x] 2.2 Montador de contexto (regra 1 de dados.md): ordem sistema → memórias → metas → tarefas (até 50) → ponto de cache → data/hora → 20 mensagens em texto puro. **Aceite:** teste de snapshot da ordem e dos limites; data/hora ficam depois do ponto de cache.
 - [x] 2.3 Adaptador Claude: streaming, troca entre `MODELO_PADRAO` e `MODELO_PROFUNDO`, `cache_control`, captura do `usage`, fallback de recusa no modelo profundo e erros tipados. **Aceite:** testes com a API simulada cobrindo texto em partes, erro 5xx e recusa.
-- [ ] 2.4 Módulo de conversas: `POST /api/conversas`, `GET /api/conversas`, `GET /api/conversas/hoje`, `GET /api/conversas/:id` e `DELETE /api/conversas/:id`, com posse checada. **Aceite:** testes de cada rota; a conversa de outro usuário devolve 404; a regra 12 é testada com relógio fixo.
+- [x] 2.4 Módulo de conversas: `POST /api/conversas`, `GET /api/conversas`, `GET /api/conversas/hoje`, `GET /api/conversas/:id` e `DELETE /api/conversas/:id`, com posse checada. **Aceite:** testes de cada rota; a conversa de outro usuário devolve 404; a regra 12 é testada com relógio fixo.
 - [ ] 2.5 `POST /api/conversas/:id/mensagens` com SSE (`texto`, `fim`, `erro`):
   - grava a mensagem do Marco antes de chamar a IA;
   - **id repetido não duplica** (regra 11);
