@@ -132,6 +132,7 @@ O app sempre abre no **Chat**, na conversa de hoje.
   - conta conectada (foto e e-mail Google);
   - **Instalar na tela inicial**, quando disponível;
   - **Refazer boas-vindas**;
+  - **Exportar meus dados**, que baixa um arquivo JSON com tudo;
   - **Sair**;
   - versão do app.
 - **Ações:** Sair pede confirmação e volta ao Login.
