@@ -165,16 +165,15 @@ export function criarClienteClaude(opcoes: OpcoesClaude): ClienteIA {
       const resp = await pedir(p, sinal, comFallback);
       if (resp.ok && resp.body) return resp;
       let tipoApi: string | undefined;
-      let mensagemApi = '';
       try {
-        const j = (await resp.json()) as { error?: { type?: string; message?: string } };
+        const j = (await resp.json()) as { error?: { type?: string } };
         tipoApi = j.error?.type;
-        mensagemApi = j.error?.message ?? '';
       } catch {
         /* corpo vazio */
       }
-      // Beta/fallback não habilitado na conta: tenta de novo sem o fallback (a conversa continua funcionando).
-      if (resp.status === 400 && comFallback && /anthropic-beta|fallbacks/i.test(mensagemApi)) {
+      // Qualquer 400 com fallback/beta: plano B, uma única vez, sem fallback e sem beta (a conversa continua funcionando).
+      if (resp.status === 400 && comFallback) {
+        console.warn('ia plano B: refazendo sem fallback/beta', { modelo: p.modelo, tipo: tipoApi });
         comFallback = false;
         continue;
       }

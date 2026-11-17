@@ -93,6 +93,21 @@ describe('adaptador Claude: streaming', () => {
     expect(e.some((x) => x.tipo === 'texto')).toBe(true);
   });
 
+  it('qualquer 400 com fallback/beta refaz UMA vez sem fallback e sem beta', async () => {
+    const f = vi.fn(async (_u: unknown, i: unknown) => {
+      const init = i as RequestInit;
+      const comBeta = !!(init.headers as Record<string, string>)['anthropic-beta'];
+      return comBeta ? new Response(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'mensagem qualquer' } }), { status: 400 }) : sse([inicio, texto(0, 'ok'), ...fim('end_turn')]);
+    });
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const e = await todos(criarClienteClaude({ apiKey: 'k', fetch: f as unknown as typeof fetch }).transmitir({ ...pedido, fallbackRecusa: true }));
+    expect(f).toHaveBeenCalledTimes(2);
+    expect(JSON.parse((f.mock.calls[1]![1] as RequestInit).body as string)).not.toHaveProperty('fallbacks');
+    expect(e.some((x) => x.tipo === 'texto')).toBe(true);
+    expect(aviso).toHaveBeenCalledWith(expect.stringContaining('plano B'), expect.not.objectContaining({ texto: expect.anything() }));
+    aviso.mockRestore();
+  });
+
   it('entrega as sugestões das ferramentas, com o JSON montado por partes', async () => {
     const f = async () => sse([
       inicio, texto(0, 'Anotei.'),
