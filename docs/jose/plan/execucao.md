@@ -1,6 +1,6 @@
 # Execução (memória de construção)
 ## Onde paramos
-- Fase atual: BUILD onda 1 concluída; próxima: onda 2 (chat por texto)
+- Fase atual: BUILD onda 2 (em andamento)
 - Última tarefa concluída: 1.13 (deploy) e 1.12 (voz no iPhone); onda 1 testada pelo Marco
 - Próximo passo: o Marco cria a chave da Anthropic e cadastra `ANTHROPIC_API_KEY` na Cloudflare; depois `/build` da Fase 2
 ## Aprovações
