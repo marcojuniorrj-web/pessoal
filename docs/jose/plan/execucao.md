@@ -1,8 +1,8 @@
 # Execução (memória de construção)
 ## Onde paramos
-- Fase atual: BUILD onda 1 (código pronto; aguardando deploy e teste do Marco)
-- Última tarefa concluída: 1.11 (Fase 1: 1.1 a 1.11 feitas e testadas; 1.12 e 1.13 prontas no código, falta o aceite real)
-- Próximo passo: o Marco faz o deploy e o teste no iPhone/Android seguindo `jose/README.md` (Google OAuth, `wrangler d1 create`, segredos, `npm run deploy`, página Teste de voz); depois fecha 1.12 e 1.13 e segue para a onda 2
+- Fase atual: BUILD onda 1 concluída; próxima: onda 2 (chat por texto)
+- Última tarefa concluída: 1.13 (deploy) e 1.12 (voz no iPhone); onda 1 testada pelo Marco
+- Próximo passo: o Marco cria a chave da Anthropic e cadastra `ANTHROPIC_API_KEY` na Cloudflare; depois `/build` da Fase 2
 ## Aprovações
 - [x] SPEC aprovada (2026-11-17)
 - [x] PLAN aprovado (2026-11-17)
@@ -48,3 +48,4 @@
 |------|-------------|-----------------|----------|-------------|
 | 2026-11-17 | SPEC | 5 arquivos da SPEC criados e aprovados | Haiku + Sonnet sob demanda; Gemini descartado | Marco |
 | 2026-11-17 | PLAN | Revisão por 4 especialistas; SPEC corrigida; 7 ondas planejadas | MVP enxuto; apagar com Desfazer; tocar para gravar; sair de todos e apagar tudo no MVP | — |
+| 2026-11-17 | BUILD onda 1 | Tarefas 1.1 a 1.13 concluídas. Deploy em https://jose.marco-junior-rj.workers.dev (Worker `jose`, D1 `jose`, id 44bc8c56-0e72-4aa8-8da7-e45749d90673, conta Cloudflare do Marco). Segredos: OWNER_EMAIL, SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET. Google OAuth em modo Teste (projeto `jose-515022`). | Deploy por `npm run deploy:embutido` (o proxy do ambiente derruba o upload de assets do wrangler). Faixa Offline também reage a falha de rede e ao app voltar para a frente (o `navigator.onLine` do iPhone não é confiável). Pendências para as próximas ondas: tratamento global do 401 (onda 2), limite de 2 min e de 60 transcrições por dia (onda 3), remover a página /teste-voz depois da voz estar em uso. | Marco, no iPhone: login, instalar, continuar logado ao reabrir, faixa Offline, voz e Sair de todos OK. Android não testado |
