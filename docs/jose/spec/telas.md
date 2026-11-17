@@ -76,6 +76,7 @@ O app sempre abre no **Chat**, na conversa de hoje.
   - transcrevendo: "Transcrevendo áudio…";
   - erro na IA: um balão de erro com **Tentar de novo**, sem perder o texto digitado;
   - sem internet: uma faixa "Offline" no topo e o envio desabilitado;
+  - limite diário atingido: "Limite de hoje atingido, volta amanhã.";
   - microfone negado: "Libere o microfone nas configurações para usar voz."
 - **Mobile:** o campo de digitação sobe junto com o teclado e o botão 🎤 tem pelo menos 48px.
 

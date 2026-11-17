@@ -42,7 +42,8 @@
 6. **Progresso da meta** = tarefas concluídas ligadas à meta ÷ total de tarefas ligadas. Sem tarefas, mostra "—".
 7. **Boas-vindas:** até 5 perguntas. Ao concluir ou pular, `boas_vindas_concluida = true`. "Refazer boas-vindas" abre uma nova conversa do tipo `boas_vindas`.
 8. **Acesso:** só o e-mail configurado como dono (variável de ambiente) consegue entrar. Qualquer outro recebe "acesso negado".
-9. **Limites** (assumido): mensagem de até 4.000 caracteres e áudio de até 2 minutos.
+9. **Limites** (assumido): mensagem de até 4.000 caracteres, áudio de até 2 minutos e até 200 mensagens por dia (proteção de custo, com o aviso "Limite de hoje atingido, volta amanhã").
+10. **Tarefa sugerida ligada a meta:** se a sugestão citar uma meta, ao salvar a tarefa é ligada à meta ativa de mesmo título. Se a meta não existir, a tarefa é salva sem meta.
 
 ## Integrações (sistema, direção, frequência)
 | Sistema | Direção | Frequência | Uso |
