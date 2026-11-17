@@ -11,7 +11,8 @@
     "isolatedModules": true,
     "resolveJsonModule": true,
     "types": ["@cloudflare/workers-types", "node"],
-    "noEmit": true
+    "noEmit": true,
+    "paths": { "@compartilhado/*": ["./compartilhado/*"] }
   },
   "include": ["app/src", "servidor/src", "compartilhado", "testes", "app/vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
 }

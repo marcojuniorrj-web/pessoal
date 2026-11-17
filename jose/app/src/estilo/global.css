@@ -1,0 +1,84 @@
+@import './tokens.css';
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #raiz { height: 100%; margin: 0; }
+body {
+  background: var(--fundo);
+  color: var(--texto);
+  font: 400 var(--corpo)/1.45 var(--fonte);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+h1, h2, h3, p { margin: 0; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--destaque); outline-offset: 2px; }
+
+/* Coluna central de até 680px (computador) */
+.coluna { width: 100%; max-width: var(--coluna); margin: 0 auto; }
+
+/* Botão: alvo de pelo menos 48px */
+.botao {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: var(--alvo-minimo); min-width: var(--alvo-minimo); padding: 0 20px;
+  border: 1px solid var(--borda); border-radius: var(--raio);
+  background: var(--superficie-2); color: var(--texto); cursor: pointer;
+  transition: filter 0.15s;
+}
+.botao:hover { filter: brightness(1.12); }
+.botao:disabled { opacity: 0.5; cursor: not-allowed; }
+.botao--principal { background: var(--destaque); border-color: var(--destaque); color: var(--texto-sobre-destaque); font-weight: 600; }
+.botao--perigo { color: var(--erro); }
+.botao--grande { min-height: 56px; padding: 0 28px; font-size: 18px; }
+.botao--link { background: transparent; border-color: transparent; color: var(--texto-2); }
+
+.spinner {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: girar 0.8s linear infinite;
+}
+@keyframes girar { to { transform: rotate(360deg); } }
+
+/* Toast: acima da barra de abas */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--altura-barra) + 16px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 12px; min-height: var(--alvo-minimo);
+  padding: 4px 8px 4px 16px; max-width: calc(100% - 32px);
+  background: var(--superficie-2); border: 1px solid var(--borda); border-radius: var(--raio);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); z-index: 50;
+  animation: subir 0.2s ease-out;
+}
+.toast__acao { background: transparent; border: 0; color: var(--destaque); font-weight: 600; min-height: var(--alvo-minimo); padding: 0 12px; cursor: pointer; }
+@keyframes subir { from { opacity: 0; transform: translate(-50%, 8px); } }
+
+/* Esqueleto de carregamento */
+.esqueleto {
+  display: block; height: 1em; border-radius: 8px;
+  background: linear-gradient(90deg, var(--superficie) 25%, var(--superficie-2) 50%, var(--superficie) 75%);
+  background-size: 200% 100%; animation: brilho 1.4s ease-in-out infinite;
+}
+@keyframes brilho { to { background-position: -200% 0; } }
+
+/* Faixa offline */
+.faixa-offline {
+  position: sticky; top: 0; z-index: 40; text-align: center; padding: 8px 16px;
+  background: var(--superficie-2); color: var(--texto); border-bottom: 1px solid var(--borda); font-size: var(--pequeno);
+}
+
+/* Etiqueta de área: texto + cor (nunca só cor) */
+.etiqueta-area {
+  display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: var(--pequeno); line-height: 1.5;
+}
+.etiqueta-area--trabalho { background: var(--area-trabalho-fundo); color: var(--area-trabalho-texto); }
+.etiqueta-area--financas { background: var(--area-financas-fundo); color: var(--area-financas-texto); }
+.etiqueta-area--saude { background: var(--area-saude-fundo); color: var(--area-saude-texto); }
+.etiqueta-area--casa { background: var(--area-casa-fundo); color: var(--area-casa-texto); }
+.etiqueta-area--sobre_mim { background: var(--area-sobre_mim-fundo); color: var(--area-sobre_mim-texto); }
+
+.so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Reduzir movimento */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  .esqueleto { animation: none; }
+}
