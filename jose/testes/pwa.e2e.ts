@@ -36,3 +36,23 @@ test('com o modo avião ligado, o app abre e mostra "Offline"', async ({ page, c
   await page.getByRole('navigation').getByText('Tarefas').click();
   await expect(page.getByText('Nada por aqui.')).toBeVisible();
 });
+
+test('faixa "Offline" aparece quando o servidor falha, mesmo com navigator.onLine = true, e some ao voltar', async ({ page }) => {
+  await simularApi(page);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: /Marco\./ })).toBeVisible();
+  await expect(page.getByText('Offline', { exact: true })).toHaveCount(0);
+
+  // O app volta para a frente (como no iPhone) com a rede caída, sem recarregar a página.
+  await page.unroute('**/api/eu');
+  await page.route('**/api/eu', (rota) => rota.abort('internetdisconnected'));
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await expect(page.getByText('Offline', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Marco\./ })).toBeVisible(); // continua usando o cache local
+
+  // A rede volta: a faixa some.
+  await page.unroute('**/api/eu');
+  await simularApi(page);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(page.getByText('Offline', { exact: true })).toHaveCount(0);
+});

@@ -51,6 +51,23 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     void carregar();
   }, [carregar]);
 
+  // Reconfere o servidor quando a rede volta ou quando o app volta para a frente
+  // (o PWA do iPhone reabre sem recarregar a página): assim a faixa "Offline" aparece e some sozinha.
+  useEffect(() => {
+    const reconferir = () => void carregar();
+    const aoVisivel = () => {
+      if (document.visibilityState === 'visible') reconferir();
+    };
+    window.addEventListener('online', reconferir);
+    window.addEventListener('offline', reconferir);
+    document.addEventListener('visibilitychange', aoVisivel);
+    return () => {
+      window.removeEventListener('online', reconferir);
+      window.removeEventListener('offline', reconferir);
+      document.removeEventListener('visibilitychange', aoVisivel);
+    };
+  }, [carregar]);
+
   const valor = useMemo<ContextoSessao>(
     () => ({
       estado,
