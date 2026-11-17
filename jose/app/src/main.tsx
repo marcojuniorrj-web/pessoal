@@ -1,5 +1,11 @@
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/inter';
 import './estilo/global.css';
+import { App } from './App';
 
-createRoot(document.getElementById('raiz')!).render(<p>José</p>);
+createRoot(document.getElementById('raiz')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
