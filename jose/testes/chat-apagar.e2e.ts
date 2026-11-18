@@ -777,3 +777,56 @@ test.describe('Reconciliação com o servidor (rede de segurança)', () => {
     await expect(balaoMarco(page)).toHaveAttribute('data-marca', 'mesmo-no');
   });
 });
+
+test.describe('Áreas seguras do iPhone (viewport-fit=cover): nada fica sob a barra de status nem o indicador de início', () => {
+  const SIMULAR = ':root { --safe-top: 47px; --safe-bottom: 34px; --safe-left: 20px; --safe-right: 20px; }';
+
+  test('gaveta de Histórico: título e X abaixo do topo seguro, e o conteúdo dentro das laterais', async ({ page }) => {
+    await abrir(page);
+    await page.addStyleTag({ content: SIMULAR });
+    await page.getByRole('button', { name: 'Histórico' }).click();
+    const gaveta = page.getByRole('dialog', { name: 'Histórico de conversas' });
+    await expect(gaveta).toBeVisible();
+    await page.waitForTimeout(400); // fim da animação de entrada da gaveta
+    const caixa = async (l: Locator) => (await l.boundingBox())!;
+    const titulo = await caixa(gaveta.getByRole('heading', { name: 'Histórico' }));
+    const fechar = await caixa(gaveta.getByRole('button', { name: 'Fechar histórico' }));
+    expect(titulo.y, 'título abaixo da barra de status (47px)').toBeGreaterThanOrEqual(47);
+    expect(fechar.y, 'X abaixo da barra de status (47px)').toBeGreaterThanOrEqual(47);
+    expect(titulo.x, 'título dentro da lateral segura').toBeGreaterThanOrEqual(20);
+    // o fundo escurecido continua cobrindo a tela inteira (inclusive atrás da barra de status)
+    const fundo = (await page.locator('.gaveta-fundo').boundingBox())!;
+    expect(fundo.y).toBe(0);
+    // o fim da lista não fica sob o indicador de início
+    const g = (await gaveta.boundingBox())!;
+    const corpo = (await page.locator('.gaveta__corpo').boundingBox())!;
+    expect(corpo.y + corpo.height).toBeLessThanOrEqual(g.y + g.height - 34 + 0.5);
+  });
+
+  test('folha de ações: fica acima da barra de abas (que reserva o indicador de início) e dentro das laterais', async ({ page }) => {
+    await abrir(page);
+    await page.addStyleTag({ content: SIMULAR });
+    await segurar(page, balaoMarco(page));
+    await expect(folha(page)).toBeVisible();
+    const [f] = await medir(page, '.folha');
+    const [nav] = await medir(page, 'nav');
+    expect(f!.y + f!.height).toBeLessThanOrEqual(nav!.y + 0.5);
+    expect(nav!.height, 'a barra de abas reserva o indicador de início').toBeGreaterThanOrEqual(64 + 34);
+    const [acao] = await medir(page, '.folha__acao');
+    expect(acao!.x).toBeGreaterThanOrEqual(20);
+    expect(f!.y, 'a folha não passa do topo seguro').toBeGreaterThanOrEqual(47);
+  });
+
+  test('topo do Chat e o menu ⋯ ficam abaixo da barra de status', async ({ page }) => {
+    await abrir(page);
+    await page.addStyleTag({ content: SIMULAR });
+    const [topo] = await medir(page, '.chat__topo');
+    expect(topo!.y).toBeGreaterThanOrEqual(47);
+    await page.getByRole('button', { name: 'Mais opções da conversa' }).click();
+    const [menu] = await medir(page, '.chat__menu');
+    expect(menu!.y).toBeGreaterThanOrEqual(47);
+    const m = await elementosForaDaTela(page);
+    expect(m.rolagem).toBeLessThanOrEqual(m.largura);
+    expect(m.fora, JSON.stringify(m.fora)).toEqual([]);
+  });
+});

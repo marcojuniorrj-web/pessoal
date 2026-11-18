@@ -107,3 +107,20 @@ describe('horário e folha de ações (fase 2b)', () => {
     expect(z(/\.folha-fundo\s*\{[^}]*z-index:\s*(\d+)/, chat)).toBeGreaterThan(z(/\.toast\s*\{[^}]*z-index:\s*(\d+)/s, global));
   });
 });
+
+describe('áreas seguras do iPhone', () => {
+  const chat = readFileSync(new URL('./chat.css', import.meta.url), 'utf8');
+  const tarefas = readFileSync(new URL('./tarefas.css', import.meta.url), 'utf8');
+  it('só tokens.css lê env(safe-area-inset-*); o resto usa as variáveis --safe-*', () => {
+    expect(css).toMatch(/--safe-top:\s*env\(safe-area-inset-top/);
+    for (const arquivo of [chat, global, tarefas]) expect(arquivo).not.toMatch(/env\(safe-area-inset/);
+  });
+  it('a gaveta reserva topo, esquerda e rodapé; a folha, as laterais; a barra de abas, as laterais e o rodapé', () => {
+    expect(chat).toMatch(/\.gaveta\s*\{[^}]*padding:\s*var\(--safe-top\)[^}]*var\(--safe-bottom\)[^}]*var\(--safe-left\)/s);
+    expect(chat).toMatch(/\.folha\s*\{[^}]*--safe-right[^}]*--safe-left/s);
+    expect(chat).toMatch(/\.folha\s*\{[^}]*bottom:\s*calc\([^;]*var\(--safe-bottom\)/s);
+    expect(global).toMatch(/\.barra-abas\s*\{[^}]*padding:\s*0 var\(--safe-right\) var\(--safe-bottom\) var\(--safe-left\)/s);
+    expect(global).toMatch(/\.casca\s*\{[^}]*padding:\s*var\(--safe-top\)/);
+    expect(global).toMatch(/\.faixa-offline\s*\{[^}]*top:\s*var\(--safe-top\)/s);
+  });
+});

@@ -31,4 +31,11 @@
   --raio: 14px;
   --coluna: 680px;
   --altura-barra: 64px;
+
+  /* Áreas seguras do iPhone (viewport-fit=cover, barra de status translúcida): tudo que vai até a borda da tela as reserva.
+     Em variáveis para os testes poderem simular o notch (ex.: --safe-top: 47px). */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
 }
