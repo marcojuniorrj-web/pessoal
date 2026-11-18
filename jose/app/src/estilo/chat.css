@@ -45,8 +45,11 @@ html[data-teclado='aberto'] .barra-abas { display: none; }
   field-sizing: content;
 }
 .chat__campo:disabled { opacity: 0.6; }
-.chat__acao { flex-shrink: 0; border-radius: 50%; padding: 0; width: var(--alvo-minimo); height: var(--alvo-minimo); }
-.chat__acao[aria-disabled='true'] { cursor: progress; }
+/* .botao vem depois deste arquivo no CSS (padding e raio): a especificidade maior garante o círculo de 48px com o ícone inteiro. */
+.botao.chat__acao { flex-shrink: 0; border-radius: 50%; padding: 0; width: var(--alvo-minimo); height: var(--alvo-minimo); }
+.botao.chat__acao svg { flex-shrink: 0; }
+.chat__acao .spinner { flex-shrink: 0; }
+.botao.chat__acao[aria-disabled='true'] { cursor: progress; }
 
 /* Voz: o rodapé vira a barra de gravação (✕ · ponto pulsante e contador · ■). Tudo com pelo menos 48px e dentro da largura. */
 .chat__rodape[data-voz] { align-items: center; }
@@ -60,7 +63,7 @@ html[data-teclado='aberto'] .barra-abas { display: none; }
 }
 .gravacao__ponto { flex-shrink: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--destaque); animation: pulsar-gravacao 1.2s ease-in-out infinite; }
 .gravacao__tempo { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
-.gravacao--transcrevendo { overflow-wrap: anywhere; }
+.gravacao--transcrevendo { gap: 8px; padding: 0 12px; font-size: 16px; overflow-wrap: anywhere; }
 @keyframes pulsar-gravacao { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.75); } }
 @media (prefers-reduced-motion: reduce) { .gravacao__ponto { animation: none; opacity: 1; transform: none; } }
 
