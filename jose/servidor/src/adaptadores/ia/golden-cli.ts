@@ -5,7 +5,7 @@ import { montarContexto } from '../../modulos/conversas/contexto';
 import { criarClienteClaude } from './claude';
 import { avaliarCaso, CASOS_GOLDEN, SUGESTOES_LIGADAS } from './golden';
 import { prompt } from './prompt';
-import type { EventoIA } from './tipos';
+import type { EventoIA, TipoSugestao } from './tipos';
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey) {
@@ -16,6 +16,7 @@ const modelo = process.env.MODELO_PADRAO || 'claude-haiku-5-5';
 const ia = criarClienteClaude({ apiKey });
 // Igual ao app na onda 5: memória, tarefa e meta ligadas.
 const LIGADAS = SUGESTOES_LIGADAS;
+const SO_MEMORIA: TipoSugestao[] = ['memoria'];
 const ICONE = { sugerir_memoria: '🧠', sugerir_tarefa: '📌', sugerir_meta: '🎯' } as Record<string, string>;
 
 let reprovados = 0;
@@ -31,17 +32,18 @@ for (const caso of CASOS_GOLDEN) {
   );
   const contexto = montarContexto({
     prompt,
-    sugestoes: [...LIGADAS],
+    sugestoes: [...(caso.boasVindas ? SO_MEMORIA : LIGADAS)],
+    boasVindas: !!caso.boasVindas,
     modo: caso.modo ?? (caso.id === 'decisao' ? 'decidir' : 'padrao'),
     memorias: caso.memorias.map((m) => (typeof m === 'string' ? { texto: m, area: 'sobre_mim' as const } : m)),
     metas: caso.metas.map((titulo) => ({ titulo, area: 'trabalho' as const, prazo: null })),
     tarefas,
     agora,
-    mensagens: [{ autor: 'marco', texto: caso.mensagem }],
+    mensagens: [...(caso.historico ?? []), { autor: 'marco', texto: caso.mensagem }],
   });
   let texto = '';
   const sugestoes: Array<{ nome: string; entrada: unknown }> = [];
-  for await (const ev of ia.transmitir({ modelo, maxTokens: 1500, esforco: 'low', ferramentas: [...LIGADAS], ...contexto }) as AsyncIterable<EventoIA>) {
+  for await (const ev of ia.transmitir({ modelo, maxTokens: 1500, esforco: 'low', ferramentas: [...(caso.boasVindas ? SO_MEMORIA : LIGADAS)], ...contexto }) as AsyncIterable<EventoIA>) {
     if (ev.tipo === 'texto') texto += ev.delta;
     else if (ev.tipo === 'sugestao') sugestoes.push({ nome: ev.nome, entrada: ev.entrada });
   }

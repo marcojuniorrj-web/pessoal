@@ -1,5 +1,8 @@
 // Casos "golden" do prompt do José: um por momento do dia (arquitetura.md §4) e a conferência automática.
 // A execução real (npm run golden) precisa de ANTHROPIC_API_KEY; a conferência abaixo é testada sem rede.
+import { LIMITE_MEMORIA } from '@compartilhado/schemas';
+import { MAX_SUGESTOES_BOAS_VINDAS } from '@compartilhado/boasvindas';
+import { normalizarTexto } from '../../modulos/conversas/sugestoes-ia';
 import type { TipoSugestao } from './tipos';
 
 /** Ferramentas ligadas no app (onda 5): memória, tarefa e meta. */
@@ -44,6 +47,13 @@ export interface CasoGolden {
   };
   /** A resposta precisa citar `primeiro` antes de qualquer um de `depois` (ex.: a tarefa atrasada antes das outras). */
   prioridade?: { primeiro: RegExp; depois: RegExp[] };
+  /** Mensagens que já existem na conversa antes de `mensagem` (ex.: as perguntas e respostas das boas-vindas). */
+  historico?: Array<{ autor: 'marco' | 'jose'; texto: string }>;
+  /**
+   * Chamada final das boas-vindas (6.1): só `sugerir_memoria` fica ligada, com até 8 sugestões. Cada padrão de `cobrir` precisa
+   * aparecer em ao menos uma memória (coerência com as respostas); nenhuma memória pode repetir uma existente.
+   */
+  boasVindas?: { min: number; cobrir: RegExp[] };
 }
 
 export const CASOS_GOLDEN: CasoGolden[] = [
@@ -181,7 +191,45 @@ export const CASOS_GOLDEN: CasoGolden[] = [
       semCartaoDe: { padrao: /preocup|ansios|medo|caixa/i, motivo: 'transformou a preocupação em cartão (ideias e preocupações ficam só no texto)' },
     },
   },
+  {
+    // Tarefa 6.1: fim das boas-vindas (refazendo, com memórias que já existem). As 5 respostas viram memórias coerentes,
+    // sem repetir "Acorda às 6h." e "Trabalha como gerente comercial.": só o que é novo ou mudou (dormir às 22h30, a meia-maratona, o que trava).
+    id: 'boasvindas-memorias',
+    momento: 'Fim das boas-vindas: as 5 respostas viram memórias (sem repetir as que já existem)',
+    agora: '2026-11-18T19:30:00-03:00',
+    memorias: [{ texto: 'Acorda às 6h.', area: 'saude' }, { texto: 'Trabalha como gerente comercial.', area: 'trabalho' }],
+    metas: [],
+    tarefas: [],
+    historico: [
+      { autor: 'jose', texto: 'Oi, Marco, eu sou o José. Vou fazer 5 perguntas rápidas para te conhecer. Primeira: como é um dia normal da sua rotina?' },
+      { autor: 'marco', texto: 'Acordo às 6h, treino e às 8h já estou trabalhando. Fecho o dia às 19h e fico com a família.' },
+      { autor: 'jose', texto: 'Quais áreas da sua vida você quer organizar comigo? Pode escolher mais de uma.' },
+      { autor: 'marco', texto: 'Trabalho, saúde e rotina, família e casa' },
+      { autor: 'jose', texto: 'Quais são as suas metas principais para os próximos meses?' },
+      { autor: 'marco', texto: 'Bater a meta de vendas do trimestre e correr uma meia-maratona em 2027.' },
+      { autor: 'jose', texto: 'O que mais trava você hoje?' },
+      { autor: 'marco', texto: 'Começar o que é grande demais: fico enrolando.' },
+      { autor: 'jose', texto: 'Última: que horas você costuma acordar e dormir?' },
+    ],
+    mensagem: 'Acordo às 6h e durmo às 22h30.',
+    boasVindas: { min: 2, cobrir: [/22\s?h\s?30|22:30/, /meia[- ]maratona/i, /come[çc]ar|enrol|grande demais|trav/i] },
+  },
 ];
+
+/** Conferências da chamada final das boas-vindas sobre os textos das memórias sugeridas. */
+function conferirBoasVindas(caso: CasoGolden, textos: string[]): string[] {
+  const falhas: string[] = [];
+  const b = caso.boasVindas!;
+  if (textos.length < b.min) falhas.push(`sugeriu ${textos.length} memória(s), esperava ao menos ${b.min}`);
+  if (textos.some((t) => t.length > LIMITE_MEMORIA)) falhas.push(`memória com mais de ${LIMITE_MEMORIA} caracteres`);
+  const normais = textos.map(normalizarTexto);
+  if (new Set(normais).size < normais.length) falhas.push('memórias repetidas entre si');
+  const existentes = caso.memorias.map((m) => normalizarTexto(typeof m === 'string' ? m : m.texto));
+  const repetidas = normais.filter((t) => existentes.includes(t));
+  if (repetidas.length) falhas.push(`sugeriu de novo memória que já existe (${repetidas.length})`);
+  for (const padrao of b.cobrir) if (!textos.some((t) => padrao.test(t))) falhas.push(`nenhuma memória cobre ${padrao.source}`);
+  return falhas;
+}
 
 export interface ResultadoGolden {
   ok: boolean;
@@ -230,9 +278,11 @@ export function avaliarCaso(caso: CasoGolden, saida: SaidaGolden): ResultadoGold
   const geral = avaliarResposta(saida.texto);
   const falhas = [...geral.falhas];
   const textosMemoria = saida.sugestoes.filter((s) => s.nome === NOME_FERRAMENTA.memoria).map(textoDe).filter(Boolean);
-  const permitidas = SUGESTOES_LIGADAS.map((t) => NOME_FERRAMENTA[t]);
+  const permitidas = (caso.boasVindas ? (['memoria'] as TipoSugestao[]) : SUGESTOES_LIGADAS).map((t) => NOME_FERRAMENTA[t]);
   if (saida.sugestoes.some((s) => !permitidas.includes(s.nome))) falhas.push('chamou ferramenta que não está ligada');
-  if (saida.sugestoes.length > 3) falhas.push(`mais de 3 sugestões (${saida.sugestoes.length})`);
+  const limite = caso.boasVindas ? MAX_SUGESTOES_BOAS_VINDAS : 3;
+  if (saida.sugestoes.length > limite) falhas.push(`mais de ${limite} sugestões (${saida.sugestoes.length})`);
+  if (caso.boasVindas) falhas.push(...conferirBoasVindas(caso, textosMemoria));
   if (saida.sugestoes.length && !saida.texto.trim()) falhas.push('sugeriu sem escrever o texto antes');
   const m = caso.memoria;
   if (m?.usarNaResposta && !m.usarNaResposta.test(saida.texto)) falhas.push('não usou a memória que já existe na resposta');

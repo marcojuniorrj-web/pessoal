@@ -20,6 +20,8 @@ export interface EntradaContexto {
   /** Tipos de sugestão ligados (ferramentas). Vazio: a seção de sugestões do prompt não entra. */
   sugestoes: TipoSugestao[];
   modo: 'padrao' | 'decidir';
+  /** Chamada final das boas-vindas: entra a seção BOASVINDAS (resumo das 5 respostas em memórias). */
+  boasVindas?: boolean;
   memorias: MemoriaCtx[];
   metas: MetaCtx[];
   /** Já na ordem da regra 5; o montador só corta em 50. */
@@ -111,11 +113,15 @@ export function montarContexto(e: EntradaContexto): ContextoMontado {
   // --- ponto de cache: tudo acima é estável entre mensagens; abaixo muda a cada chamada ---
   const volatil = [`Agora: ${descreverAgora(e.agora, e.fuso)}`];
   if (e.modo === 'decidir') volatil.push(e.prompt.decidir);
+  if (e.boasVindas) volatil.push(e.prompt.boasvindas);
 
   const recentes = e.mensagens.slice(-LIMITE_MENSAGENS_CONTEXTO).map((m) => ({
     papel: (m.autor === 'marco' ? 'user' : 'assistant') as MensagemIA['papel'],
     texto: [m.texto, ...(m.sugestoes ?? []).map(resumoSugestao)].join('\n'),
   }));
+
+  // Nas boas-vindas a conversa começa pela pergunta do José: a API exige começar em "user", então entra um aviso do app.
+  if (e.boasVindas && recentes[0]?.papel === 'assistant') recentes.unshift({ papel: 'user', texto: '(O Marco abriu o app pela primeira vez.)' });
 
   return { sistemaEstavel: partes.join('\n\n'), sistemaVolatil: volatil.join('\n\n'), mensagens: normalizarMensagens(recentes) };
 }

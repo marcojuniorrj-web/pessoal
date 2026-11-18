@@ -36,14 +36,14 @@ function semPrazoInvalido(tipo: TipoSugestao, entrada: unknown): unknown {
 export function avaliarSugestao(
   nome: string,
   entrada: unknown,
-  ctx: { ligadas: TipoSugestao[]; memorias: Array<{ texto: string }>; tarefas?: Array<{ titulo: string }>; metas?: Array<{ titulo: string }>; aceitas: Proposta[] },
+  ctx: { ligadas: TipoSugestao[]; memorias: Array<{ texto: string }>; tarefas?: Array<{ titulo: string }>; metas?: Array<{ titulo: string }>; aceitas: Proposta[]; /** Padrão 3; a chamada final das boas-vindas aceita mais. */ maximo?: number },
 ): ResultadoSugestao {
   const tipo = TIPO_FERRAMENTA[nome];
   if (!tipo) return { ok: false, motivo: 'ferramenta_desconhecida' };
   if (!ctx.ligadas.includes(tipo)) return { ok: false, motivo: 'desligada' };
   const valido = conteudoSugestaoSchema[tipo].safeParse(semPrazoInvalido(tipo, entrada));
   if (!valido.success) return { ok: false, motivo: 'invalida', campos: [...new Set(valido.error.issues.map((i) => i.path.join('.') || '(raiz)'))] };
-  if (ctx.aceitas.length >= MAX_SUGESTOES_POR_RESPOSTA) return { ok: false, motivo: 'acima_do_limite' };
+  if (ctx.aceitas.length >= (ctx.maximo ?? MAX_SUGESTOES_POR_RESPOSTA)) return { ok: false, motivo: 'acima_do_limite' };
   if (tipo === 'memoria') {
     const texto = normalizarTexto((valido.data as { texto: string }).texto);
     const existentes = [...ctx.memorias.map((m) => m.texto), ...ctx.aceitas.filter((a) => a.tipo === 'memoria').map((a) => (a.conteudo as { texto: string }).texto)];

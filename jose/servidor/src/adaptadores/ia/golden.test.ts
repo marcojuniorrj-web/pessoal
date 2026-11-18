@@ -20,8 +20,8 @@ describe('prompt-jose.md (ajuste de coaching)', () => {
 });
 
 describe('prompt-jose.md', () => {
-  it('tem as quatro seções e as regras de arquitetura.md §4', () => {
-    expect(Object.keys(prompt).sort()).toEqual(['base', 'decidir', 'sugestoes', 'titulo']);
+  it('tem as cinco seções e as regras de arquitetura.md §4', () => {
+    expect(Object.keys(prompt).sort()).toEqual(['base', 'boasvindas', 'decidir', 'sugestoes', 'titulo']);
     expect(prompt.base).toContain('no máximo 5 linhas');
     expect(prompt.base).toContain('1 próximo passo');
     expect(prompt.base).toMatch(/aconselhamento médico, jurídico nem financeiro/);
@@ -55,8 +55,8 @@ describe('prompt-jose.md', () => {
 });
 
 describe('casos golden', () => {
-  it('4 por momento do dia (onda 2), 2 de memória (onda 4), 4 de tarefas e metas (onda 5) e 2 de coaching', () => {
-    expect(CASOS_GOLDEN.map((c) => c.id)).toEqual(['acordar', 'travado', 'decisao', 'noite', 'memoria-existente', 'memoria-nova', 'tarefa-atrasada', 'tarefa-prazo-relativo', 'meta', 'travado-solucao', 'meta-positiva', 'descarregar']);
+  it('4 por momento do dia (onda 2), 2 de memória (onda 4), 4 de tarefas e metas (onda 5), 2 de coaching e as boas-vindas (onda 6)', () => {
+    expect(CASOS_GOLDEN.map((c) => c.id)).toEqual(['acordar', 'travado', 'decisao', 'noite', 'memoria-existente', 'memoria-nova', 'tarefa-atrasada', 'tarefa-prazo-relativo', 'meta', 'travado-solucao', 'meta-positiva', 'descarregar', 'boasvindas-memorias']);
   });
 });
 
@@ -209,5 +209,77 @@ describe('avaliarCaso (casos de tarefas e metas, tarefas 5.1, 5.4 e 5.7)', () =>
     expect(secaoSugestoes(prompt.sugestoes, ['memoria'])).not.toMatch(/descarregar a cabeça/);
     // o texto da jornada (acolher, 1 passo para amanhã) continua no prompt base
     expect(prompt.base).toMatch(/descarregando a cabeça, acolha em 1 ou 2 frases/);
+  });
+});
+
+describe('avaliarCaso: boasvindas-memorias (tarefa 6.1)', () => {
+  const caso = CASOS_GOLDEN.find((c) => c.id === 'boasvindas-memorias')!;
+  const mem = (texto: string, area = 'saude') => ({ nome: 'sugerir_memoria', entrada: { texto, area } });
+  const intro = 'Obrigado, Marco. Vou te mostrar o que entendi para você confirmar.';
+  const boas = [mem('Dorme às 22h30.'), mem('Quer correr uma meia-maratona em 2027.'), mem('Tem dificuldade para começar o que parece grande demais.', 'sobre_mim')];
+
+  it('o caso tem as 5 respostas na conversa e duas memórias que já existem', () => {
+    expect(caso.historico).toHaveLength(9);
+    expect(caso.historico!.filter((m) => m.autor === 'marco')).toHaveLength(4);
+    expect(caso.mensagem).toMatch(/22h30/);
+    expect(caso.memorias).toHaveLength(2);
+  });
+  it('aprova: memórias coerentes com as respostas, sem repetir as existentes', () => {
+    expect(avaliarCaso(caso, { texto: intro, sugestoes: boas })).toMatchObject({ ok: true, falhas: [] });
+  });
+  it('aceita até 8 memórias (o limite de 3 é das outras conversas) e reprova a 9ª', () => {
+    const muitas = (n: number) => Array.from({ length: n }, (_, i) => mem(`Fato duradouro número ${i + 10}.`));
+    expect(avaliarCaso(caso, { texto: intro, sugestoes: [...boas, ...muitas(5)] }).falhas).toEqual([]);
+    expect(avaliarCaso(caso, { texto: intro, sugestoes: [...boas, ...muitas(6)] }).falhas).toContain('mais de 8 sugestões (9)');
+  });
+  it('reprova: repete uma memória que já existe (mesmo com pontuação e acento diferentes)', () => {
+    const r = avaliarCaso(caso, { texto: intro, sugestoes: [...boas, mem('acorda as 6h')] });
+    expect(r.falhas).toContain('sugeriu de novo memória que já existe (1)');
+  });
+  it('reprova: sem cobrir uma resposta (a meia-maratona ficou de fora)', () => {
+    const r = avaliarCaso(caso, { texto: intro, sugestoes: [boas[0]!, boas[2]!] });
+    expect(r.falhas.some((f) => f.includes('meia'))).toBe(true);
+  });
+  it('reprova: poucas memórias, repetidas entre si ou grandes demais', () => {
+    expect(avaliarCaso(caso, { texto: intro, sugestoes: [boas[0]!] }).falhas).toContain('sugeriu 1 memória(s), esperava ao menos 2');
+    expect(avaliarCaso(caso, { texto: intro, sugestoes: [...boas, mem('Dorme às 22h30!')] }).falhas).toContain('memórias repetidas entre si');
+    expect(avaliarCaso(caso, { texto: intro, sugestoes: [...boas, mem('x'.repeat(301))] }).falhas).toContain('memória com mais de 300 caracteres');
+  });
+  it('reprova: tarefa ou meta (só memória fica ligada nas boas-vindas) e sugestão sem texto antes', () => {
+    expect(avaliarCaso(caso, { texto: intro, sugestoes: [...boas, { nome: 'sugerir_tarefa', entrada: { titulo: 'Correr', area: 'saude' } }] }).falhas).toContain('chamou ferramenta que não está ligada');
+    expect(avaliarCaso(caso, { texto: '', sugestoes: boas }).falhas).toContain('sugeriu sem escrever o texto antes');
+  });
+});
+
+describe('contexto das boas-vindas (6.1)', () => {
+  const base = { prompt, sugestoes: ['memoria'] as const, modo: 'padrao' as const, metas: [], tarefas: [], agora: new Date('2026-11-18T22:30:00Z') };
+  it('inclui as memórias atuais e a seção BOASVINDAS (depois do ponto de cache) e só a ferramenta de memória', async () => {
+    const { montarContexto } = await import('../../modulos/conversas/contexto');
+    const c = montarContexto({
+      ...base, sugestoes: ['memoria'], boasVindas: true,
+      memorias: [{ texto: 'Acorda às 6h.', area: 'saude' }],
+      mensagens: [{ autor: 'jose', texto: 'Pergunta 1' }, { autor: 'marco', texto: 'Resposta 1' }],
+    });
+    expect(c.sistemaEstavel).toContain('Acorda às 6h.');
+    expect(c.sistemaEstavel).toContain('sugerir_memoria');
+    expect(c.sistemaEstavel).not.toContain('sugerir_tarefa');
+    expect(c.sistemaVolatil).toContain('Fim das boas-vindas');
+    expect(c.sistemaVolatil).toContain('limite é de 8 memórias');
+    expect(c.sistemaEstavel).not.toContain('Fim das boas-vindas');
+    // a conversa começa pela pergunta do José: a API exige "user" primeiro, e a pergunta não se perde
+    expect(c.mensagens.map((m) => m.papel)).toEqual(['user', 'assistant', 'user']);
+    expect(c.mensagens[1]!.texto).toBe('Pergunta 1');
+  });
+  it('sem boasVindas a seção não entra', async () => {
+    const { montarContexto } = await import('../../modulos/conversas/contexto');
+    const c = montarContexto({ ...base, sugestoes: [], memorias: [], mensagens: [{ autor: 'marco', texto: 'oi' }] });
+    expect(c.sistemaVolatil).not.toContain('Fim das boas-vindas');
+  });
+  it('o prompt BOASVINDAS pede só memória, até 8, só o novo e sem repetir', () => {
+    expect(prompt.boasvindas).toMatch(/Só memórias: nada de tarefa nem de meta/);
+    expect(prompt.boasvindas).toMatch(/8 memórias/);
+    expect(prompt.boasvindas).toMatch(/Não sugira o que já está lá/);
+    expect(prompt.boasvindas).toMatch(/versão nova/);
+    expect(prompt.boasvindas).not.toMatch(/DISC|Gallup|GROW|SLAC/);
   });
 });
