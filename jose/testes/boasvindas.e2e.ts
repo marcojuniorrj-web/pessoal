@@ -258,6 +258,19 @@ test.describe('Boas-vindas: conversa que não abre', () => {
     expect(f.envios).toEqual([]);
   });
 
+  test('falha ao carregar com ?c=: Tentar de novo, Pular e Ir para o Chat (/?nova=1) à vista', async ({ page }) => {
+    await simularApi(page);
+    await simularBoasVindas(page, { conversas: [conversaBV('bv1', 1)] });
+    await page.route((u) => u.pathname === '/api/conversas/bv1', (r) => (r.request().method() === 'GET' ? r.fulfill({ status: 500, json: { erro: { codigo: 'x', mensagem: 'x' } } }) : r.fallback()));
+    await page.goto('/boas-vindas?c=bv1');
+    await expect(page.getByText('Não foi possível carregar.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Tentar de novo' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Pular' })).toBeVisible();
+    await page.getByRole('button', { name: 'Ir para o Chat' }).click();
+    await expect(page).toHaveURL(/\/\?nova=1$/);
+    await expect(page.getByRole('heading', { name: /Marco\./ })).toBeVisible();
+    await expect(barraAbas(page)).toBeVisible();
+  });
 });
 
 test.describe('Boas-vindas: erros sem perder o que já foi feito', () => {

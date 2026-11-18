@@ -533,6 +533,12 @@ export function Chat({ boasVindas }: { boasVindas?: ConfigBoasVindas } = {}) {
           <div className="estado-vazio">
             <p className="mensagem-erro">Não foi possível carregar.</p>
             <Botao onClick={recarregar}>Tentar de novo</Botao>
+            {/* Boas-vindas: a saída está sempre à vista (além do Pular no topo); o Chat nunca fica bloqueado. */}
+            {bv && (
+              <Botao variante="link" onClick={() => ir('/?nova=1', { replace: true })}>
+                Ir para o Chat
+              </Botao>
+            )}
           </div>
         )}
         {vazio && !bv && conversa.modo === 'padrao' && (
