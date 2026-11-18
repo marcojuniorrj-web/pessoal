@@ -16,6 +16,8 @@ body {
 }
 h1, h2, h3, p { margin: 0; }
 button { font: inherit; color: inherit; }
+/* Texto de ajuda dos campos: cor explícita do tema (o padrão do navegador dá ~3,7:1), opacidade cheia. */
+::placeholder { color: var(--texto-2); opacity: 1; }
 :focus-visible { outline: 3px solid var(--destaque); outline-offset: 2px; }
 
 /* Coluna central de até 680px (computador) */

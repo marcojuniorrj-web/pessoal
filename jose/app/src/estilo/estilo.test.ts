@@ -20,6 +20,15 @@ describe('contraste AA (>= 4,5:1 para texto)', () => {
   });
 });
 
+describe('placeholder dos campos (>= 4,5:1)', () => {
+  it('tem cor explícita do tema, sem opacidade reduzida', () => {
+    expect(global).toMatch(/::placeholder\s*\{[^}]*color:\s*var\(--texto-2\)[^}]*opacity:\s*1/);
+  });
+  it.each(['fundo', 'superficie', 'superficie-2'])('texto-2 sobre %s', (fundo) => {
+    expect(contraste(cor('texto-2'), cor(fundo))).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe('acessibilidade no CSS', () => {
   it('respeita "reduzir movimento"', () => {
     expect(global).toMatch(/@media \(prefers-reduced-motion: reduce\)/);

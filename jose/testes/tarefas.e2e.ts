@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { diaRelativo, metaFalsa, simularApi, simularTarefas, tarefaFalsa, type TarefasFalsas } from './apoio';
+import { diaRelativo, metaFalsa, simularApi, simularMemorias, simularTarefas, tarefaFalsa, type TarefasFalsas } from './apoio';
 import { elementosForaDaTela, medir, menoresQue, sobrepoe } from './medidas';
 
 // Hoje, para os testes: terça-feira, 17/11/2026, 10h em São Paulo.
@@ -388,3 +388,41 @@ for (const tamanho of [{ width: 320, height: 568 }, { width: 320, height: 640 },
     });
   }
 }
+
+// Onda 5, ajuste 4: o texto de ajuda (placeholder) dos campos tem contraste >= 4,5:1 sobre o fundo do próprio campo.
+const rgb = (css: string) => (css.match(/[\d.]+/g) ?? []).map(Number) as [number, number, number, number?];
+const lum = ([r, g, b]: number[]) => {
+  const c = [r, g, b].map((v) => { const s = (v ?? 0) / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * c[0]! + 0.7152 * c[1]! + 0.0722 * c[2]!;
+};
+async function contrasteDoPlaceholder(page: Page, seletor: string): Promise<number> {
+  const { cor, fundo, opacidade } = await page.locator(seletor).first().evaluate((el) => {
+    const ph = getComputedStyle(el, '::placeholder');
+    return { cor: ph.color, fundo: getComputedStyle(el).backgroundColor, opacidade: ph.opacity };
+  });
+  const [fr, fg, fb, fa = 1] = rgb(cor);
+  const [br, bg, bb] = rgb(fundo);
+  const a = fa * Number(opacidade); // cor do texto já misturada com o fundo do campo
+  const mix = [fr! * a + br! * (1 - a), fg! * a + bg! * (1 - a), fb! * a + bb! * (1 - a)];
+  const [x, y] = [lum(mix), lum([br!, bg!, bb!])].sort((p, q) => q - p) as [number, number];
+  return (x + 0.05) / (y + 0.05);
+}
+test.describe('Contraste do placeholder', () => {
+  test('formulários de tarefa e de meta: >= 4,5:1', async ({ page }) => {
+    await abrir(page);
+    await page.getByRole('button', { name: '+ Adicionar' }).click();
+    expect(await contrasteDoPlaceholder(page, 'textarea[placeholder^="Ex.: Ligar"]')).toBeGreaterThanOrEqual(4.5);
+    await page.getByRole('tab', { name: 'Metas' }).click();
+    await page.getByRole('button', { name: '+ Adicionar' }).click();
+    expect(await contrasteDoPlaceholder(page, 'textarea[placeholder^="Ex.: Correr"]')).toBeGreaterThanOrEqual(4.5);
+  });
+  test('campo "Fale com o José…" do Chat e formulário de memória: >= 4,5:1', async ({ page }) => {
+    await simularApi(page);
+    await page.goto('/');
+    expect(await contrasteDoPlaceholder(page, '#campo-mensagem')).toBeGreaterThanOrEqual(4.5);
+    await simularMemorias(page);
+    await page.goto('/jose-sabe');
+    await page.getByRole('button', { name: '+ Adicionar' }).click();
+    expect(await contrasteDoPlaceholder(page, 'textarea[placeholder^="Ex.: Acorda"]')).toBeGreaterThanOrEqual(4.5);
+  });
+});
