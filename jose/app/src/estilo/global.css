@@ -56,7 +56,12 @@ button { font: inherit; color: inherit; }
   animation: subir 0.2s ease-out;
 }
 .toast__acao { background: transparent; border: 0; color: var(--destaque); font-weight: 600; min-height: var(--alvo-minimo); padding: 0 12px; cursor: pointer; }
-html[data-teclado='aberto'] .toast { bottom: calc(16px + var(--altura-rodape-chat, 0px)); }
+/* Teclado aberto: o aviso é posicionado pela área realmente visível (o iPhone não encolhe a janela, só a área visível):
+   a base dele fica 16px acima do campo de digitação, que está no fim dessa área. */
+html[data-teclado='aberto'] .toast {
+  bottom: auto; top: calc(var(--topo-visivel, 0px) + var(--altura-visivel, 100dvh) - 16px - var(--altura-rodape-chat, 0px));
+  transform: translate(-50%, -100%);
+}
 @keyframes subir { from { opacity: 0; transform: translate(-50%, 8px); } }
 
 /* Esqueleto de carregamento */

@@ -539,3 +539,36 @@ test.describe('Dois apagamentos seguidos (correção F5)', () => {
     await expect.poll(() => f.deletesMensagem.map((d) => d.id), { timeout: 5000 }).toEqual(['a-m1', 'a-m3']);
   });
 });
+
+test.describe('Aviso com o teclado aberto (correção F6)', () => {
+  test('o aviso fica dentro da área visível e acima do campo de digitação', async ({ page }) => {
+    // Simula o teclado do iPhone: a área visível (visualViewport) encolhe 320px e a janela continua do mesmo tamanho.
+    await page.addInitScript(() => {
+      const vv = window.visualViewport!;
+      Object.defineProperty(vv, 'height', { get: () => window.innerHeight - ((window as unknown as { __teclado?: number }).__teclado ?? 0) });
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    const c = conversaA();
+    c.sugestoes = [{ id: 'sg1', mensagem_id: 'a-m1', tipo: 'memoria', conteudo: { texto: 'Acorda às 6h.', area: 'saude' }, status: 'pendente', item_id: null }];
+    await abrir(page, {}, [c]);
+    await page.getByLabel('Mensagem para o José').focus();
+    await page.evaluate(() => {
+      (window as unknown as { __teclado: number }).__teclado = 320;
+      window.visualViewport!.dispatchEvent(new Event('resize'));
+    });
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.teclado)).toBe('aberto');
+    // toca em Descartar sem tirar o foco do campo (como o iPhone: tocar num botão não fecha o teclado)
+    await page.getByRole('button', { name: 'Descartar' }).dispatchEvent('click');
+    await expect(page.locator('.toast')).toContainText('Descartado.');
+    await page.waitForTimeout(400); // fim da animação de entrada
+    const { toast, campo, visivel } = await page.evaluate(() => {
+      const r = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+      return { toast: r('.toast'), campo: r('#campo-mensagem'), visivel: window.visualViewport!.height };
+    });
+    expect(visivel).toBe(844 - 320);
+    expect(toast.bottom, 'base do aviso dentro da área visível').toBeLessThanOrEqual(visivel);
+    expect(toast.top).toBeGreaterThanOrEqual(0);
+    expect(toast.bottom, 'o aviso não cobre o campo').toBeLessThanOrEqual(campo.top + 0.5);
+    expect(campo.bottom).toBeLessThanOrEqual(visivel + 0.5);
+  });
+});
