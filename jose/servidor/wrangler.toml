@@ -31,3 +31,7 @@ migrations_dir = "migracoes"
 MODELO_PADRAO = "claude-haiku-5-5"
 MODELO_PROFUNDO = "claude-sonnet-5-5"
 LIMITE_MENSAGENS_DIA = "200"
+
+# Logs do Worker (só ids, tempos, tokens e erros; nunca o conteúdo das mensagens).
+[observability]
+enabled = true

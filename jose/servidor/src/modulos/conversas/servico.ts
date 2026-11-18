@@ -142,6 +142,7 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
 
   let texto = '';
   const propostas: Proposta[] = [];
+  let chamadas = 0; // quantas vezes o modelo tentou usar uma ferramenta de sugestão
   let fim: Extract<EventoIA, { tipo: 'fim' }> | undefined;
 
   try {
@@ -150,6 +151,7 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
         texto += ev.delta;
         yield { evento: 'texto', dados: { delta: ev.delta } };
       } else if (ev.tipo === 'sugestao') {
+        chamadas += 1;
         // Validada com Zod; o servidor ignora o que passar de 3 por resposta e a memória que já existe.
         const r = avaliarSugestao(ev.nome, ev.entrada, { ligadas: deps.sugestoesAtivas, memorias, aceitas: propostas });
         if (r.ok) propostas.push(r.proposta);
@@ -183,7 +185,7 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
   );
   // Só ids, modelo, tempos e tokens (nunca o conteúdo); serve para medir se o cache está pegando.
   if (fim.truncada) console.warn('ia truncada por max_tokens', { conversa: conversa.id, modelo: fim.modelo });
-  console.log('ia ok', { conversa: conversa.id, modelo: fim.modelo, ms: Date.now() - inicio, ...fim.uso, truncada: fim.truncada });
+  console.log('ia ok', { conversa: conversa.id, modelo: fim.modelo, ms: Date.now() - inicio, ...fim.uso, truncada: fim.truncada, ferramentasChamadas: chamadas, sugestoesAceitas: propostas.length });
 
   for (const p of propostas) {
     const id = uuidv7();
