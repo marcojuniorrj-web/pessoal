@@ -205,6 +205,38 @@ test.describe('Boas-vindas: o fluxo do 1º acesso', () => {
   });
 });
 
+test.describe('Boas-vindas: resumo sendo gerado (fase "resumindo")', () => {
+  test('depois da 5ª resposta o campo, o 🎤 e as respostas rápidas ficam desligados ("José está pensando…"); Pular continua ativo', async ({ page }) => {
+    const { f } = await abrir(page);
+    for (let i = 0; i < 4; i++) await responder(page, RESPOSTAS[i]!);
+    await expect(progresso(page)).toHaveText('Pergunta 5 de 5');
+    f.atrasoMs = 1500;
+    await page.getByRole('group', { name: 'Respostas rápidas' }).getByRole('button', { name: 'Acordo 6h, durmo 22h' }).click();
+    await expect(page.getByText('Preparando o resumo…')).toBeVisible();
+    await expect(campo(page)).toBeDisabled();
+    await expect(campo(page)).toHaveAttribute('placeholder', 'José está pensando…');
+    await expect(page.getByRole('button', { name: 'Gravar áudio' })).toBeDisabled();
+    await expect(page.getByRole('group', { name: 'Respostas rápidas' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Pular' })).toBeEnabled();
+    // nenhuma 6ª mensagem sai e o servidor não recebe nada além das 5 respostas
+    await expect(page.locator('.aprendi__item')).toHaveCount(4);
+    expect(f.envios).toHaveLength(5);
+  });
+
+  test('se a geração do resumo falha: Tentar de novo e Pular ativos (o campo continua desligado, uma 6ª mensagem daria 409)', async ({ page }) => {
+    const { f } = await abrir(page, { planos: ['ok', 'ok', 'ok', 'ok', 'erro-ia'] });
+    for (let i = 0; i < 5; i++) await responder(page, RESPOSTAS[i]!);
+    await expect(page.getByText('O José não conseguiu responder agora.')).toBeVisible();
+    await expect(campo(page)).toBeDisabled();
+    await expect(campo(page)).toHaveAttribute('placeholder', 'Toque em Tentar de novo');
+    await expect(page.getByRole('button', { name: 'Pular' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Tentar de novo' }).click();
+    await expect(page.locator('.aprendi__item')).toHaveCount(4);
+    expect(f.envios).toHaveLength(6); // as 5 respostas + o reenvio do MESMO id
+    expect(new Set(f.envios.map((e) => e.id)).size).toBe(5);
+  });
+});
+
 test.describe('Boas-vindas: conversa que não abre', () => {
   test('o id em memória dá 404 sempre: cria UMA conversa nova, não volta ao mesmo id e não entra em laço', async ({ page }) => {
     await simularApi(page);

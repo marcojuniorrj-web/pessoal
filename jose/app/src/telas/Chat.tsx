@@ -75,6 +75,9 @@ export function Chat({ boasVindas }: { boasVindas?: ConfigBoasVindas } = {}) {
   const mostrarFaixaInstalar = !bv && deveMostrarFaixa(estadoInstalar, estaInstalado());
   const bem = useBoasVindas({ conversaId: boasVindas?.conversaId ?? '', bolhas, aoConcluir: boasVindas?.aoConcluir ?? (() => {}) });
   const revisando = bv && bem.etapa.fase === 'revisando';
+  // As 5 respostas já foram dadas e o resumo ainda não chegou: nada de 6ª mensagem (o servidor responderia 409). Campo, 🎤 e respostas
+  // rápidas ficam desligados; só o "Tentar de novo" do balão (se a geração falhar) e o Pular continuam ativos.
+  const resumindo = bv && bem.etapa.fase === 'resumindo';
 
 
   const fuso = usuario.fuso_horario ?? FUSO_PADRAO;
@@ -261,14 +264,14 @@ export function Chat({ boasVindas }: { boasVindas?: ConfigBoasVindas } = {}) {
   };
 
   const enviarTexto = async (conteudo: string) => {
-    if (semRede || (bv && !conversa.id)) return;
+    if (semRede || resumindo || (bv && !conversa.id)) return;
     setTexto('');
     await enviar(conteudo);
   };
 
   const aoEnviar = (e?: FormEvent) => {
     e?.preventDefault();
-    if (!texto.trim() || ocupado || semRede || vozAtiva) return;
+    if (!texto.trim() || ocupado || semRede || vozAtiva || resumindo) return;
     void enviarTexto(texto);
   };
 
@@ -452,7 +455,7 @@ export function Chat({ boasVindas }: { boasVindas?: ConfigBoasVindas } = {}) {
   const podeEnviar = !!texto.trim() && !ocupado && !semRede;
   // Botão único à direita do campo (como no WhatsApp): vazio = 🎤; com texto = Enviar; gravando = ■; transcrevendo = ocupado.
   const modoAcao: ModoAcao = gravandoVoz ? 'parar' : transcrevendoVoz ? 'transcrevendo' : texto.trim() ? 'enviar' : 'microfone';
-  const acaoDesabilitada = (bv && !conversa.id) || (modoAcao === 'enviar' ? !podeEnviar : semRede || ocupado);
+  const acaoDesabilitada = (bv && !conversa.id) || resumindo || (modoAcao === 'enviar' ? !podeEnviar : semRede || ocupado);
 
   return (
     <section className="chat" data-boas-vindas={bv || undefined}>
@@ -615,9 +618,9 @@ export function Chat({ boasVindas }: { boasVindas?: ConfigBoasVindas } = {}) {
                   className="chat__campo"
                   rows={1}
                   maxLength={LIMITE_MENSAGEM}
-                  placeholder={semRede ? 'Sem conexão' : bv ? 'Sua resposta…' : 'Fale com o José…'}
+                  placeholder={semRede ? 'Sem conexão' : resumindo ? (ocupado ? 'José está pensando…' : 'Toque em Tentar de novo') : bv ? 'Sua resposta…' : 'Fale com o José…'}
                   value={texto}
-                  disabled={semRede}
+                  disabled={semRede || resumindo}
                   onChange={(e) => aoDigitar(e.target.value)}
                   onKeyDown={aoTeclar}
                 />
