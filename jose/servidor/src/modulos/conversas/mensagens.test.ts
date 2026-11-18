@@ -268,6 +268,20 @@ describe('POST /api/conversas/:id/mensagens (SSE)', () => {
       log.mockRestore();
     });
 
+    it('reenviar uma mensagem já respondida repete as sugestões com o status e o item_id gravados', async () => {
+      const x = await preparar([{ partes: ['Anotei.'], sugestoes: [memoria('A'), memoria('B', 'casa'), memoria('C', 'trabalho')] }], { sugestoesAtivas: ['memoria'] });
+      const primeira = await lerEventos(await x.enviar({ id: UUID(36), texto: 'três fatos' }));
+      const ids = primeira.filter((e) => e.evento === 'sugestao').map((e) => e.dados.id);
+      expect(primeira.filter((e) => e.evento === 'sugestao').map((e) => [e.dados.status, e.dados.item_id])).toEqual([['pendente', null], ['pendente', null], ['pendente', null]]);
+      await x.t.env.DB.prepare("UPDATE sugestoes SET status='salva', item_id='mem1' WHERE id=?").bind(ids[0]).run();
+      await x.t.env.DB.prepare("UPDATE sugestoes SET status='descartada' WHERE id=?").bind(ids[1]).run();
+      const de = await lerEventos(await x.enviar({ id: UUID(36), texto: 'três fatos' }));
+      expect(de.filter((e) => e.evento === 'sugestao').map((e) => [e.dados.id, e.dados.status, e.dados.item_id])).toEqual([
+        [ids[0], 'salva', 'mem1'], [ids[1], 'descartada', null], [ids[2], 'pendente', null],
+      ]);
+      expect(x.pedidos).toHaveLength(1); // não chamou a IA de novo
+    });
+
     it('se o modelo só chamar a ferramenta, a resposta ganha um texto curto (a mensagem nunca fica vazia)', async () => {
       const x = await preparar([{ partes: [], sugestoes: [memoria('Tem um filho pequeno.', 'casa')] }], { sugestoesAtivas: ['memoria'] });
       const eventos = await lerEventos(await x.enviar({ id: UUID(34), texto: 'tenho um filho pequeno' }));

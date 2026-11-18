@@ -21,7 +21,7 @@ const MS_36H = 36 * 60 * 60 * 1000;
 
 export type EventoSaida =
   | { evento: 'texto'; dados: { delta: string } }
-  | { evento: 'sugestao'; dados: { id: string; tipo: 'tarefa' | 'meta' | 'memoria'; conteudo: unknown } }
+  | { evento: 'sugestao'; dados: { id: string; tipo: 'tarefa' | 'meta' | 'memoria'; conteudo: unknown; status: 'pendente' | 'salva' | 'descartada'; item_id: string | null } }
   | { evento: 'fim'; dados: { mensagem_id: string; titulo?: string } }
   | { evento: 'erro'; dados: { codigo: string; mensagem: string } };
 
@@ -104,7 +104,7 @@ export async function prepararEnvio(e: EntradaEnvio, repetiu = false): Promise<(
 
 async function* sugestoesGravadas(db: D1Database, conversaId: string, mensagemId: string): AsyncGenerator<EventoSaida> {
   for (const s of await sugestoesDaConversa(db, conversaId)) {
-    if (s.mensagem_id === mensagemId) yield { evento: 'sugestao', dados: { id: s.id, tipo: s.tipo, conteudo: s.conteudo } };
+    if (s.mensagem_id === mensagemId) yield { evento: 'sugestao', dados: { id: s.id, tipo: s.tipo, conteudo: s.conteudo, status: s.status, item_id: s.item_id } };
   }
 }
 
@@ -188,7 +188,7 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
   for (const p of propostas) {
     const id = uuidv7();
     await inserirSugestao(env.DB, { id, mensagemId: respostaId, tipo: p.tipo, conteudo: p.conteudo }, deps.agora());
-    yield { evento: 'sugestao', dados: { id, tipo: p.tipo, conteudo: p.conteudo } };
+    yield { evento: 'sugestao', dados: { id, tipo: p.tipo, conteudo: p.conteudo, status: 'pendente', item_id: null } };
   }
 
   // Título automático (regra 4): depois da 1ª resposta, pelo modelo econômico; falhou → 40 primeiros caracteres.

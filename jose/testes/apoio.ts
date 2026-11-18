@@ -149,9 +149,11 @@ export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}):
     if (titulo) conversa.titulo = titulo;
     const novas = f.sugerir.splice(0).map((c, i): SugestaoFalsa => ({ id: `sg-${resposta.id}-${i}`, mensagem_id: resposta.id, tipo: 'memoria', conteudo: c, status: 'pendente', item_id: null }));
     conversa.sugestoes = [...(conversa.sugestoes ?? []), ...novas];
+    // Reenvio de mensagem já respondida: o servidor real repete as sugestões gravadas, com o status atual.
+    const enviadas = jaTinha ? (conversa.sugestoes ?? []).filter((x) => x.mensagem_id === resposta.id) : novas;
     return corpoSse([
       ['texto', { delta: 'Resposta do José. ' }], ['texto', { delta: 'Próximo passo: abrir o arquivo.' }],
-      ...novas.map((n): [string, unknown] => ['sugestao', { id: n.id, tipo: n.tipo, conteudo: n.conteudo }]),
+      ...enviadas.map((n): [string, unknown] => ['sugestao', { id: n.id, tipo: n.tipo, conteudo: n.conteudo, status: n.status, item_id: n.item_id }]),
       ['fim', titulo ? { mensagem_id: resposta.id, titulo } : { mensagem_id: resposta.id }],
     ]);
   });

@@ -16,7 +16,7 @@ export interface MensagemParaEnviar {
 
 export type EventoChat =
   | { tipo: 'texto'; delta: string }
-  | { tipo: 'sugestao'; id: string; sugestaoTipo: 'tarefa' | 'meta' | 'memoria'; conteudo: unknown }
+  | { tipo: 'sugestao'; id: string; sugestaoTipo: 'tarefa' | 'meta' | 'memoria'; conteudo: unknown; status: 'pendente' | 'salva' | 'descartada'; itemId: string | null }
   | { tipo: 'fim'; mensagemId: string; titulo?: string }
   | { tipo: 'erro'; codigo: string; mensagem: string };
 
@@ -60,7 +60,11 @@ export async function enviarMensagem(conversaId: string, msg: MensagemParaEnviar
       for (const ev of parser.alimentar(decodificador.decode(value, { stream: true }))) {
         const d = ev.dados as Record<string, unknown>;
         if (ev.evento === 'texto') aoEvento({ tipo: 'texto', delta: String(d.delta ?? '') });
-        else if (ev.evento === 'sugestao') aoEvento({ tipo: 'sugestao', id: String(d.id), sugestaoTipo: d.tipo as 'tarefa', conteudo: d.conteudo });
+        else if (ev.evento === 'sugestao') {
+          // O servidor repete as sugestões ao reenviar uma mensagem já respondida: o status gravado vale (salva, descartada ou pendente).
+          const status = d.status === 'salva' || d.status === 'descartada' ? d.status : 'pendente';
+          aoEvento({ tipo: 'sugestao', id: String(d.id), sugestaoTipo: d.tipo as 'tarefa', conteudo: d.conteudo, status, itemId: typeof d.item_id === 'string' ? d.item_id : null });
+        }
         else if (ev.evento === 'fim') {
           terminou = true;
           aoEvento({ tipo: 'fim', mensagemId: String(d.mensagem_id), titulo: typeof d.titulo === 'string' ? d.titulo : undefined });

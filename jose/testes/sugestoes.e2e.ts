@@ -108,6 +108,28 @@ test.describe('Cartão de sugestão no Chat (4.5)', () => {
     await expect(page.getByText('Descartada.')).toHaveCount(0);
   });
 
+  test('reenviar uma mensagem já respondida: salva continua "✓ Salvo", descartada não reaparece e pendente volta como cartão', async ({ page }) => {
+    const f = await abrir(page, { planos: ['cortada'] });
+    await enviar(page, 'três fatos');
+    await expect(page.getByRole('button', { name: 'Tentar de novo' })).toBeVisible();
+    // O servidor chegou a responder e o Marco tratou duas sugestões em outro aparelho.
+    const msg = f.postsMensagem[0]!;
+    const resposta = `${msg.id}-resp`;
+    const conversa = f.conversas[0]!;
+    conversa.mensagens.push({ id: resposta, autor: 'jose', texto: 'Resposta do José. Próximo passo: abrir o arquivo.', origem: 'texto', modelo: 'claude-haiku-5-5', criada_em: new Date().toISOString() });
+    conversa.sugestoes = [
+      { id: 'sg-p', mensagem_id: resposta, tipo: 'memoria', conteudo: { texto: 'Pendente.', area: 'casa' }, status: 'pendente', item_id: null },
+      { id: 'sg-s', mensagem_id: resposta, tipo: 'memoria', conteudo: { texto: 'Já salva.', area: 'casa' }, status: 'salva', item_id: 'm1' },
+      { id: 'sg-d', mensagem_id: resposta, tipo: 'memoria', conteudo: { texto: 'Descartada.', area: 'casa' }, status: 'descartada', item_id: null },
+    ];
+    await page.getByRole('button', { name: 'Tentar de novo' }).click();
+    await expect(page.getByText('Pendente.')).toBeVisible();
+    await expect(page.getByText('Já salva.')).toBeVisible();
+    await expect(page.getByRole('link', { name: '✓ Salvo em José sabe' })).toHaveCount(1);
+    await expect(page.getByText('Descartada.')).toHaveCount(0);
+    await expect(cartoes(page)).toHaveCount(1);
+  });
+
   test('no máximo 3 cartões por resposta', async ({ page }) => {
     await abrir(page, { sugerir: ['a', 'b', 'c', 'd'].map((t) => ({ texto: `Fato ${t}`, area: 'casa' })) });
     await enviar(page);

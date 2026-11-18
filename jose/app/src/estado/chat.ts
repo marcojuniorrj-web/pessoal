@@ -14,6 +14,8 @@ export interface SugestaoDoChat {
   tipo: 'tarefa' | 'meta' | 'memoria';
   conteudo: unknown;
   status: 'pendente' | 'salva' | 'descartada';
+  /** Memória criada quando a sugestão foi salva (se já foi). */
+  itemId?: string | null;
 }
 export interface Bolha {
   id: string;
@@ -149,7 +151,7 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
           atualizarResposta((b) => {
             const atuais = b.sugestoes ?? [];
             if (atuais.length >= 3 || atuais.some((x) => x.id === ev.id)) return b;
-            return { ...b, sugestoes: [...atuais, { id: ev.id, tipo: ev.sugestaoTipo, conteudo: ev.conteudo, status: 'pendente' }] };
+            return { ...b, sugestoes: [...atuais, { id: ev.id, tipo: ev.sugestaoTipo, conteudo: ev.conteudo, status: ev.status, itemId: ev.itemId }] };
           });
         } else if (ev.tipo === 'fim') {
           pendenteRef.current = null;
