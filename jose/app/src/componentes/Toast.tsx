@@ -1,4 +1,5 @@
 import { createContext, useContext, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from 'react';
+import { manterAcimaDoToast } from '../estado/toast-espaco';
 import { criarFilaToast, type FilaToast } from '../estado/fila-toast';
 
 const Contexto = createContext<FilaToast | null>(null);
@@ -22,6 +23,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }
     const medir = () => raiz.style.setProperty('--reserva-toast', `${Math.ceil(el.offsetHeight) + RESPIRO_TOAST_PX}px`);
     medir();
+    manterAcimaDoToast(document.querySelector('.form-item'));
     const obs = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(medir);
     obs?.observe(el);
     return () => {

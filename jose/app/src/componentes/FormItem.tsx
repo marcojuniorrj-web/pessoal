@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ConteudoItem } from '../estado/item-edicao';
 import { validarItem } from '../estado/item-edicao';
+import { manterAcimaDoToast } from '../estado/toast-espaco';
 import { Botao } from './Botao';
 import { CamposItem, type ValoresItem } from './CamposItem';
 
@@ -27,6 +28,7 @@ export function FormItem({ titulo, tipo, inicial, rotuloSalvar, aoSalvar, aoCanc
     campoRef.current?.focus();
     // No centro da janela: nem a barra de abas nem o aviso (que fica acima dela) cobrem o formulário.
     formRef.current?.scrollIntoView?.({ block: 'center' });
+    manterAcimaDoToast(formRef.current);
   }, []);
 
   const enviar = async (e?: React.FormEvent) => {

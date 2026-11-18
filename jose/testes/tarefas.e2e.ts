@@ -351,3 +351,40 @@ test('em 390px cabem no máximo 7 itens sem rolar (com 12 tarefas), e pelo menos
   expect(visiveis).toBeLessThanOrEqual(7);
   expect(visiveis).toBeGreaterThanOrEqual(3);
 });
+
+// Onda 5, ajuste 3: o aviso "Feito! Desfazer" nunca cobre o formulário de edição (nem a base, onde ficam Salvar e Cancelar).
+// 320x568 (iPhone SE): a janela mais curta, onde o formulário de edição quase não cabe acima do aviso.
+for (const tamanho of [{ width: 320, height: 568 }, { width: 320, height: 640 }, { width: 390, height: 844 }, { width: 1280, height: 800 }]) {
+  for (const tipo of ['tarefa', 'meta'] as const) {
+    test(`${tamanho.width}x${tamanho.height}: "Feito! Desfazer" não cobre Salvar/Cancelar do formulário de ${tipo} (aviso antes e depois de abrir)`, async ({ page }) => {
+      await page.setViewportSize(tamanho);
+      // Títulos de duas linhas deixam o formulário alto (o caso mais apertado em 320x640).
+      const titulos = Array.from({ length: 30 }, (_, i) => `Item ${i} da lista, com um título um pouco mais comprido para quebrar a linha`);
+      await abrir(page, tipo === 'tarefa' ? { tarefas: titulos.map((t) => tarefaFalsa(t)) } : { metas: titulos.map((t) => metaFalsa(t)) }, tipo === 'tarefa' ? '/tarefas' : '/tarefas?aba=metas');
+      const conferir = async () => {
+        await page.waitForTimeout(600); // fim da animação e da rolagem
+        const [toast] = await medir(page, '.toast');
+        for (const nome of ['Salvar', 'Cancelar']) {
+          const alvo = page.locator('.form-item').getByRole('button', { name: nome });
+          await expect(alvo).toBeVisible();
+          const caixa = await alvo.boundingBox();
+          expect(sobrepoe(toast!, { rotulo: nome, ...caixa! }), `o aviso cobre ${nome}`).toBe(false);
+        }
+      };
+      // 1) aviso primeiro, formulário depois
+      await page.getByRole('button', { name: 'Concluir: Item 3 da lista, com um título um pouco mais comprido para quebrar a linha' }).click();
+      await expect(aviso(page)).toContainText('Feito!');
+      await page.getByRole('button', { name: `Editar: Item 12 da lista, com um título um pouco mais comprido para quebrar a linha`, exact: true }).click();
+      await expect(page.locator('.form-item')).toBeVisible();
+      await conferir();
+      // 2) formulário aberto, aviso depois
+      await page.keyboard.press('Escape');
+      await expect(page.locator('.form-item')).toHaveCount(0);
+      await page.getByRole('button', { name: `Editar: Item 11 da lista, com um título um pouco mais comprido para quebrar a linha`, exact: true }).click();
+      await expect(page.locator('.form-item')).toBeVisible();
+      await page.getByRole('button', { name: `Concluir: Item 10 da lista, com um título um pouco mais comprido para quebrar a linha`, exact: true }).click();
+      await expect(aviso(page)).toContainText('Feito!');
+      await conferir();
+    });
+  }
+}
