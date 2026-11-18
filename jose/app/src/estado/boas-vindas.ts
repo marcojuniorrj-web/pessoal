@@ -17,8 +17,14 @@ export function destinoInicial(usuario: Pick<Usuario, 'boas_vindas_concluida'>, 
 
 /** Conversa de boas-vindas que a tela abre quando a URL não traz `?c=`: a em aberto (de /api/eu) ou nenhuma (precisa criar). */
 export function conversaParaRetomar(usuario: Pick<Usuario, 'boas_vindas_concluida' | 'conversa_boas_vindas_id'>): string | null {
-  return usuario.boas_vindas_concluida ? null : (usuario.conversa_boas_vindas_id ?? null);
+  const id = usuario.conversa_boas_vindas_id;
+  return usuario.boas_vindas_concluida || !id || inexistentes.has(id) ? null : id;
 }
+
+// Ids que o servidor disse não existirem (404): nunca são retomados de novo (senão /boas-vindas voltaria ao mesmo id para sempre).
+const inexistentes = new Set<string>();
+export const marcarConversaInexistente = (id: string) => void inexistentes.add(id);
+export const limparConversasInexistentes = () => inexistentes.clear();
 
 /** Caminho da tela de boas-vindas para uma conversa. */
 export const caminhoBoasVindas = (id: string) => `/boas-vindas?c=${encodeURIComponent(id)}`;

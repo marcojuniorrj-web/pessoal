@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const criar = vi.fn();
 vi.mock('../api/boasvindas', () => ({ criarConversaBoasVindas: () => criar() }));
 
-const { abrirBoasVindas, caminhoBoasVindas, conversaParaRetomar, criarBoasVindasUnica, destinoInicial } = await import('./boas-vindas');
+const { abrirBoasVindas, caminhoBoasVindas, conversaParaRetomar, criarBoasVindasUnica, destinoInicial, limparConversasInexistentes, marcarConversaInexistente } = await import('./boas-vindas');
 
-beforeEach(() => criar.mockReset());
+beforeEach(() => {
+  criar.mockReset();
+  limparConversasInexistentes();
+});
 
 describe('destinoInicial (roteamento depois do login)', () => {
   it('boas-vindas não concluídas → Boas-vindas (sem conversa na URL)', () => {
@@ -27,6 +30,18 @@ describe('conversaParaRetomar', () => {
     expect(conversaParaRetomar({ boas_vindas_concluida: false, conversa_boas_vindas_id: 'c1' })).toBe('c1');
     expect(conversaParaRetomar({ boas_vindas_concluida: false })).toBeNull();
     expect(conversaParaRetomar({ boas_vindas_concluida: true, conversa_boas_vindas_id: 'c1' })).toBeNull();
+  });
+});
+
+describe('conversa que deu 404 nunca é retomada de novo (sem laço)', () => {
+  it('o id marcado como inexistente é ignorado: abrirBoasVindas cria outra em vez de voltar ao mesmo id', async () => {
+    criar.mockResolvedValue({ id: 'nova' });
+    const u = { boas_vindas_concluida: false, conversa_boas_vindas_id: 'velha' };
+    expect(conversaParaRetomar(u)).toBe('velha');
+    marcarConversaInexistente('velha');
+    expect(conversaParaRetomar(u)).toBeNull();
+    expect(await abrirBoasVindas(u)).toBe('nova');
+    expect(conversaParaRetomar({ ...u, conversa_boas_vindas_id: 'outra' })).toBe('outra');
   });
 });
 

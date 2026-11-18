@@ -205,6 +205,29 @@ test.describe('Boas-vindas: o fluxo do 1º acesso', () => {
   });
 });
 
+test.describe('Boas-vindas: conversa que não abre', () => {
+  test('o id em memória dá 404 sempre: cria UMA conversa nova, não volta ao mesmo id e não entra em laço', async ({ page }) => {
+    await simularApi(page);
+    const f = await simularBoasVindas(page, { conversas: [conversaBV('x', 1)] });
+    let leituras = 0;
+    await page.route((u) => /^\/api\/conversas\/[^/]+$/.test(u.pathname) && u.pathname !== '/api/conversas/hoje', (r) => {
+      if (r.request().method() !== 'GET') return r.fallback();
+      leituras++;
+      return r.fulfill({ status: 404, json: { erro: { codigo: 'nao_encontrado', mensagem: 'Não encontrado.' } } });
+    });
+    await page.goto('/');
+    await expect(page.getByText('Não foi possível carregar.')).toBeVisible();
+    await page.waitForTimeout(1200);
+    const depois = leituras;
+    await page.waitForTimeout(1200);
+    expect(leituras).toBe(depois); // parou
+    expect(leituras, `leituras: ${leituras}`).toBeLessThanOrEqual(4); // 2 conversas x 2 (StrictMode em desenvolvimento)
+    expect(f.criadas).toBe(1); // uma conversa nova, não infinitas
+    expect(f.envios).toEqual([]);
+  });
+
+});
+
 test.describe('Boas-vindas: erros sem perder o que já foi feito', () => {
   test('erro da IA no resumo: balão com Tentar de novo (as respostas ficam) e o resumo chega depois', async ({ page }) => {
     const { f } = await abrir(page, { planos: ['ok', 'ok', 'ok', 'ok', 'erro-ia'] });

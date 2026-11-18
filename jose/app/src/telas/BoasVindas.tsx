@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { Botao } from '../componentes/Botao';
 import { EsqueletoLista } from '../componentes/Esqueleto';
-import { caminhoBoasVindas, conversaParaRetomar, criarBoasVindasUnica } from '../estado/boas-vindas';
+import { caminhoBoasVindas, conversaParaRetomar, criarBoasVindasUnica, marcarConversaInexistente } from '../estado/boas-vindas';
 import { marcarFaixaPendente } from '../estado/instalar';
 import { useSessao, useUsuario } from '../estado/sessao';
 import { Chat } from './Chat';
@@ -46,8 +46,19 @@ export function BoasVindas() {
     ir('/', { replace: true });
   }, [atualizarUsuario, ir]);
 
-  // A conversa da URL não existe mais (404): cria outra se as boas-vindas ainda não foram concluídas; senão, Chat.
-  const aoNaoEncontrada = useCallback(() => ir(concluidas ? '/' : '/boas-vindas', { replace: true }), [concluidas, ir]);
+  // A conversa da URL não existe mais (404): esse id nunca mais é retomado; cria UMA conversa nova (se as boas-vindas ainda não
+  // foram concluídas) ou volta ao Chat. Se a nova também der 404, para: a tela de erro (Tentar de novo, Pular, Ir para o Chat) fica.
+  const recriadas = useRef(0);
+  const aoNaoEncontrada = useCallback(() => {
+    if (id) marcarConversaInexistente(id);
+    if (concluidas) {
+      ir('/', { replace: true });
+      return;
+    }
+    if (recriadas.current >= 1) return;
+    recriadas.current += 1;
+    ir('/boas-vindas', { replace: true });
+  }, [concluidas, id, ir]);
 
   if (!id && concluidas) return <Navigate to="/" replace />;
   if (!id) {
