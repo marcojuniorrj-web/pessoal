@@ -154,7 +154,7 @@ html[data-teclado='aberto'] .barra-abas { display: none; }
 /* Mouse: um ⋯ discreto ao passar o mouse ou focar (no celular só a pressão longa). */
 @media (hover: hover) and (pointer: fine) {
   .mensagem__mais {
-    display: inline-flex; align-items: center; justify-content: center; min-width: 32px; min-height: var(--alvo-minimo);
+    display: inline-flex; align-items: center; justify-content: center; min-width: var(--alvo-minimo); min-height: var(--alvo-minimo);
     margin: -15px 0; padding: 0; background: transparent; border: 0; color: var(--texto-2); font-size: 18px; cursor: pointer; opacity: 0;
   }
   .mensagem:hover .mensagem__mais, .mensagem:focus-within .mensagem__mais { opacity: 1; }

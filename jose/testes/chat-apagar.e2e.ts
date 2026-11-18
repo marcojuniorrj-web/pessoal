@@ -572,3 +572,21 @@ test.describe('Aviso com o teclado aberto (correção F6)', () => {
     expect(campo.bottom).toBeLessThanOrEqual(visivel + 0.5);
   });
 });
+
+test.describe('⋯ do mouse (correção F8)', () => {
+  for (const largura of [320, 390, 1280]) {
+    test(`${largura}px: o ⋯ mede pelo menos 48x48 e não causa rolagem lateral`, async ({ page }, info) => {
+      test.skip(info.project.name !== 'computador', 'o ⋯ é só para mouse');
+      await page.setViewportSize({ width: largura, height: 700 });
+      const longo = `${'Z'.repeat(80)} ${'texto longo '.repeat(20)}`.trim();
+      await abrir(page, {}, [conversaA([['marco', longo, 20], ['jose', longo, 19]])]);
+      const botoes = await medir(page, '.mensagem__mais');
+      expect(botoes.length).toBeGreaterThan(0);
+      expect(menoresQue(botoes)).toEqual([]);
+      const m = await elementosForaDaTela(page);
+      expect(m.rolagem).toBeLessThanOrEqual(m.largura);
+      expect(m.fora, JSON.stringify(m.fora)).toEqual([]);
+      expect(m.transbordo, JSON.stringify(m.transbordo)).toEqual([]);
+    });
+  }
+});
