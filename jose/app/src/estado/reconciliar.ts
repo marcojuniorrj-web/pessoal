@@ -23,6 +23,13 @@ export interface OpcoesMesclar {
   agora?: number;
 }
 
+/** O servidor já tem a resposta do José para a mensagem do Marco `pendenteId` (a conexão caiu, mas a resposta foi gravada). */
+export function servidorJaRespondeu(servidor: ConversaCompleta, pendenteId: string | null | undefined): boolean {
+  if (!pendenteId) return false;
+  const i = servidor.mensagens.findIndex((m) => m.id === pendenteId);
+  return i >= 0 && servidor.mensagens[i + 1]?.autor === 'jose';
+}
+
 /**
  * Mensagens do servidor + o que só existe localmente. Devolve a MESMA lista (mesma referência) quando nada mudou,
  * para a tela não piscar nem rolar.
@@ -43,8 +50,11 @@ export function mesclarComServidor(locais: Bolha[], servidor: ConversaCompleta, 
     return b;
   });
   const noServidor = new Set(doServidor.map((b) => b.id));
+  // A conexão caiu no meio, mas o servidor gravou a resposta: a bolha de erro ("Tentar de novo") não faz mais sentido.
+  const respondeu = servidorJaRespondeu(servidor, opcoes.pendenteId);
   const soAqui = locais.filter((b) => {
     if (noServidor.has(b.id)) return false;
+    if (respondeu && b.id === ID_TEMPORARIO && b.estado === 'erro') return false;
     if (b.id === ID_TEMPORARIO || b.estado !== 'ok' || b.id === opcoes.pendenteId) return true;
     const quando = b.criadaEm ? Date.parse(b.criadaEm) : NaN;
     return Number.isFinite(quando) && agora - quando < FOLGA_RECENTE_MS;

@@ -5,9 +5,9 @@ import { ErroHttp, ErroRede } from '../api/cliente';
 import {
   abrirConversa, conversaDeHoje, criarConversa, enviarMensagem, ErroInterrompido, type EventoChat, type MensagemParaEnviar,
 } from '../api/conversas';
-import { estaPendente } from './apagar-com-desfazer';
 import { limparRascunho, salvarRascunho } from './rascunho';
-import { bolhaDe, ID_TEMPORARIO, mesclarComServidor } from './reconciliar';
+import { conversaIndisponivel, confirmarConversaApagada, desmarcarPendenteDeApagar } from './conversas-apagadas';
+import { bolhaDe, ID_TEMPORARIO, mesclarComServidor, servidorJaRespondeu } from './reconciliar';
 
 export type TipoErroBolha = 'ia' | 'rede' | 'interrompida' | 'limite' | 'sessao';
 /** Cartão de sugestão ligado a uma resposta do José. */
@@ -103,7 +103,7 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
       .then((dados) => {
         if (cancelado) return;
         // Uma conversa que o Marco acabou de apagar (ainda nos 5 s do Desfazer) não volta como "conversa de hoje".
-        if (!dados || estaPendente(dados.conversa.id)) {
+        if (!dados || conversaIndisponivel(dados.conversa.id)) {
           reiniciar({ id: null, titulo: null, modo: 'padrao' });
         } else {
           reiniciar({ id: dados.conversa.id, titulo: dados.conversa.titulo, modo: dados.conversa.modo });
@@ -160,16 +160,30 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
           atualizarResposta((b) => ({ ...b, estado: 'erro', erro: { tipo: 'ia', mensagem: ev.mensagem } }));
         }
       };
+      let criouAqui = false;
+      const criar = async () => {
+        const { id } = await criarConversa(conversaRef.current.modo);
+        // O rascunho da conversa nova passa para a conversa criada (vale também se vier um 401 em seguida).
+        salvarRascunho(id, msg.texto);
+        limparRascunho(null);
+        definirConversa({ ...conversaRef.current, id, titulo: null });
+        aoCriarRef.current(id);
+        criouAqui = true;
+      };
       try {
-        if (!conversaRef.current.id) {
-          const { id } = await criarConversa(conversaRef.current.modo);
-          // O rascunho da conversa nova passa para a conversa criada (vale também se vier um 401 em seguida).
-          salvarRascunho(id, msg.texto);
-          limparRascunho(null);
-          definirConversa({ ...conversaRef.current, id });
-          aoCriarRef.current(id);
+        if (!conversaRef.current.id) await criar();
+        else desmarcarPendenteDeApagar(conversaRef.current.id); // voltou a ter mensagem: a exclusão da conversa vazia perde o sentido
+        try {
+          await enviarMensagem(conversaRef.current.id!, msg, aoEvento, ctl.signal);
+        } catch (e) {
+          // Rede de segurança: a conversa aberta já não existe no servidor (404; ex.: apagada nos 5 s do Desfazer ou em outro aparelho).
+          // Cria uma conversa nova e reenvia a MESMA mensagem uma única vez (mesmo id: sem duplicar, sem perder o texto).
+          if (!(e instanceof ErroHttp && e.status === 404) || criouAqui || ctl.signal.aborted) throw e;
+          confirmarConversaApagada(conversaRef.current.id!);
+          setBolhas((l) => l.filter((b) => b.id === msg.id || b.id === ID_TEMPORARIO));
+          await criar();
+          await enviarMensagem(conversaRef.current.id!, msg, aoEvento, ctl.signal);
         }
-        await enviarMensagem(conversaRef.current.id!, msg, aoEvento, ctl.signal);
       } catch (e) {
         if (ctl.signal.aborted) return;
         const erro = erroDeExcecao(e);
@@ -243,9 +257,13 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
     try {
       const dados = await abrirConversa(id);
       if (conversaRef.current.id !== id) return null; // o Marco já abriu outra conversa
-      setBolhas((atual) => mesclarComServidor(atual, dados, { pendenteId: pendenteRef.current?.id }));
+      const pendenteId = pendenteRef.current?.id; // lido já: o setBolhas abaixo roda depois (e a linha seguinte zera a ref)
+      setBolhas((atual) => mesclarComServidor(atual, dados, { pendenteId }));
+      if (servidorJaRespondeu(dados, pendenteId)) pendenteRef.current = null; // a resposta já está lá: nada a tentar de novo
       return new Set(dados.mensagens.map((m) => m.id));
-    } catch {
+    } catch (e) {
+      // 404: a conversa não existe mais (apagada em outro aparelho): o Chat vai ao Chat vazio, preservando o texto digitado.
+      if (e instanceof ErroHttp && e.status === 404) confirmarConversaApagada(id, 'Conversa apagada.');
       return null;
     }
   }, []);

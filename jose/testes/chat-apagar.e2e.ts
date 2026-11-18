@@ -830,3 +830,111 @@ test.describe('Áreas seguras do iPhone (viewport-fit=cover): nada fica sob a ba
     expect(m.fora, JSON.stringify(m.fora)).toEqual([]);
   });
 });
+
+test.describe('Conversa apagada e Chat remontado (rodada final)', () => {
+  const aba = (page: Page, nome: string) => page.getByRole('navigation').getByText(nome, { exact: true }).click();
+
+  test('apagar o último par, ir a outra aba e voltar dentro dos 5 s: o Chat vem vazio e o envio funciona (conversa nova, sem 404)', async ({ page }) => {
+    const f = await abrir(page);
+    await segurar(page, balaoMarco(page));
+    await folha(page).getByRole('button', { name: 'Apagar mensagem e resposta' }).click();
+    await aba(page, 'Tarefas');
+    await aba(page, 'Chat');
+    await expect(page.locator('.chat-vazio')).toBeVisible();
+    await expect(balaoMarco(page)).toHaveCount(0);
+    await page.getByLabel('Mensagem para o José').fill('mensagem depois de voltar');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(balaoJose(page)).toContainText('Próximo passo');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    expect(f.postsConversa).toHaveLength(1);
+    expect(f.postsMensagem.map((p) => p.conversa)).not.toContain('a');
+    // a exclusão da conversa vazia antiga termina sem puxar o Marco da conversa nova
+    await expect.poll(() => f.deletesMensagem.length, { timeout: 7000 }).toBe(1);
+    await page.waitForTimeout(500);
+    await expect(page).toHaveURL(/\/\?c=c1$/);
+    await expect(balaoMarco(page)).toHaveText('mensagem depois de voltar');
+  });
+
+  test('voltar à aba Chat dentro dos 5 s e ficar lá: quando a exclusão termina nada muda e a conversa antiga não reaparece', async ({ page }) => {
+    const f = await abrir(page);
+    await segurar(page, balaoMarco(page));
+    await folha(page).getByRole('button', { name: 'Apagar mensagem e resposta' }).click();
+    await aba(page, 'Tarefas');
+    await aba(page, 'Chat');
+    await expect(page.locator('.chat-vazio')).toBeVisible();
+    await expect.poll(() => f.deletesMensagem.length, { timeout: 7000 }).toBe(1);
+    await expect(page.locator('.chat-vazio')).toBeVisible();
+    await aba(page, 'Tarefas');
+    await aba(page, 'Chat');
+    await expect(page.locator('.chat-vazio')).toBeVisible();
+  });
+
+  test('rede de segurança: o envio devolve 404 (conversa inexistente): cria uma conversa nova e reenvia a MESMA mensagem uma vez, sem duplicar', async ({ page }) => {
+    const f = await abrir(page);
+    f.conversas = []; // o servidor perdeu a conversa (apagada em outro aparelho) sem o app saber
+    const tentativas: string[] = [];
+    page.on('request', (r) => r.method() === 'POST' && /\/api\/conversas\/[^/]+\/mensagens$/.test(r.url()) && tentativas.push(r.url().split('/').at(-2)!));
+    await page.getByLabel('Mensagem para o José').fill('será que chega?');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(balaoJose(page).last()).toContainText('Próximo passo');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    expect(f.postsConversa).toHaveLength(1);
+    // 2 envios da mesma mensagem: o 1º (conversa antiga) deu 404; o 2º (conversa nova) valeu — e só um é gravado
+    expect(tentativas).toHaveLength(2);
+    expect(tentativas[0]).toBe('a');
+    expect(tentativas[1]).not.toBe('a');
+    expect(f.postsMensagem).toHaveLength(1);
+    await expect(balaoMarco(page)).toHaveText('será que chega?');
+    await expect(page).toHaveURL(/\/\?c=c1$/);
+    expect(f.conversas[0]!.mensagens.filter((m) => m.autor === 'marco')).toHaveLength(1);
+  });
+
+  test('texto digitado na tela vazia durante os 5 s passa para o Chat vazio novo quando a conversa é apagada', async ({ page }) => {
+    const f = await abrir(page);
+    await segurar(page, balaoMarco(page));
+    await folha(page).getByRole('button', { name: 'Apagar mensagem e resposta' }).click();
+    await expect(page.locator('.chat-vazio')).toBeVisible();
+    await page.getByLabel('Mensagem para o José').fill('comecei a escrever na tela vazia');
+    await expect.poll(() => f.deletesMensagem.length, { timeout: 7000 }).toBe(1);
+    await expect(page).toHaveURL(/\/\?nova=1$/);
+    await expect(page.getByLabel('Mensagem para o José')).toHaveValue('comecei a escrever na tela vazia');
+    await expect(page.locator('.toast')).toContainText('Conversa vazia apagada.');
+  });
+
+  test('se o Marco enviou uma mensagem nos 5 s (envio em andamento), a conversa não é apagada nem ele é levado ao Chat vazio', async ({ page }) => {
+    const f = await abrir(page, { atrasoMs: 6500 });
+    await segurar(page, balaoMarco(page));
+    await folha(page).getByRole('button', { name: 'Apagar mensagem e resposta' }).click();
+    await page.getByLabel('Mensagem para o José').fill('mando outra antes de apagar');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect.poll(() => f.deletesMensagem.length, { timeout: 8000 }).toBe(1);
+    await expect(page).not.toHaveURL(/nova=1/);
+    await expect(balaoMarco(page)).toHaveText('mando outra antes de apagar');
+    await expect(balaoJose(page).last()).toContainText('Próximo passo', { timeout: 5000 });
+    expect(f.conversas.map((c) => c.id)).toEqual(['a']);
+  });
+
+  test('a leitura de reconciliação devolve 404 (apagada em outro aparelho): vai ao Chat vazio com "Conversa apagada.", sem perder o texto', async ({ page }) => {
+    const f = await abrir(page);
+    await page.getByLabel('Mensagem para o José').fill('texto em andamento');
+    f.conversas = [];
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await expect(page).toHaveURL(/\/\?nova=1$/);
+    await expect(page.locator('.toast')).toContainText('Conversa apagada.');
+    await expect(page.getByLabel('Mensagem para o José')).toHaveValue('texto em andamento');
+    await expect(page.locator('.chat-vazio')).toBeVisible();
+  });
+
+  test('a conexão caiu mas o servidor gravou a resposta: ao voltar à frente a bolha de erro some e a resposta aparece', async ({ page }) => {
+    const f = await abrir(page, { planos: ['cortada'] });
+    await page.getByLabel('Mensagem para o José').fill('pergunta com resposta perdida');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByRole('alert')).toContainText('A resposta foi interrompida.');
+    const marco = f.conversas[0]!.mensagens.at(-1)!;
+    f.conversas[0]!.mensagens.push({ id: 'resp-gravada', autor: 'jose', texto: 'Resposta que o servidor gravou', origem: 'texto', modelo: null, criada_em: new Date(Date.parse(marco.criada_em) + 1000).toISOString() });
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await expect(balaoJose(page).last()).toHaveText('Resposta que o servidor gravou');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Tentar de novo' })).toHaveCount(0);
+  });
+});

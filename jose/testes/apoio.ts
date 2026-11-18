@@ -169,12 +169,14 @@ export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}):
     if (!conversa) return json(404, { erro: { codigo: 'nao_encontrado', mensagem: 'Não encontrado.' } });
     const msg = req.postDataJSON() as { id: string; texto: string; origem: 'texto' | 'voz' };
     f.postsMensagem.push({ conversa: conversa.id, id: msg.id, texto: msg.texto });
-    if (f.atrasoMs) await espera(f.atrasoMs);
     const plano = f.planos.shift() ?? 'ok';
+    if (f.atrasoMs && (plano === '401' || plano === 'limite')) await espera(f.atrasoMs);
     if (plano === '401') return json(401, { erro: { codigo: 'nao_autenticado', mensagem: 'Entre de novo.' } });
     if (plano === 'limite') return json(429, { erro: { codigo: 'limite_diario', mensagem: 'Limite de hoje atingido, volta amanhã.' } });
     const existente = conversa.mensagens.findIndex((m) => m.id === msg.id);
+    // Como o servidor: a mensagem do Marco é gravada ANTES de a IA responder; o atraso simula a IA pensando.
     if (existente < 0) conversa.mensagens.push({ id: msg.id, autor: 'marco', texto: msg.texto, origem: msg.origem, modelo: null, criada_em: iso(0) });
+    if (f.atrasoMs) await espera(f.atrasoMs);
     const corpoSse = (eventos: Array<[string, unknown]>) => rota.fulfill({ status: 200, contentType: 'text/event-stream', body: sse(eventos) });
     if (plano === 'erro-ia') return corpoSse([['erro', { codigo: 'ia_indisponivel', mensagem: 'O José não conseguiu responder agora.' }]]);
     if (plano === 'cortada') return corpoSse([['texto', { delta: 'Resposta pela metade' }]]);

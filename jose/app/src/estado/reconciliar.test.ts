@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ConversaCompleta } from '@compartilhado/schemas';
 import type { Bolha } from './chat';
-import { FOLGA_RECENTE_MS, ID_TEMPORARIO, mesclarComServidor } from './reconciliar';
+import { FOLGA_RECENTE_MS, ID_TEMPORARIO, mesclarComServidor, servidorJaRespondeu } from './reconciliar';
 
 const AGORA = Date.parse('2026-11-18T12:00:00.000Z');
 const iso = (segAtras: number) => new Date(AGORA - segAtras * 1000).toISOString();
@@ -68,5 +68,23 @@ describe('mesclarComServidor', () => {
     const l = local('b', 'jose', { sugestoes: [{ id: 's1', tipo: 'memoria', conteudo: {}, status: 'pendente' }] });
     const sv = servidor([msg('b', 'jose')], [{ id: 's1', mensagem_id: 'b', tipo: 'memoria', conteudo: {}, status: 'salva', item_id: 'm1' }]);
     expect(mesclarComServidor([l], sv, { agora: AGORA })[0]!.sugestoes![0]!.status).toBe('salva');
+  });
+
+  it('se o servidor já tem a resposta do José (a conexão caiu), a bolha de erro temporária some', () => {
+    const erro = local(ID_TEMPORARIO, 'jose', { estado: 'erro', erro: { tipo: 'interrompida', mensagem: 'A resposta foi interrompida.' }, criadaEm: undefined });
+    const locais = [local('a', 'marco'), erro];
+    const sv = servidor([msg('a', 'marco'), msg('resp', 'jose')]);
+    expect(servidorJaRespondeu(sv, 'a')).toBe(true);
+    expect(ids(mesclarComServidor(locais, sv, { agora: AGORA, pendenteId: 'a' }))).toEqual(['a', 'resp']);
+    // sem resposta no servidor, a bolha de erro continua (para o "Tentar de novo")
+    const sem = servidor([msg('a', 'marco')]);
+    expect(servidorJaRespondeu(sem, 'a')).toBe(false);
+    expect(ids(mesclarComServidor(locais, sem, { agora: AGORA, pendenteId: 'a' }))).toEqual(['a', ID_TEMPORARIO]);
+  });
+
+  it('a resposta em andamento (transmitindo) nunca é removida, mesmo que o servidor já tenha uma resposta', () => {
+    const andando = local(ID_TEMPORARIO, 'jose', { estado: 'transmitindo', texto: 'parcial', criadaEm: undefined });
+    const r = mesclarComServidor([local('a', 'marco'), andando], servidor([msg('a', 'marco'), msg('resp', 'jose')]), { agora: AGORA, pendenteId: 'a' });
+    expect(ids(r)).toEqual(['a', 'resp', ID_TEMPORARIO]);
   });
 });

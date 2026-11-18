@@ -25,6 +25,9 @@ título, o topo mostra "Nova conversa".
 **Padrões comuns a todas as telas**
 - **Apagar** (mensagem, tarefa, meta, memória, conversa): some da tela na hora e mostra o aviso **"Apagado. Desfazer"** por 5 s.
   Só depois dos 5 s o app chama a API (Desfazer cancela). Não há pergunta de confirmação. Os gestos de deslizar sempre têm uma alternativa visível (⋯).
+- **Conversa apagada:** uma conversa que está nos 5 s do Desfazer (por ter perdido a última mensagem) ou que o servidor já não tem nunca é aberta nem continuada: o Chat vai ao Chat vazio, levando o texto que o Marco já digitou ("Conversa apagada." quando foi apagada em outro aparelho). Se um envio ainda assim receber 404 (conversa inexistente), o app cria uma conversa nova e reenvia a mesma mensagem uma única vez.
+- **Conferência com o servidor:** depois de apagar uma mensagem e ao voltar o app para a frente, o Chat confere a conversa aberta com o servidor (sem mexer no campo de digitação nem na resposta em andamento). Se a mensagem "apagada" ainda existir lá, aparece "Não foi possível apagar." com "Tentar de novo".
+- **Barra de status do iPhone:** uma tampa opaca fixa cobre a área segura do topo; o conteúdo rolado não passa sob o relógio e a bateria.
 - **Horário:** as horas mostradas nas conversas usam 24 h (`HH:mm`) e o fuso do Marco (`fuso_horario` de `/api/eu`).
 - **Avisos (toast):** aparecem acima da barra de abas, por 4 s, e um de cada vez.
 - **Sessão expirada (401):** leva ao Login guardando o rascunho digitado. Depois de entrar, volta à conversa em que o Marco estava.

@@ -14,9 +14,10 @@ import { useAgora } from '../estado/agora';
 import { apagarComDesfazer } from '../estado/apagar-com-desfazer';
 import { useChat, type Bolha } from '../estado/chat';
 import { copiarTexto } from '../estado/copiar';
+import { assinarConversasApagadas, conversaApagada, confirmarConversaApagada, consumirAviso, desmarcarPendenteDeApagar, marcarPendenteDeApagar, versaoConversasApagadas } from '../estado/conversas-apagadas';
 import { assinarOcultas, mensagemOculta, mostrarMensagens, ocultarMensagens, versaoOcultas } from '../estado/mensagens-ocultas';
 import { useOnline } from '../estado/online';
-import { lerRascunho, salvarRascunho } from '../estado/rascunho';
+import { limparRascunho, lerRascunho, salvarRascunho } from '../estado/rascunho';
 import { useSessao, useUsuario } from '../estado/sessao';
 import { useTecladoVirtual } from '../estado/teclado';
 
@@ -102,6 +103,19 @@ export function Chat() {
     document.addEventListener('visibilitychange', aoVisivel);
     return () => document.removeEventListener('visibilitychange', aoVisivel);
   }, [reconciliar]);
+  // A conversa aberta foi apagada (a exclusão da conversa vazia terminou, ou o servidor disse que ela não existe mais):
+  // vai ao Chat vazio, levando o que o Marco já tinha digitado. Não faz nada durante um envio em andamento.
+  useSyncExternalStore(assinarConversasApagadas, versaoConversasApagadas);
+  const idAberta = conversa.id;
+  const apagadaAgora = !!idAberta && conversaApagada(idAberta);
+  useEffect(() => {
+    if (!idAberta || !apagadaAgora || ocupado) return;
+    const aviso = consumirAviso(idAberta);
+    if (aviso) toast(aviso);
+    if (textoRef.current.trim()) salvarRascunho(null, textoRef.current);
+    limparRascunho(idAberta);
+    ir('/?nova=1', { replace: true });
+  }, [idAberta, apagadaAgora, ocupado, ir, toast]);
   const semRede = !online || (estado.situacao === 'logado' && estado.offline);
 
   // O rascunho da conversa aberta volta para o campo (ex.: depois de um 401 e novo login), mas nunca por cima
@@ -190,28 +204,36 @@ export function Chat() {
     const posicao = visiveis.findIndex((x) => x.id === b.id);
     const vizinho = restantes.find((x) => visiveis.indexOf(x) > posicao) ?? restantes.filter((x) => visiveis.indexOf(x) < posicao).at(-1);
     setPedidoFoco((n) => ({ n: n.n + 1, id: vizinho?.id ?? null }));
+    // Se não sobra nenhuma mensagem, a conversa também vai ser apagada: marca no módulo global (vale para o Chat remontado).
+    const ficaVazia = visiveis.every((x) => ids.includes(x.id));
+    if (ficaVazia && conversaId) marcarPendenteDeApagar(conversaId);
     ocultarMensagens(ids);
     apagarComDesfazer({
       id: b.id,
       mostrar: toast,
       apagar: async () => {
-        const conversaApagada = await apagarMensagem(b.id, !!resposta);
+        const apagouAConversa = await apagarMensagem(b.id, !!resposta);
         removerBolhas(ids);
-        if (!conversaApagada) {
-          // Rede de segurança: confere com o servidor. Se a mensagem "apagada" ainda existe lá, não a deixa sumida:
-          // o erro cai em aoFalhar ("Não foi possível apagar." + Tentar de novo) e a mensagem volta à tela.
-          const noServidor = await reconciliar();
-          if (noServidor && ids.some((i) => noServidor.has(i))) throw new Error('A mensagem ainda existe no servidor.');
-        }
-        if (conversaApagada) {
-          // Era a última mensagem: o servidor apagou a conversa vazia junto. Se ela ainda está aberta, vai ao Chat vazio.
+        if (apagouAConversa) {
+          // Era a última mensagem: o servidor apagou a conversa vazia junto. Quem estiver com ela aberta (mesmo um Chat
+          // remontado depois) vai ao Chat vazio, pelo módulo global (o componente que agendou pode já não existir).
           toast('Conversa vazia apagada.');
-          if (montadoRef.current && conversaRef.current === conversaId) ir('/?nova=1');
+          if (conversaId) confirmarConversaApagada(conversaId);
+          return;
         }
+        if (conversaId) desmarcarPendenteDeApagar(conversaId);
+        // Rede de segurança: confere com o servidor. Se a mensagem "apagada" ainda existe lá, não a deixa sumida:
+        // o erro cai em aoFalhar ("Não foi possível apagar." + Tentar de novo) e a mensagem volta à tela.
+        const noServidor = await reconciliar();
+        if (noServidor && ids.some((i) => noServidor.has(i))) throw new Error('A mensagem ainda existe no servidor.');
       },
-      aoDesfazer: () => mostrarMensagens(ids),
+      aoDesfazer: () => {
+        mostrarMensagens(ids);
+        if (conversaId) desmarcarPendenteDeApagar(conversaId);
+      },
       aoFalhar: () => {
         mostrarMensagens(ids);
+        if (conversaId) desmarcarPendenteDeApagar(conversaId);
         toast('Não foi possível apagar.', { rotulo: 'Tentar de novo', aoTocar: () => apagarMensagens(b, !!resposta) });
       },
     });
