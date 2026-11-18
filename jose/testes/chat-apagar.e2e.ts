@@ -507,3 +507,35 @@ test.describe('Topo do Chat em modo decisão (correção F4)', () => {
     });
   }
 });
+
+test.describe('Dois apagamentos seguidos (correção F5)', () => {
+  const duas = () => conversaA([['marco', 'Segunda pergunta', 10], ['jose', 'Segunda resposta', 9]]);
+
+  test('o aviso vira "Apagado (2)." e um só Desfazer restaura as duas mensagens', async ({ page }) => {
+    const f = await abrir(page, {}, [duas()]);
+    await segurar(page, balaoJose(page).first());
+    await folha(page).getByRole('button', { name: 'Apagar mensagem', exact: true }).click();
+    await expect(page.locator('.toast')).toHaveText(/^Apagado\.\s*Desfazer$/);
+    await segurar(page, balaoJose(page).last());
+    await folha(page).getByRole('button', { name: 'Apagar mensagem', exact: true }).click();
+    await expect(page.locator('.toast')).toHaveText(/^Apagado \(2\)\.\s*Desfazer$/);
+    await expect(balaoJose(page)).toHaveCount(0);
+    await page.locator('.toast').getByRole('button', { name: 'Desfazer' }).click();
+    await expect(balaoJose(page)).toHaveText(['Bom dia, Marco.', 'Segunda resposta']);
+    await page.waitForTimeout(5600);
+    expect(f.deletesMensagem).toEqual([]);
+  });
+
+  test('sem Desfazer: o prazo reinicia a cada apagamento e os dois DELETE saem em ordem', async ({ page }) => {
+    const f = await abrir(page, {}, [duas()]);
+    await segurar(page, balaoJose(page).first());
+    await folha(page).getByRole('button', { name: 'Apagar mensagem', exact: true }).click();
+    await page.waitForTimeout(2500);
+    await segurar(page, balaoJose(page).last());
+    await folha(page).getByRole('button', { name: 'Apagar mensagem', exact: true }).click();
+    // 1º apagamento há ~3,3 s e 2º há ~0,7 s: ainda nada saiu (o prazo recomeçou no 2º)
+    await page.waitForTimeout(3000);
+    expect(f.deletesMensagem).toEqual([]);
+    await expect.poll(() => f.deletesMensagem.map((d) => d.id), { timeout: 5000 }).toEqual(['a-m1', 'a-m3']);
+  });
+});
