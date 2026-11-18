@@ -10,8 +10,8 @@
 | **Conversa** | id, usuario_id, titulo (texto, gerado automaticamente), tipo (`normal` \| `boas_vindas`), modo (`padrao` \| `decidir`), criada_em, atualizada_em | id, usuario_id, tipo, modo, criada_em, atualizada_em | N → 1 Usuario; 1 → N Mensagem |
 | **Mensagem** | id (uuid gerado pelo app, para evitar duplicata), conversa_id, autor (`marco` \| `jose`), texto (texto longo), origem (`texto` \| `voz`), modelo (texto, só nas do José), tokens_entrada, tokens_saida, tokens_cache (inteiros, só nas do José), criada_em | id, conversa_id, autor, texto, origem, criada_em | N → 1 Conversa; 1 → N Sugestao |
 | **Sugestao** (cartão no chat) | id, mensagem_id, tipo (`tarefa` \| `meta` \| `memoria`), conteudo (JSON com os campos propostos), status (`pendente` \| `salva` \| `descartada`), item_id (id da Tarefa/Meta/Memoria criada), criada_em | id, mensagem_id, tipo, conteudo, status, criada_em | N → 1 Mensagem; 0..1 → Tarefa/Meta/Memoria |
-| **Tarefa** | id, usuario_id, titulo (texto ≤ 120), area (enum), prazo (data local `AAAA-MM-DD`, opcional), concluida (booleano), concluida_em, origem (`chat` \| `manual`), criada_em. *(V1.1: meta_id)* | id, usuario_id, titulo, area, concluida, origem, criada_em | N → 1 Usuario |
-| **Meta** | id, usuario_id, titulo (texto ≤ 120), area (enum), prazo (data local, opcional), status (`ativa` \| `concluida`; *V1.1: `pausada`*), concluida_em, origem (`chat` \| `manual`), criada_em | id, usuario_id, titulo, area, status, origem, criada_em | N → 1 Usuario |
+| **Tarefa** | id, usuario_id, titulo (texto ≤ 120), area (enum), prazo (data local `AAAA-MM-DD`, opcional), concluida (booleano), concluida_em, origem (`chat` \| `manual` \| `boas_vindas`), criada_em. *(V1.1: meta_id)* | id, usuario_id, titulo, area, concluida, origem, criada_em | N → 1 Usuario |
+| **Meta** | id, usuario_id, titulo (texto ≤ 120), area (enum), prazo (data local, opcional), status (`ativa` \| `concluida`; *V1.1: `pausada`*), concluida_em, origem (`chat` \| `manual` \| `boas_vindas`), criada_em | id, usuario_id, titulo, area, status, origem, criada_em | N → 1 Usuario |
 | **Memoria** | id, usuario_id, texto (texto ≤ 300), area (enum de memória), origem (`boas_vindas` \| `chat` \| `manual`), criada_em, atualizada_em | id, usuario_id, texto, area, origem, criada_em | N → 1 Usuario |
 | **UsoDiario** | usuario_id, dia (data local `AAAA-MM-DD`, no fuso do usuário), respostas (inteiro) | todos (chave = usuario_id + dia) | N → 1 Usuario |
 
@@ -59,7 +59,9 @@
    - Datas relativas ("sexta") são convertidas pela IA a partir da data enviada no contexto.
 3. **Editar e salvar sugestão:** editar muda o `conteudo`. Salvar só funciona se a sugestão estiver `pendente`: cria o item
    com `origem = chat` (ou `boas_vindas`, se a conversa for de boas-vindas) e grava o `item_id`. "Salvar selecionadas"
-   (das boas-vindas) salva e descarta em lote.
+   (das boas-vindas, `POST /api/conversas/:id/sugestoes/lote`) salva as marcadas (com o texto e a área editados), descarta as
+   desmarcadas e marca `boas_vindas_concluida = true`, **tudo numa única transação** (ou tudo, ou nada). Sugestão que já não está
+   `pendente` é ignorada (reenviar o mesmo lote não duplica nada, e um cartão salvo ou descartado nunca volta a pendente).
 4. **Título da conversa:** é gerado depois da 1ª resposta do José, com até 6 palavras, pelo modelo econômico. Se falhar,
    o título vira os 40 primeiros caracteres da 1ª mensagem.
 5. **Ordenação de tarefas:**
@@ -71,11 +73,21 @@
    Em empate, a mais nova vem primeiro (`criada_em` decrescente). As concluídas são ordenadas por `concluida_em` decrescente. "Hoje" usa o fuso do Marco.
 6. *(V1.1)* Progresso da meta = tarefas concluídas ligadas ÷ total ligado. Sem tarefas, mostra "—".
 7. **Boas-vindas:**
-   - São 5 perguntas fixas.
-   - Enquanto `boas_vindas_concluida = false`, o app retoma a conversa `boas_vindas` aberta.
-   - No fim, uma chamada gera as sugestões de memória.
-   - Concluir ou Pular marca `boas_vindas_concluida = true`.
-   - "Refazer boas-vindas" abre uma nova conversa `boas_vindas`. A IA recebe as memórias atuais e sugere só o que é novo ou mudou.
+   - São **5 perguntas fixas no código** (rotina; áreas da vida; metas principais; o que mais trava; horário de acordar e dormir),
+     feitas uma por vez. `POST /api/conversas {tipo: boas_vindas}` cria a conversa já com a 1ª pergunta como mensagem do José
+     (`modelo` nulo, sem IA). Cada resposta do Marco (`POST .../mensagens`) é gravada e a próxima pergunta fixa é a resposta
+     (sem chamar a IA e sem contar no limite diário de respostas). A etapa vem das mensagens: **N respostas do Marco = N perguntas
+     respondidas**, então a retomada não precisa de estado extra.
+   - Enquanto `boas_vindas_concluida = false`, o app retoma a conversa `boas_vindas` aberta (`GET /api/eu` devolve
+     `conversa_boas_vindas_id`); se não houver nenhuma, cria uma. Com `boas_vindas_concluida = true` o app abre o Chat: **a flag
+     manda**, e nunca prende quem já usou o app.
+   - Na 5ª resposta, uma chamada da IA (modelo padrão, só a ferramenta `sugerir_memoria`, **até 8** sugestões em vez de 3) gera as
+     memórias a partir das respostas. Uma 6ª mensagem na conversa de boas-vindas é recusada (409).
+   - Concluir (lote), Pular ou `POST /api/eu/boas-vindas` marcam `boas_vindas_concluida = true` (idempotente).
+   - "Refazer boas-vindas" abre uma nova conversa `boas_vindas`. A IA recebe as memórias atuais e sugere só o que é novo ou mudou;
+     o servidor também descarta a memória igual a uma existente (regra 2). Refazer não altera a flag.
+   - A conversa de boas-vindas não entra no Histórico (`GET /api/conversas` lista só `normal`), não é "a conversa de hoje" e nunca é
+     apagada por ficar sem mensagens.
 8. **Acesso:**
    - Só entra o e-mail igual a `OWNER_EMAIL`, comparado em minúsculas, e com `email_verified = true`.
    - Qualquer outro recebe "acesso negado" e **nada é gravado** no banco.
@@ -85,8 +97,10 @@
    - áudio de até 2 minutos e 10 MB (o app para a gravação aos 2:00 e o servidor também confere a duração informada e o tamanho), com até **60 transcrições por dia** (no dia local do Marco, contadas em `UsoDiario.transcricoes`; o servidor soma 1 **antes** de chamar o Whisper e responde 429 `limite_voz` quando já são 60; uma transcrição que falha **não** devolve a contagem, para o limite de custo não ser burlado; aviso "Limite de voz de hoje atingido. Digite sua mensagem.");
    - até **200 respostas do José por dia** (no dia local), contando também as "Tentar de novo", com o aviso "Limite de hoje atingido, volta amanhã".
     A contagem de respostas fica em `UsoDiario.respostas` e sobe a cada resposta gravada; **apagar mensagens não a diminui** (apagar não burla o limite de custo). `UsoDiario.transcricoes` (migração 0003) conta as transcrições do dia pelo mesmo mecanismo (chave usuário + dia, fuso do usuário).
-10. **Qual IA responde:** o modelo **econômico** (Haiku) por padrão. O modelo **profundo** (Sonnet) entra quando a conversa
-    está no modo `decidir`, aberta pelo atalho "⚖️ Preciso decidir". *(V1.1: botão "Pensar melhor" em qualquer resposta.)*
+10. **Qual IA responde:** o modelo **econômico** (Haiku) por padrão (inclusive a chamada final das boas-vindas). O modelo **profundo**
+    (Sonnet) entra quando a conversa está no modo `decidir`, aberta pelo atalho "⚖️ Preciso decidir", que cria a conversa e envia
+    "Preciso decidir" como 1ª mensagem: a pergunta inicial do modo é a resposta do modelo profundo. O título da conversa de decisão só
+    é gerado depois da 1ª mensagem que não seja esse aviso. *(V1.1: botão "Pensar melhor" em qualquer resposta.)*
 11. **Tentar de novo sem duplicar:** o app gera o `id` da mensagem do Marco. Se o mesmo `id` chegar de novo, o servidor não
     cria outra mensagem e só gera a resposta que faltou. Se a resposta anterior estava incompleta, ela é apagada e refeita.
 12. **Conversa de hoje:** é a última conversa `normal` com `atualizada_em` no dia local de hoje. Se não houver, a próxima

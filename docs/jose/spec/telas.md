@@ -8,8 +8,9 @@ barra inferior continua. Referência de interação: **WhatsApp** (balões de co
 
 ## Mapa de navegação
 ```
-Login (Google) ──► [boas-vindas não concluídas?] ──sim──► Boas-vindas (retoma de onde parou) ──► Chat
-                        └──não──────────────────────────────────────────────────────────────► Chat
+Login (Google) ──► [boas-vindas não concluídas?] ──sim──► Boas-vindas (cria ou retoma a conversa aberta) ──► Chat
+                        └──não──────────────────────────────────────────────────────────────────────────────► Chat
+Ajustes › Refazer boas-vindas  e  José sabe (vazio) › Fazer as boas-vindas ──► Boas-vindas (nova conversa) ──► Chat
 
 Barra inferior fixa (3 abas):
   Chat ─┬─ ☰ Histórico de conversas ──► abre uma conversa no Chat
@@ -29,7 +30,8 @@ título, o topo mostra "Nova conversa".
 - **Conferência com o servidor:** depois de apagar uma mensagem e ao voltar o app para a frente, o Chat confere a conversa aberta com o servidor (sem mexer no campo de digitação nem na resposta em andamento). Se a mensagem "apagada" ainda existir lá, aparece "Não foi possível apagar." com "Tentar de novo".
 - **Barra de status do iPhone:** uma tampa opaca fixa cobre a área segura do topo; o conteúdo rolado não passa sob o relógio e a bateria.
 - **Horário:** as horas mostradas nas conversas usam 24 h (`HH:mm`) e o fuso do Marco (`fuso_horario` de `/api/eu`).
-- **Avisos (toast):** aparecem acima da barra de abas, por 4 s, e um de cada vez.
+- **Avisos (toast):** aparecem acima da barra de abas (nas boas-vindas, que não têm barra, acima do campo), por 4 s, e um de cada vez.
+- **Barra de abas:** só as Boas-vindas não a mostram (por desenho); em todas as outras telas ela está sempre lá.
 - **Sessão expirada (401):** leva ao Login guardando o rascunho digitado. Depois de entrar, volta à conversa em que o Marco estava.
 - **Offline:** mostra a faixa "Offline" no topo. As abas mostram a última lista carregada, só para leitura, e o envio fica desabilitado.
 - **Áreas:** um único mapa de rótulos é usado em todas as telas:
@@ -55,29 +57,34 @@ título, o topo mostra "Nova conversa".
 
 ### 2. Boas-vindas (1º acesso)
 - **Perfil:** Marco.
-- **Objetivo:** o José conhecer o Marco em até 5 perguntas.
+- **Objetivo:** o José conhecer o Marco em 5 perguntas, e o Marco confirmar o que ele aprendeu.
 - **Elementos:**
-  - a mesma interface do Chat, sem a barra de abas, com o indicador "Pergunta N de 5" (N conta as respostas do Marco);
-  - as 5 perguntas, fixas no código: rotina, áreas da vida, metas principais, o que mais trava, horário de acordar e dormir;
-  - botões de resposta rápida quando fizer sentido;
-  - link **Pular**, sempre visível.
+  - a mesma interface do Chat (balões, campo, 🎤/enviar e voz), **sem a barra de abas** (a única tela sem ela, por desenho) e sem ☰, ✎ e ⋯;
+  - topo com "Boas-vindas", o indicador **"Pergunta N de 5"** (N = respostas do Marco + 1; conta as respostas do Marco, não as perguntas) e o link **Pular**, sempre visível (alvo de 48px, inclusive na lista final);
+  - as **5 perguntas são fixas no código** (nada de IA para perguntar), feitas **uma por vez**: 1) rotina de um dia normal; 2) áreas da vida que quer organizar; 3) metas principais; 4) o que mais trava; 5) horário de acordar e dormir;
+  - **respostas rápidas** (botões de 48px acima do campo) quando fazem sentido: na 2 (Trabalho, Finanças, Saúde e rotina, Família e casa, que **entram no campo** para escolher mais de uma), na 4 e na 5 (tocar **envia** a resposta). A 1 e a 3 são livres. Escrever ou falar sempre vale.
 - **Ações:**
-  - responder (texto ou voz) leva à próxima pergunta;
-  - se o Marco fechar o app no meio, ele reabre na mesma conversa de boas-vindas e continua de onde parou;
-  - no fim, o José mostra **"O que aprendi sobre você"**: a lista de memórias sugeridas, cada uma com uma caixa marcada
-    e o texto editável. O botão **Salvar selecionadas** salva as marcadas, descarta as desmarcadas e leva ao Chat;
-  - Pular leva ao Chat;
-  - em qualquer caso, as boas-vindas ficam concluídas e o chat nunca é bloqueado.
-- **Estados:** erro de rede mostra "Sem conexão. Tentar de novo" e mantém as respostas já dadas.
-- **Mobile:** igual ao Chat.
+  - responder (texto, voz ou botão) leva à próxima pergunta;
+  - **retomada:** se o Marco fechar o app no meio, ele reabre na mesma conversa de boas-vindas (o app a descobre por `GET /api/eu`) e continua de onde parou, com o indicador certo;
+  - depois da 5ª resposta o José faz **uma chamada** que gera as sugestões de memória (só memória, até 8) a partir das respostas; o app mostra **"O que aprendi sobre você"**: uma **lista marcável** no lugar do campo de digitação. Cada item tem uma **caixa marcada** (alvo de 48px), o **texto editável** (até 300 caracteres, com contador) e os **chips de área**. O botão **Salvar selecionadas** (sempre visível, fixo abaixo da lista) salva as marcadas, descarta as desmarcadas, **tudo numa só operação**, e leva ao Chat;
+  - **Pular** leva ao Chat sem salvar nada;
+  - em qualquer caso, as boas-vindas ficam concluídas e o chat nunca é bloqueado. O roteamento nunca prende quem já concluiu: com as boas-vindas concluídas o app abre o Chat.
+- **Refazer** (Ajustes › Refazer boas-vindas, ou o botão do vazio de José sabe): abre **uma nova conversa de boas-vindas** com as mesmas 5 perguntas. A chamada final recebe as memórias atuais e sugere **só o que é novo ou mudou** (o servidor também descarta o que repete uma memória existente). Se a lista ficar vazia, o José diz que não tem nada novo e o botão vira **Concluir**.
+- **A conversa de boas-vindas** não aparece no Histórico, não é "a conversa de hoje" e nunca é apagada automaticamente quando fica vazia. Nela não há apagar mensagem (pressão longa) nem cartões no balão: as sugestões só existem na lista marcável.
+- **Estados:**
+  - carregando: esqueleto; erro ao abrir: "Não foi possível carregar." + Tentar de novo;
+  - o José está preparando o resumo: "José está pensando…"; se falhar, balão de erro com **Tentar de novo** (as respostas já dadas ficam);
+  - erro de rede ao salvar a lista: "Sem conexão." + **Tentar de novo**, mantendo as marcações e os textos editados; qualquer outro erro: "Não foi possível salvar." + Tentar de novo;
+  - texto de memória vazio em item marcado: "Escreva o texto ou desmarque."; o botão fica desabilitado.
+- **Mobile:** igual ao Chat. O documento não rola (só a lista); nada passa da largura em 320px e 390px, mesmo com texto de 300 caracteres e palavra de 80 caracteres; o aviso (toast) nunca cobre o campo, as respostas rápidas nem o botão Salvar selecionadas.
 
 ### 3. Chat (tela principal)
 - **Perfil:** Marco.
 - **Objetivo:** conversar com o José para destravar, decidir, planejar e descarregar a cabeça.
 - **Elementos:**
   - **Topo:**
-    - ☰ (Histórico);
-    - título da conversa;
+    - ☰ (Histórico, que lista só conversas normais: a de boas-vindas não aparece);
+    - título da conversa ("Nova conversa" ou, no modo decisão antes de ter título, "Decisão");
     - **✎ (nova conversa)**;
     - **⋯** (alvo de 48px) com **"Apagar conversa"** (aparece quando há uma conversa aberta);
     - selo **"Modo decisão"**, quando a conversa está nesse modo.
@@ -93,10 +100,11 @@ título, o topo mostra "Nova conversa".
     Cada cartão tem **Salvar**, **Editar** (título ou texto, chips de área, seletor de prazo) e **Descartar**.
   - **Atalhos de início**, quando a conversa está vazia. São 4 botões:
     - "☀️ O que faço hoje?", "🧱 Travei" e "🌙 Descarregar a cabeça" enviam o próprio texto como 1ª mensagem;
-    - **"⚖️ Preciso decidir"** cria a conversa em **modo decisão**, respondida pelo modelo mais profundo, e o José pergunta qual é a decisão.
+    - **"⚖️ Preciso decidir"** cria a conversa em **modo decisão**, respondida pelo modelo mais profundo, e envia "Preciso decidir" como 1ª mensagem: **a pergunta inicial ("Qual é a decisão?") é a resposta real do José**, não um texto fixo do app. O texto fixo ("Qual é a decisão?" na tela vazia do modo) só aparece como alternativa se a conversa estiver vazia (ex.: sem rede na criação).
+    - **Como o José conduz o modo decisão** (arquitetura.md §4): uma pergunta curta de abertura, no máximo 3 perguntas depois (uma por vez, só as que faltam), **ganhos e perdas** de cada opção em linhas curtas, uma pergunta de congruência com o que importa para o Marco (quando fizer sentido) e **uma recomendação clara com o primeiro passo**, oferecido como cartão de tarefa (com prazo se ele disse). Se a 1ª mensagem já traz informação suficiente, o José não pergunta nada e vai à recomendação. Respostas curtas, sem teoria e sem aconselhamento médico, jurídico ou financeiro profissional.
 
     Para sair do modo decisão, toca-se em **✎ (nova conversa)**.
-  - **Faixa "Instalar na tela inicial"**, mostrada uma única vez depois das boas-vindas. No iPhone, ela explica: Compartilhar → Adicionar à Tela de Início.
+  - **Faixa "Instalar na tela inicial"**, mostrada **uma única vez** logo depois das boas-vindas (ao salvar ou ao pular), entre o topo e as mensagens, com **✕** (48px) para fechar. No iPhone ela explica: **Compartilhar → Adicionar à Tela de Início**; nos outros aparelhos, o botão Instalar quando o navegador oferece, senão a dica do menu do navegador. **Não aparece** se o app já está instalado (modo standalone), nem de novo depois de fechada, nem com o teclado aberto. O estado fica no aparelho (`localStorage`).
   - **Rodapé:** campo "Fale com o José…" e **um único botão de ação à direita**, como no WhatsApp: com o campo **vazio** ele é o **🎤** (ícone SVG, `aria-label` "Gravar áudio"); com texto digitado vira **Enviar**. A voz nunca apaga o que o Marco digitou: se já há texto no campo, o botão é Enviar.
     - **Gesto por toque, não por segurar:** tocar no 🎤 começa a gravar (a 1ª vez o aparelho pede a permissão do microfone). Durante a gravação o rodapé vira uma **barra de gravação**: **✕** (cancelar, descarta o áudio) à esquerda; no meio um ponto âmbar pulsante (parado com "reduzir movimento") e o **contador regressivo** a partir de 2:00 (`m:ss`); **■** (parar e enviar) à direita, no lugar do 🎤. Aos 2:00 a gravação para sozinha e é enviada. Esc cancela (não quando uma folha, o menu ⋯ ou a gaveta estão abertos: aí o Esc fecha só eles).
     - Depois de parar, a barra mostra "Transcrevendo áudio…" e o texto transcrito é **enviado como mensagem** com `origem = voz`: balão do Marco com um ícone 🎤 pequeno (`aria-label` "Enviado por voz") e o texto; o José responde normalmente. A mensagem de voz segue as mesmas regras das de texto (pressão longa, Copiar, Apagar com Desfazer, conversa vazia some).
@@ -113,7 +121,7 @@ título, o topo mostra "Nova conversa".
   - **Apagar conversa (⋯ do topo):** apaga a conversa aberta com "Apagado. Desfazer" e leva ao Chat vazio; a gaveta de Histórico reflete a mudança.
   - **Tentar de novo** (no balão de erro): refaz a resposta do José sem duplicar a mensagem do Marco.
 - **Estados:**
-  - vazio: saudação conforme o horário ("Bom dia, Marco.") e os 4 atalhos;
+  - vazio: saudação conforme o horário ("Bom dia, Marco.") e os 4 atalhos (no modo decisão vazio: "Qual é a decisão?");
   - carregando: "José está pensando…" com três pontinhos;
   - gravando: barra de gravação (✕, ponto âmbar pulsante, contador regressivo a partir de 2:00 e ■) que para sozinha e envia ao chegar a zero;
   - áudio com menos de 1 s: é descartado sem aviso;
@@ -127,7 +135,7 @@ título, o topo mostra "Nova conversa".
   - sem internet: faixa "Offline" e envio desabilitado;
   - limite diário atingido: "Limite de hoje atingido, volta amanhã.";
   - microfone negado: "Libere o microfone nas configurações para usar voz." No iPhone a mensagem acrescenta "Ajustes > Safari (ou José) > Microfone".
-- **Mobile:** o campo de digitação sobe junto com o teclado. Botões com pelo menos 48px. Nada passa da largura da tela (320px e 390px), mesmo com balão de texto longo ou palavra sem espaços; o balão não tem botões ao lado que o empurrem para fora; a folha de ações não é coberta pelo aviso (toast); a barra de abas nunca some; o aviso (toast) não cobre campo, barra de gravação, formulário nem cartões. O botão de ação e a barra de gravação (✕, ■) têm pelo menos 48px e o contador tem contraste de pelo menos 4,5:1. O documento do Chat não rola (só a lista de mensagens).
+- **Mobile:** o campo de digitação sobe junto com o teclado. Botões com pelo menos 48px. Nada passa da largura da tela (320px e 390px), mesmo com balão de texto longo ou palavra sem espaços; o balão não tem botões ao lado que o empurrem para fora; a folha de ações não é coberta pelo aviso (toast); a barra de abas nunca some (só as Boas-vindas não a têm); o aviso (toast) não cobre campo, barra de gravação, formulário nem cartões. O botão de ação e a barra de gravação (✕, ■) têm pelo menos 48px e o contador tem contraste de pelo menos 4,5:1. O documento do Chat não rola (só a lista de mensagens).
 
 ### 4. Histórico de conversas (gaveta lateral do Chat)
 - **Perfil:** Marco.
@@ -185,7 +193,7 @@ título, o topo mostra "Nova conversa".
   - **Adicionar** abre o campo de texto e a escolha da área.
 - **Estados:**
   - carregando: esqueleto;
-  - vazio: "O José ainda não sabe nada sobre você." e o botão **Fazer as boas-vindas**;
+  - vazio: "O José ainda não sabe nada sobre você." e o botão **Fazer as boas-vindas**, que abre uma nova conversa de boas-vindas;
   - erro: "Não foi possível carregar. Tentar de novo";
   - sucesso: aviso "Memória atualizada".
 
@@ -194,8 +202,8 @@ título, o topo mostra "Nova conversa".
 - **Elementos:**
   - **←** no topo, que volta a José sabe;
   - conta conectada (foto e e-mail Google);
-  - **Instalar na tela inicial** (no iPhone, mostra a instrução);
-  - **Refazer boas-vindas**, que mantém as memórias atuais (o José sugere só o que é novo);
+  - **Instalar na tela inicial** (no iPhone, mostra a instrução: Compartilhar → Adicionar à Tela de Início; com o app já instalado mostra "Já está na tela inicial");
+  - **Refazer boas-vindas**, que abre uma nova conversa de boas-vindas e mantém as memórias atuais (o José sugere só o que é novo);
   - **Sair**;
   - **Sair de todos os aparelhos**;
   - **Apagar todos os meus dados**;
@@ -205,7 +213,7 @@ título, o topo mostra "Nova conversa".
   - Sair e Sair de todos pedem confirmação simples e voltam ao Login.
   - **Apagar todos os meus dados** pede **confirmação dupla**: primeiro um aviso, depois digitar "APAGAR". Apaga conversas,
     tarefas, metas, memórias e sessões, e volta ao Login. Na próxima entrada, tudo começa do zero.
-- **Estados:** apagando: "Apagando…". Erro: "Não foi possível apagar. Tentar de novo".
+- **Estados:** apagando: "Apagando…". Erro: "Não foi possível apagar. Tentar de novo". Erro ao abrir as boas-vindas: "Não foi possível abrir as boas-vindas. Tente de novo."
 
 ## Identidade visual (marca, cores, tom de voz)
 - **Estilo:** calmo e escuro, com pouca informação por tela para reduzir estímulo.

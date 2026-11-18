@@ -30,12 +30,14 @@ cartão com os botões "Salvar", "Editar" e "Descartar".
 
 **Primeiro acesso**
 1. Abre o link no celular e toca em "Entrar com Google". Só o e-mail do Marco é aceito.
-2. O José começa uma **conversa de boas-vindas** com 5 perguntas rápidas: rotina, áreas da vida, metas
-   principais, o que mais trava e o horário em que acorda e dorme. Dá para **Pular**, e o chat nunca fica bloqueado.
-   Se o Marco fechar o app no meio, a conversa continua de onde parou.
-3. No fim, o José mostra "O que aprendi sobre você", uma lista de memórias marcáveis. O Marco confirma as que quer
-   e toca em "Salvar selecionadas".
-4. No Chat aparece, uma única vez, a faixa "Instalar na tela inicial".
+2. O José começa uma **conversa de boas-vindas** com 5 perguntas rápidas e fixas, uma por vez, com botões de resposta rápida quando
+   fazem sentido: rotina, áreas da vida, metas principais, o que mais trava e o horário em que acorda e dorme. O topo mostra
+   "Pergunta N de 5" e **Pular** (sempre visível); o chat nunca fica bloqueado. Se o Marco fechar o app no meio, a conversa
+   continua de onde parou.
+3. No fim, o José mostra "O que aprendi sobre você", uma lista de memórias marcáveis e editáveis. O Marco confirma as que quer
+   e toca em "Salvar selecionadas" (as desmarcadas são descartadas).
+4. No Chat aparece, uma única vez, a faixa "Instalar na tela inicial" (no iPhone: Compartilhar → Adicionar à Tela de Início).
+5. Depois, em Ajustes › "Refazer boas-vindas" (ou no vazio de José sabe), o Marco pode repetir; o José sugere só o que é novo.
 
 **Ao acordar**
 1. Abre o app e já cai no chat.
@@ -48,9 +50,10 @@ cartão com os botões "Salvar", "Editar" e "Descartar".
 2. O José devolve 1 passo pequeno (de até 5 minutos) e pergunta se quer o próximo.
 
 **Antes de uma decisão**
-1. Escreve: "aceito a proposta X ou fico?".
-2. O José faz até 3 perguntas para entender, depois mostra prós e contras em lista curta e dá uma recomendação.
-3. Opcional: sugere uma tarefa ("responder até sexta").
+1. Toca em "⚖️ Preciso decidir" (o José responde "Qual é a decisão?") ou escreve direto: "aceito a proposta X ou fico?".
+2. O José faz só as perguntas que faltam (até 3, uma por vez), depois mostra os ganhos e as perdas de cada opção em linhas curtas
+   e dá **uma** recomendação com o primeiro passo. Se a mensagem já traz tudo, ele vai direto à recomendação.
+3. Opcional: oferece o primeiro passo como cartão de tarefa ("responder até sexta").
 
 **À noite**
 1. Despeja tudo o que está na cabeça, por texto ou voz.
@@ -71,12 +74,12 @@ cartão com os botões "Salvar", "Editar" e "Descartar".
 6. **Sugestões viram tarefas e metas.** Como Marco, quero que o José sugira tarefas e metas e eu confirme, para nada se perder sem eu ter que organizar.
    - Aceite: a sugestão aparece como cartão Salvar/Editar/Descartar, com no máximo 3 por resposta. A tarefa salva vai para uma lista simples, onde dá para concluir (com Desfazer) e apagar (com Desfazer). Nada é salvo sem toque meu.
 7. **Boas-vindas.** Como Marco, quero uma conversa inicial curta, para o José já começar me conhecendo.
-   - Aceite: são no máximo 5 perguntas. Dá para pular. As respostas viram memórias confirmadas.
+   - Aceite: são 5 perguntas fixas, uma por vez, com "Pergunta N de 5". Dá para pular e para retomar de onde parou ao reabrir o app. As respostas viram uma lista de memórias que eu marco, edito e salvo de uma vez. Quem já concluiu nunca é levado de volta. Dá para refazer, e então o José sugere só o que é novo.
 8. **Histórico.** Como Marco, quero rever conversas antigas, para retomar um raciocínio.
    - Aceite: a lista de conversas mostra data e título automático. Dá para abrir e apagar.
 8b. **Apagar e situar no tempo.** Como Marco, quero apagar uma mensagem ou a conversa inteira sem sair do Chat e ver a hora de cada mensagem, para limpar o que não quero guardar e saber quando cada coisa foi dita.
    - Aceite: segurando um balão (pressão longa) abre a folha de ações com "Copiar", "Apagar mensagem" e, nas minhas mensagens com resposta, "Apagar mensagem e resposta"; o topo do Chat tem ⋯ → "Apagar conversa". Tudo some na hora, com "Apagado. Desfazer" por 5 s. Se eu apagar todas as mensagens de uma conversa, ela também é apagada (com o aviso "Conversa vazia apagada."), depois dos 5 s do Desfazer. Itens já salvos a partir dos cartões permanecem. Cada balão mostra a hora (24 h, meu fuso) e há separadores "Hoje", "Ontem" e data. Apagar não libera o limite diário de respostas.
 9. **Decidir com mais profundidade.** Como Marco, quero um modo de decisão, para pensar melhor nas escolhas importantes.
-   - Aceite: o atalho "⚖️ Preciso decidir" abre a conversa em "Modo decisão", respondida pelo modelo profundo. O José faz até 3 perguntas, mostra prós e contras curtos e dá uma recomendação.
+   - Aceite: o atalho "⚖️ Preciso decidir" abre a conversa em "Modo decisão", respondida pelo modelo profundo, e a primeira pergunta ("Qual é a decisão?") vem do José. Ele faz só as perguntas que faltam (no máximo 3), mostra ganhos e perdas curtos de cada opção e dá uma recomendação clara com o primeiro passo (que pode virar cartão de tarefa). Se eu já der tudo na 1ª mensagem, ele não pergunta nada. Sem aula de teoria e sem aconselhamento profissional.
 10. **Controle e privacidade.** Como Marco, quero sair de todos os aparelhos e apagar todos os meus dados, para me proteger se perder o celular.
    - Aceite: "Sair de todos os aparelhos" derruba todas as sessões, e um cookie antigo passa a receber 401. "Apagar todos os meus dados", com confirmação dupla, não deixa nenhuma linha minha no banco.

@@ -128,7 +128,7 @@ uso_diario(usuario_id NOT NULL FK→usuarios ON DELETE CASCADE, dia NOT NULL /* 
 
 Como funciona:
 - O prompt pede que o texto venha **antes** das ferramentas.
-- Cada chamada é validada com Zod e vira uma linha em `sugestoes`, com status `pendente`. O máximo é 3 por resposta.
+- Cada chamada é validada com Zod e vira uma linha em `sugestoes`, com status `pendente`. O máximo é 3 por resposta (**8** na chamada final das boas-vindas, onde só `sugerir_memoria` fica ligada).
 - **Não há segunda chamada à IA** depois das ferramentas: a resposta termina ali.
 - O histórico é reenviado como **texto puro**, com linhas-resumo das sugestões. Nunca são reenviados os blocos tool_use/tool_result.
 
@@ -137,9 +137,10 @@ Como funciona:
 - no máximo 3 sugestões;
 - não dar aconselhamento médico, jurídico ou financeiro profissional;
 - não sugerir memória que já existe;
-- modo decidir: até 3 perguntas → prós e contras curtos → recomendação.
+- modo decidir (seção `DECIDIR`): uma pergunta curta de abertura ("Qual é a decisão?") → no máximo 3 perguntas, uma por vez e só as que faltam (resultado desejado, situação real, opções incluindo não fazer nada, o que fará e quando) → **ganhos e perdas** de cada opção em linhas curtas (até 3 de cada) → pergunta de congruência com o que importa ao Marco (quando fizer sentido) → **uma** recomendação e o primeiro passo, oferecido como cartão de tarefa. Com informação suficiente na 1ª mensagem, vai direto à recomendação. Sem teoria e **sem citar GROW, SLAC, DISC ou Gallup** (testado);
+- boas-vindas (seção `BOASVINDAS`): chamada final com as 5 respostas no histórico e as memórias atuais no contexto; só `sugerir_memoria`, até 8 sugestões, só o que é novo ou mudou.
 
-O prompt é testado com 4 casos "golden", um por momento do dia.
+O prompt tem 5 seções (`BASE`, `SUGESTOES`, `DECIDIR`, `BOASVINDAS`, `TITULO`) e é testado com casos "golden" (momentos do dia, memórias, tarefas e metas, coaching, decisão e boas-vindas), com conferência automática testada sem rede.
 
 **Configuração da IA** (variáveis de ambiente):
 - `MODELO_PADRAO=claude-haiku-5-5`, com `max_tokens` 600;
@@ -160,19 +161,19 @@ Erros seguem o formato `{ erro: { codigo, mensagem } }`, com HTTP 400, 401, 404,
 | Retorno do login | `GET /auth/google/callback` | Google | `code, state` | 302 para `/` (ou `voltar`), `/?erro=negado` ou `/?erro=falha` | exige `email_verified`; compara em minúsculas com `OWNER_EMAIL`; **nada é gravado** se negado; cria/atualiza usuário e sessão (30 dias, renovada no uso) |
 | Sair | `POST /auth/sair` | Ajustes | — | 204 | apaga a sessão atual |
 | Sair de todos | `POST /auth/sair-todos` | Ajustes | — | 204 | apaga todas as sessões do usuário |
-| Quem sou | `GET /api/eu` | app ao abrir | — | `{nome, email, foto_url, boas_vindas_concluida, fuso_horario, conversa_boas_vindas_id?}` | o app usa `fuso_horario` para os horários e separadores de dia |
+| Quem sou | `GET /api/eu` | app ao abrir | — | `{nome, email, foto_url, boas_vindas_concluida, fuso_horario, conversa_boas_vindas_id?}` | o app usa `fuso_horario` para os horários e separadores de dia; `conversa_boas_vindas_id` só vem com as boas-vindas não concluídas (a mais recente), e é o que permite retomar; com `boas_vindas_concluida = true` a flag manda e o app abre o Chat |
 | Conversa de hoje | `GET /api/conversas/hoje` | Chat ao abrir | — | `{conversa, mensagens[], sugestoes[]}` ou `null` | regra 12 |
-| Listar conversas | `GET /api/conversas` | Histórico | — | `[{id, titulo, tipo, modo, atualizada_em}]` | ordem `atualizada_em DESC` *(V1.1: `?busca=`)* |
-| Criar conversa | `POST /api/conversas` | 1ª mensagem / atalho Decidir / Boas-vindas | `{tipo, modo?}` | `{id}` | `boas_vindas`: o José faz a 1ª pergunta |
+| Listar conversas | `GET /api/conversas` | Histórico | — | `[{id, titulo, tipo, modo, atualizada_em}]` | só `tipo = normal` (a de boas-vindas não aparece); ordem `atualizada_em DESC` *(V1.1: `?busca=`)* |
+| Criar conversa | `POST /api/conversas` | 1ª mensagem / atalho Decidir / Boas-vindas | `{tipo, modo?}` | `{id}` | `boas_vindas` (sempre `modo = padrao`): grava na mesma transação a 1ª pergunta fixa como mensagem do José (título "Boas-vindas", sem IA) |
 | Abrir conversa | `GET /api/conversas/:id` | Chat | — | `{conversa, mensagens[], sugestoes[]}` | — |
 | Apagar conversa | `DELETE /api/conversas/:id` | Histórico e ⋯ do topo do Chat (depois de 5 s sem desfazer) | — | 204 | cascata; os itens salvos ficam |
 | Apagar mensagem | `DELETE /api/mensagens/:id` | folha de ações do balão, aberta por pressão longa (depois de 5 s sem desfazer) | `?com_resposta=1` (opcional) | 204 | posse por mensagem → conversa → usuário (404 se não for do Marco); `com_resposta` só vale para mensagem do Marco (400 se for do José) e apaga também a resposta do José logo depois; cascata nas sugestões; itens salvos ficam; se não houver resposta logo depois, apaga só a mensagem e também devolve 204; **se a conversa ficou sem nenhuma mensagem e é do tipo `normal`, o servidor a apaga (e suas sugestões) na mesma transação e devolve 200 `{ "conversa_apagada": true }`** (conversa `boas_vindas` nunca é apagada por aqui: 204); mensagem inexistente responde 404 e o app trata esse 404 como "já apagada" |
-| Enviar mensagem | `POST /api/conversas/:id/mensagens` | Chat | `{id (uuid do app), texto (1–4000), origem}` | **SSE** com os eventos `texto` (delta), `sugestao` ({id, tipo, conteudo}), `fim` ({mensagem_id, titulo?}) e `erro` | monta o contexto (regra 1); grava a mensagem do Marco antes de chamar a IA; **id repetido não duplica, só gera a resposta que falta** (regra 11); grava a resposta e o `usage` ao fim; 429 no limite diário |
+| Enviar mensagem | `POST /api/conversas/:id/mensagens` | Chat | `{id (uuid do app), texto (1–4000), origem}` | **SSE** com os eventos `texto` (delta), `sugestao` ({id, tipo, conteudo}), `fim` ({mensagem_id, titulo?}) e `erro` | monta o contexto (regra 1); grava a mensagem do Marco antes de chamar a IA; **id repetido não duplica, só gera a resposta que falta** (regra 11); grava a resposta e o `usage` ao fim; 429 no limite diário. **Conversa `boas_vindas`:** a "resposta" às 4 primeiras respostas do Marco é a próxima pergunta fixa (evento `texto` com a pergunta e `fim`; sem IA, sem contar no limite diário); a 5ª dispara a chamada final da IA (memórias, até 8); uma 6ª mensagem dá 409 `boas_vindas_completa`. **Modo `decidir`:** o atalho envia "Preciso decidir" como 1ª mensagem; o título só é gerado depois da 1ª mensagem que não seja esse aviso |
 | Transcrever áudio | `POST /api/voz` | Botão 🎤 | `multipart: audio` (≤ 10 MB) e `duracao_ms` (opcional; ≤ ~2 min) | `{texto}` (pode ser vazio) | sessão e `Origin` como as demais; tipo pelo Content-Type real do arquivo, ignorando parâmetros (`audio/webm;codecs=opus` vale): aceita `audio/webm`, `audio/mp4`, `audio/m4a` (e `x-m4a`), `audio/ogg`, `audio/mpeg`, `audio/wav` (e `x-wav`), mais `video/mp4` e `video/webm` por defesa (alguns navegadores rotulam assim o áudio); **400** formato inválido, campo ausente, áudio vazio ou `duracao_ms` acima de ~2 min (125 s); **413** acima de 10 MB; **429 `limite_voz`** no 61º pedido do dia (conta antes do Whisper, só depois de validar o pedido); **500 `transcricao_falhou`** se o Whisper falhar; idioma `pt`; o áudio fica só em memória e é descartado; logs só com tipo, tamanho e tempo (nunca o áudio nem o texto) |
 | Salvar sugestão | `POST /api/sugestoes/:id/salvar` | Cartão | `{conteudo?}` (editado) | `{item}` | só se `pendente` (senão 409); cria o item; grava `item_id` |
 | Descartar sugestão | `POST /api/sugestoes/:id/descartar` | Cartão | — | 204 | só se `pendente` |
-| Salvar selecionadas | `POST /api/conversas/:id/sugestoes/lote` | Boas-vindas | `{salvar: [{id, conteudo?}], descartar: [id]}` | `{itens[]}` | transação única |
-| Concluir boas-vindas | `POST /api/eu/boas-vindas` | Boas-vindas (fim/Pular) | — | 204 | `boas_vindas_concluida = 1` |
+| Salvar selecionadas | `POST /api/conversas/:id/sugestoes/lote` | Boas-vindas | `{salvar: [{id, conteudo?}], descartar: [id]}` (até 20 ids no total, sem repetir id) | `{itens[]}` (só as memórias criadas agora) | só em conversa `boas_vindas` do usuário, só sugestões de memória dessa conversa (400/404 caso contrário); **transação única**: salva as marcadas (`origem = boas_vindas`, conteúdo validado com Zod), descarta as desmarcadas e marca `boas_vindas_concluida = 1`; sugestão que já não está `pendente` é ignorada |
+| Concluir boas-vindas | `POST /api/eu/boas-vindas` | Boas-vindas (Pular) | — | 204 | `boas_vindas_concluida = 1`; idempotente |
 | Tarefas (CRUD) | `GET/POST /api/tarefas`, `PATCH/DELETE /api/tarefas/:id` | Tarefas | `{titulo, area, prazo?}` / campos parciais (incl. `concluida`) | tarefa(s) | GET na ordem da regra 5; concluir grava `concluida_em` e desfazer limpa; POST manual com `origem = manual` |
 | Metas (CRUD) | `GET/POST /api/metas`, `PATCH/DELETE /api/metas/:id` | Tarefas › Metas | `{titulo, area, prazo?, status?}` | meta(s) | concluir grava `concluida_em` |
 | Memórias (CRUD) | `GET/POST /api/memorias`, `PATCH/DELETE /api/memorias/:id` | José sabe | `{texto (1–300), area}` | memória(s) | — |
