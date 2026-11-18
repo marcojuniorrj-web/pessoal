@@ -134,13 +134,13 @@ export function GavetaHistorico({ aberta, aoFechar, conversaAtualId, aoAbrir, ao
                 {g.itens.map((c) => (
                   <li key={c.id} className="gaveta__item" data-atual={c.id === conversaAtualId || undefined}>
                     <button type="button" className="gaveta__abrir" onClick={() => aoAbrir(c.id)}>
-                      <span className="gaveta__nome">{c.titulo ?? 'Nova conversa'}</span>
+                      <span className="gaveta__nome">{c.titulo ?? (c.modo === 'decidir' ? 'Decisão' : 'Nova conversa')}</span>
                       <span className="gaveta__quando texto-2">{g.grupo === 'hoje' || g.grupo === 'ontem' ? hora.format(new Date(c.atualizada_em)) : data.format(new Date(c.atualizada_em))}</span>
                     </button>
                     <button
                       type="button"
                       className="gaveta__mais"
-                      aria-label={`Mais opções de ${c.titulo ?? 'Nova conversa'}`}
+                      aria-label={`Mais opções de ${c.titulo ?? (c.modo === 'decidir' ? 'Decisão' : 'Nova conversa')}`}
                       aria-expanded={menuAbertoId === c.id}
                       onClick={() => setMenuAbertoId(menuAbertoId === c.id ? null : c.id)}
                     >

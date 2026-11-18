@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { inserirNoCampo, perguntaDe, type RespostaRapida } from '@compartilhado/boasvindas';
+import { PERGUNTA_FIXA_DECISAO } from '@compartilhado/decisao';
 import { FUSO_PADRAO, saudacao, separadoresDeDia } from '@compartilhado/datas';
 import { LIMITE_MENSAGEM } from '@compartilhado/schemas';
 import { Balao } from '../componentes/Balao';
@@ -455,7 +456,7 @@ export function Chat({ boasVindas }: { boasVindas?: ConfigBoasVindas } = {}) {
         <button type="button" className="chat__icone" aria-label="Histórico" onClick={() => setGavetaAberta(true)}>
           ☰
         </button>
-        <h1 className="chat__titulo">{conversa.titulo ?? 'Nova conversa'}</h1>
+        <h1 className="chat__titulo">{conversa.titulo ?? (conversa.modo === 'decidir' ? 'Decisão' : 'Nova conversa')}</h1>
         {conversa.modo === 'decidir' && <span className="chat__selo">Modo decisão</span>}
         <button type="button" className="chat__nova" aria-label="Nova conversa" title="Nova conversa" onClick={() => ir('/?nova=1')}>
           <svg className="chat__nova-icone" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
@@ -530,7 +531,8 @@ export function Chat({ boasVindas }: { boasVindas?: ConfigBoasVindas } = {}) {
         {vazio && !bv && conversa.modo === 'decidir' && (
           <div className="chat-vazio">
             <h2 className="chat-vazio__saudacao">Modo decisão</h2>
-            <p className="texto-2">Conte qual é a decisão. Vou fazer até 3 perguntas, mostrar prós e contras e dar uma recomendação.</p>
+            {/* Só aparece com a conversa de decisão vazia (ex.: sem rede na criação). Normalmente a pergunta vem do José. */}
+            <p className="texto-2">{PERGUNTA_FIXA_DECISAO} Escreva ou fale, e eu faço as perguntas que faltam.</p>
           </div>
         )}
         {visiveis.flatMap((b, i) => [

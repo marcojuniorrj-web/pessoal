@@ -1,5 +1,6 @@
 // Estado do Chat: carrega a conversa, envia mensagens em streaming e cuida de erros e "Tentar de novo".
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { TEXTO_ATALHO_DECISAO } from '@compartilhado/decisao';
 import type { ConversaCompleta, ModoConversa } from '@compartilhado/schemas';
 import { ErroHttp, ErroRede } from '../api/cliente';
 import {
@@ -208,23 +209,31 @@ export function useChat({ idUrl, nova, aoCriar, fixa = false, maxSugestoes = 3, 
     [atualizarResposta, definirConversa, fixa, maxSugestoes],
   );
 
-  const enviar = useCallback(
-    async (texto: string, origem: 'texto' | 'voz' = 'texto') => {
-      const t = texto.trim();
-      if (!t || ocupado) return false;
+  /** Mostra a mensagem do Marco, a resposta em andamento e envia. `guardarRascunho: false` quando o texto não foi digitado (atalho). */
+  const iniciarEnvio = useCallback(
+    async (t: string, origem: 'texto' | 'voz', guardarRascunho = true) => {
       const msg: MensagemParaEnviar = { id: crypto.randomUUID(), texto: t, origem };
       pendenteRef.current = msg;
       // Guarda como rascunho até o servidor confirmar: um 401 não pode perder o que foi escrito.
-      salvarRascunho(conversaRef.current.id, t);
+      if (guardarRascunho) salvarRascunho(conversaRef.current.id, t);
       setBolhas((l) => [
         ...l.filter((b) => b.id !== ID_TEMPORARIO),
         { id: msg.id, autor: 'marco', texto: t, origem, estado: 'ok', criadaEm: new Date().toISOString() },
         { id: ID_TEMPORARIO, autor: 'jose', texto: '', origem: 'texto', estado: 'transmitindo' },
       ]);
       await executar(msg);
+    },
+    [executar],
+  );
+
+  const enviar = useCallback(
+    async (texto: string, origem: 'texto' | 'voz' = 'texto') => {
+      const t = texto.trim();
+      if (!t || ocupado) return false;
+      await iniciarEnvio(t, origem);
       return true;
     },
-    [executar, ocupado],
+    [iniciarEnvio, ocupado],
   );
 
   const tentarDeNovo = useCallback(async () => {
@@ -237,7 +246,11 @@ export function useChat({ idUrl, nova, aoCriar, fixa = false, maxSugestoes = 3, 
     await executar(msg); // mesmo id: o servidor não duplica a mensagem do Marco
   }, [executar, ocupado]);
 
-  /** "⚖️ Preciso decidir": cria a conversa em modo decisão (respondida pelo modelo profundo). */
+  /**
+   * "⚖️ Preciso decidir": cria a conversa em modo decisão (modelo profundo) e envia o aviso "Preciso decidir" como 1ª mensagem:
+   * a pergunta inicial ("Qual é a decisão?") é a resposta real do José, não um texto fixo do app.
+   * Devolve false só se a conversa não pôde ser criada (então o Chat avisa); se o envio falhar, o balão de erro tem "Tentar de novo".
+   */
   const iniciarDecisao = useCallback(async (): Promise<boolean> => {
     if (ocupado) return false;
     setOcupado(true);
@@ -245,13 +258,14 @@ export function useChat({ idUrl, nova, aoCriar, fixa = false, maxSugestoes = 3, 
       const { id } = await criarConversa('decidir');
       definirConversa({ id, titulo: null, modo: 'decidir' });
       aoCriarRef.current(id);
+      await iniciarEnvio(TEXTO_ATALHO_DECISAO, 'texto', false);
       return true;
     } catch {
       return false;
     } finally {
       setOcupado(false);
     }
-  }, [definirConversa, ocupado]);
+  }, [definirConversa, iniciarEnvio, ocupado]);
 
   const recarregar = useCallback(() => setTentativaCarga((n) => n + 1), []);
 

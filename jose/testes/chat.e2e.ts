@@ -81,19 +81,50 @@ test.describe('Chat (2.7)', () => {
     await expect(page.getByRole('heading', { name: 'Nova conversa' })).toBeVisible();
   });
 
-  test('"Preciso decidir" cria a conversa em modo decisão e mostra o selo', async ({ page }) => {
+  test('"Preciso decidir" cria a conversa em modo decisão, envia o aviso e a pergunta vem do José (não de um texto fixo)', async ({ page }) => {
     await simularApi(page);
     const f = await simularChat(page);
     await page.goto('/');
     await page.getByRole('button', { name: /Preciso decidir/ }).click();
     await expect(page.getByText('Modo decisão', { exact: true }).first()).toBeVisible();
     expect(f.postsConversa).toEqual([{ tipo: 'normal', modo: 'decidir' }]);
+    // o atalho envia "Preciso decidir" e a resposta que aparece é a do servidor (modelo profundo)
+    await expect(page.locator('.balao--marco')).toHaveText(/Preciso decidir/);
+    await expect(page.locator('.balao--jose')).toContainText('Resposta do José.');
+    expect(f.postsMensagem).toEqual([expect.objectContaining({ conversa: 'c1', texto: 'Preciso decidir', origem: 'texto' })]);
+    // o texto fixo do modo vazio não aparece (a pergunta é do José)
+    await expect(page.getByText('Qual é a decisão? Escreva ou fale')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Decisão', exact: true }).or(page.getByRole('heading', { name: 'Título de teste' }))).toBeVisible();
     await expect(page.getByRole('button', { name: /Travei/ })).toHaveCount(0);
+    // o atalho não deixa "Preciso decidir" como rascunho no campo
+    await expect(page.getByRole('textbox')).toHaveValue('');
     // ao reabrir a conversa o selo continua; Nova conversa sai do modo
     await page.reload();
     await expect(page.locator('.chat__selo')).toHaveText('Modo decisão');
     await page.getByRole('button', { name: 'Nova conversa' }).click();
     await expect(page.locator('.chat__selo')).toHaveCount(0);
+  });
+
+  test('modo decisão: se o envio do aviso falha, balão de erro com "Tentar de novo" (mesmo id) e o texto fixo só aparece com a conversa vazia', async ({ page }) => {
+    await simularApi(page);
+    const f = await simularChat(page, { planos: ['erro-ia'] });
+    await page.goto('/');
+    await page.getByRole('button', { name: /Preciso decidir/ }).click();
+    await expect(page.getByText('O José não conseguiu responder agora.')).toBeVisible();
+    await page.getByRole('button', { name: 'Tentar de novo' }).click();
+    await expect(page.locator('.balao--jose').last()).toContainText('Resposta do José.');
+    expect(f.postsMensagem).toHaveLength(2);
+    expect(f.postsMensagem[0]!.id).toBe(f.postsMensagem[1]!.id);
+  });
+
+  test('conversa de decisão ainda vazia (ex.: sem rede na criação): mostra o texto fixo "Qual é a decisão?" como alternativa', async ({ page }) => {
+    await simularApi(page);
+    await simularChat(page, { conversas: [novaConversa('d1', null, 0, 'decidir')], hoje: null });
+    await page.goto('/?c=d1');
+    await expect(page.getByRole('heading', { name: 'Modo decisão' })).toBeVisible();
+    await expect(page.getByText('Qual é a decisão? Escreva ou fale')).toBeVisible();
+    await expect(page.locator('.chat__selo')).toHaveText('Modo decisão');
+    await expect(page.locator('.chat__titulo')).toHaveText('Decisão');
   });
 
   test('o campo de digitação fica à vista logo acima da barra de abas', async ({ page }) => {
