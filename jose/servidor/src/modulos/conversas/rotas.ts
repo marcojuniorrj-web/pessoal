@@ -5,11 +5,11 @@ import { streamSSE } from 'hono/streaming';
 import { mensagemEntradaSchema } from '@compartilhado/schemas';
 import type { Dependencias } from '../../compartilhado/dependencias';
 import { requisicaoInvalida } from '../../compartilhado/erros';
-import { buscarDoUsuario } from '../../compartilhado/posse';
+import { buscarDoUsuario, buscarMensagemDoUsuario } from '../../compartilhado/posse';
 import { prepararEnvio } from './servico';
 import type { AppEnv } from '../auth/sessao';
 import {
-  apagarConversa, conversaCompleta, criarConversa, listarConversas, ultimaConversaNormal, type ConversaLinha,
+  apagarConversa, apagarMensagens, conversaCompleta, criarConversa, listarConversas, mensagemSeguinte, ultimaConversaNormal, type ConversaLinha, type MensagemLinha,
 } from './repositorio';
 
 export function rotasConversas(deps: Dependencias) {
@@ -40,6 +40,21 @@ export function rotasConversas(deps: Dependencias) {
   rotas.delete('/conversas/:id', async (c) => {
     const conversa = await buscarDoUsuario<ConversaLinha>(c.env.DB, 'conversas', c.req.param('id'), c.var.usuario.id);
     await apagarConversa(c.env.DB, conversa.id);
+    return c.body(null, 204);
+  });
+
+  // Apagar mensagem (dentro do Chat). `?com_resposta=1` só vale para mensagem do Marco e leva a resposta do José logo depois.
+  rotas.delete('/mensagens/:id', async (c) => {
+    const comResposta = c.req.query('com_resposta');
+    if (comResposta !== undefined && comResposta !== '1' && comResposta !== '0') throw requisicaoInvalida('com_resposta deve ser 1.');
+    const mensagem = await buscarMensagemDoUsuario<MensagemLinha>(c.env.DB, c.req.param('id'), c.var.usuario.id);
+    const ids = [mensagem.id];
+    if (comResposta === '1') {
+      if (mensagem.autor !== 'marco') throw requisicaoInvalida('com_resposta só vale para mensagem do Marco.');
+      const seguinte = await mensagemSeguinte(c.env.DB, mensagem);
+      if (seguinte?.autor === 'jose') ids.push(seguinte.id);
+    }
+    await apagarMensagens(c.env.DB, ids);
     return c.body(null, 204);
   });
 

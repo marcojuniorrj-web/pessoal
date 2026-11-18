@@ -76,6 +76,17 @@ export async function apagarConversa(db: D1Database, conversaId: string): Promis
   await db.prepare('DELETE FROM conversas WHERE id = ?').bind(conversaId).run();
 }
 
+/** A mensagem logo depois de `m` na mesma conversa (mesma ordem da leitura: criada_em, rowid). */
+export async function mensagemSeguinte(db: D1Database, m: MensagemLinha): Promise<MensagemLinha | null> {
+  const todas = await mensagensDaConversa(db, m.conversa_id);
+  return todas[todas.findIndex((x) => x.id === m.id) + 1] ?? null;
+}
+
+/** Apaga as mensagens (a cascata leva as sugestões; tarefas, metas e memórias salvas permanecem). */
+export async function apagarMensagens(db: D1Database, ids: string[]): Promise<void> {
+  await db.batch(ids.map((id) => db.prepare('DELETE FROM mensagens WHERE id = ?').bind(id)));
+}
+
 // ---- leitura para montar o contexto da IA (regra 1) ----
 
 export async function memoriasDoUsuario(db: D1Database, usuarioId: string) {
