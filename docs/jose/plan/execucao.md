@@ -1,8 +1,8 @@
 # Execução (memória de construção)
 ## Onde paramos
-- Fase atual: fase 2b concluída (testada pelo Marco); ajuste da barra do topo publicado; próxima: onda 3 (voz)
+- Fase atual: BUILD onda 3 (voz no chat) em andamento
 - Última tarefa concluída: onda 4 inteira (cartão 🧠, aba José sabe), testada no iPhone
-- Próximo passo: onda 3 (voz no chat) → 6 (boas-vindas e modo decisão com GROW + perdas e ganhos) → 7
+- Próximo passo: terminar a onda 3; depois 6 (boas-vindas e modo decisão com GROW + perdas e ganhos) → 7
 ## Aprovações
 - [x] SPEC aprovada (2026-11-17)
 - [x] PLAN aprovado (2026-11-17)
