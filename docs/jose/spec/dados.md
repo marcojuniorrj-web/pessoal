@@ -13,6 +13,7 @@
 | **Tarefa** | id, usuario_id, titulo (texto ≤ 120), area (enum), prazo (data local `AAAA-MM-DD`, opcional), concluida (booleano), concluida_em, origem (`chat` \| `manual`), criada_em. *(V1.1: meta_id)* | id, usuario_id, titulo, area, concluida, origem, criada_em | N → 1 Usuario |
 | **Meta** | id, usuario_id, titulo (texto ≤ 120), area (enum), prazo (data local, opcional), status (`ativa` \| `concluida`; *V1.1: `pausada`*), concluida_em, origem (`chat` \| `manual`), criada_em | id, usuario_id, titulo, area, status, origem, criada_em | N → 1 Usuario |
 | **Memoria** | id, usuario_id, texto (texto ≤ 300), area (enum de memória), origem (`boas_vindas` \| `chat` \| `manual`), criada_em, atualizada_em | id, usuario_id, texto, area, origem, criada_em | N → 1 Usuario |
+| **UsoDiario** | usuario_id, dia (data local `AAAA-MM-DD`, no fuso do usuário), respostas (inteiro) | todos (chave = usuario_id + dia) | N → 1 Usuario |
 
 **Enums e rótulos.** Um mapa único fica em `compartilhado/` e é usado pela interface e pela IA.
 - `area` (Tarefa/Meta):
@@ -83,6 +84,7 @@
    - mensagem de até 4.000 caracteres;
    - áudio de até 2 minutos e 10 MB, com até 60 transcrições por dia;
    - até **200 respostas do José por dia** (no dia local), contando também as "Tentar de novo", com o aviso "Limite de hoje atingido, volta amanhã".
+    A contagem fica em `UsoDiario` e sobe a cada resposta gravada; **apagar mensagens não a diminui** (apagar não burla o limite de custo).
 10. **Qual IA responde:** o modelo **econômico** (Haiku) por padrão. O modelo **profundo** (Sonnet) entra quando a conversa
     está no modo `decidir`, aberta pelo atalho "⚖️ Preciso decidir". *(V1.1: botão "Pensar melhor" em qualquer resposta.)*
 11. **Tentar de novo sem duplicar:** o app gera o `id` da mensagem do Marco. Se o mesmo `id` chegar de novo, o servidor não
@@ -91,6 +93,11 @@
     mensagem cria uma nova.
 13. **Apagar com "Desfazer":** a interface espera 5 s antes de chamar a API. Se o Marco tocar em "Desfazer" nesse tempo,
     nada é apagado.
+13b. **Apagar mensagens:** o Marco apaga uma mensagem (ou a pergunta e a resposta do José logo depois) dentro do Chat, também com o "Desfazer" de 5 s.
+    - As sugestões da mensagem apagada são apagadas junto (cascata); tarefas, metas e memórias já salvas a partir delas **permanecem**.
+    - A mensagem apagada deixa de entrar no contexto da IA (regra 1).
+    - A contagem do limite diário (regra 9) não muda.
+    - Mensagem de outro usuário responde 404.
 14. **Apagar todos os meus dados:** apaga todas as linhas do usuário em todas as tabelas, inclusive sessões e o próprio
     usuário, numa transação só.
 
@@ -120,7 +127,7 @@ Ficam para depois: Google Calendar, Gmail e WhatsApp.
 - **Retenção:**
   - conversas, tarefas, metas e memórias ficam **para sempre, até o Marco apagar**;
   - **o áudio nunca é guardado**, só o texto transcrito;
-  - apagar uma conversa apaga suas mensagens e **todas** as sugestões dela, mas os itens já salvos a partir dela permanecem;
+  - apagar uma conversa ou uma mensagem apaga também as sugestões dela, mas os itens já salvos a partir delas permanecem;
   - uma memória apagada pode ainda aparecer em mensagens antigas de conversas que não foram apagadas (risco aceito);
   - backup semanal do banco com **4 cópias (30 dias)**, mais a recuperação de 30 dias da própria Cloudflare (Time Travel do D1).
 - **Segurança:**

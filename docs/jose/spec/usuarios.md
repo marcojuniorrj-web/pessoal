@@ -14,6 +14,7 @@ Só **1 pessoa** usa o app. Não há outros perfis humanos (sem família nem equ
 | Conversar (texto e voz) | Sim | Responde |
 | Ver o histórico de conversas | Sim | Lê para dar contexto |
 | Apagar uma conversa | Sim | Não |
+| Apagar uma mensagem (ou a pergunta com a resposta) dentro do Chat | Sim (com Desfazer) | Não |
 | Ver, editar e apagar as **memórias** (fatos sobre o Marco) | Sim | Só **sugere** novas memórias |
 | Editar uma sugestão antes de salvar | Sim | Não |
 | Criar tarefa ou meta | Sim | Só **sugere**. Nada é salvo sem o OK do Marco |
@@ -73,6 +74,8 @@ cartão com os botões "Salvar", "Editar" e "Descartar".
    - Aceite: são no máximo 5 perguntas. Dá para pular. As respostas viram memórias confirmadas.
 8. **Histórico.** Como Marco, quero rever conversas antigas, para retomar um raciocínio.
    - Aceite: a lista de conversas mostra data e título automático. Dá para abrir e apagar.
+8b. **Apagar e situar no tempo.** Como Marco, quero apagar uma mensagem ou a conversa inteira sem sair do Chat e ver a hora de cada mensagem, para limpar o que não quero guardar e saber quando cada coisa foi dita.
+   - Aceite: cada balão tem um ⋯ com "Apagar mensagem" (e "Apagar mensagem e resposta" nas minhas, quando há resposta); o topo do Chat tem ⋯ → "Apagar conversa". Tudo some na hora, com "Apagado. Desfazer" por 5 s. Itens já salvos a partir dos cartões permanecem. Cada balão mostra a hora (24 h, meu fuso) e há separadores "Hoje", "Ontem" e data. Apagar não libera o limite diário de respostas.
 9. **Decidir com mais profundidade.** Como Marco, quero um modo de decisão, para pensar melhor nas escolhas importantes.
    - Aceite: o atalho "⚖️ Preciso decidir" abre a conversa em "Modo decisão", respondida pelo modelo profundo. O José faz até 3 perguntas, mostra prós e contras curtos e dá uma recomendação.
 10. **Controle e privacidade.** Como Marco, quero sair de todos os aparelhos e apagar todos os meus dados, para me proteger se perder o celular.

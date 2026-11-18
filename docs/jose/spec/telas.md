@@ -23,8 +23,9 @@ Se não houver nenhuma, abre o Chat vazio, com os atalhos. A conversa só é cri
 título, o topo mostra "Nova conversa".
 
 **Padrões comuns a todas as telas**
-- **Apagar** (tarefa, meta, memória, conversa): apaga na hora e mostra o aviso **"Apagado. Desfazer"** por 5 s.
-  Não há pergunta de confirmação. Os gestos de deslizar sempre têm uma alternativa visível (⋯).
+- **Apagar** (mensagem, tarefa, meta, memória, conversa): some da tela na hora e mostra o aviso **"Apagado. Desfazer"** por 5 s.
+  Só depois dos 5 s o app chama a API (Desfazer cancela). Não há pergunta de confirmação. Os gestos de deslizar sempre têm uma alternativa visível (⋯).
+- **Horário:** as horas mostradas nas conversas usam 24 h (`HH:mm`) e o fuso do Marco (`fuso_horario` de `/api/eu`).
 - **Avisos (toast):** aparecem acima da barra de abas, por 4 s, e um de cada vez.
 - **Sessão expirada (401):** leva ao Login guardando o rascunho digitado. Depois de entrar, volta à conversa em que o Marco estava.
 - **Offline:** mostra a faixa "Offline" no topo. As abas mostram a última lista carregada, só para leitura, e o envio fica desabilitado.
@@ -75,8 +76,11 @@ título, o topo mostra "Nova conversa".
     - ☰ (Histórico);
     - título da conversa;
     - **+ Nova**;
+    - **⋯** (alvo de 48px) com **"Apagar conversa"** (aparece quando há uma conversa aberta);
     - selo **"Modo decisão"**, quando a conversa está nesse modo.
   - **Área de mensagens:** balões. As mensagens do Marco ficam à direita e as do José à esquerda. Um áudio enviado aparece como balão de texto com o ícone 🎤.
+    - **Horário:** cada balão mostra a hora (`HH:mm`, 24 h, cor secundária) e, entre mensagens de dias diferentes, há um **separador de dia**: "Hoje", "Ontem" ou a data curta ("seg., 17 de nov."; sem o ano quando é o ano corrente). A mensagem que acabou de chegar mostra a hora quando termina. A hora é um `<time datetime>` com rótulo acessível ("enviada às 14:32").
+    - **⋯ do balão** (alvo de 48px, alternativa visível a qualquer gesto): menu com **"Apagar mensagem"** e, nas mensagens do Marco que têm resposta do José logo depois, **"Apagar mensagem e resposta"**. O menu abre para cima quando não cabe embaixo, fecha com Esc e ao tocar fora, e devolve o foco ao botão. Uma resposta do José ainda em andamento (streaming) ou com erro não tem ⋯.
   - **Cartões de sugestão** dentro da conversa, com **no máximo 3 por resposta**:
     - 📌 Tarefa: título, área e prazo (opcional);
     - 🎯 Meta: título, área e prazo (opcional);
@@ -96,6 +100,8 @@ título, o topo mostra "Nova conversa".
   - **Salvar no cartão:** o cartão vira "✓ Salvo em Tarefas" (ou "✓ Salvo em José sabe").
   - **Editar:** abre os campos dentro do próprio cartão.
   - **Descartar:** recolhe o cartão, com o aviso "Descartado. Desfazer".
+  - **Apagar mensagem (⋯ do balão):** a mensagem (ou a pergunta com a resposta) some na hora, com o aviso "Apagado. Desfazer". Os cartões da resposta apagada somem junto, mas o que já foi salvo a partir deles (tarefas, metas, memórias) **permanece**. A mensagem apagada deixa de entrar no contexto da IA.
+  - **Apagar conversa (⋯ do topo):** apaga a conversa aberta com "Apagado. Desfazer" e leva ao Chat vazio; a gaveta de Histórico reflete a mudança.
   - **Tentar de novo** (no balão de erro): refaz a resposta do José sem duplicar a mensagem do Marco.
 - **Estados:**
   - vazio: saudação conforme o horário ("Bom dia, Marco.") e os 4 atalhos;
@@ -109,7 +115,7 @@ título, o topo mostra "Nova conversa".
   - sem internet: faixa "Offline" e envio desabilitado;
   - limite diário atingido: "Limite de hoje atingido, volta amanhã.";
   - microfone negado: "Libere o microfone nas configurações para usar voz."
-- **Mobile:** o campo de digitação sobe junto com o teclado. Botões com pelo menos 48px.
+- **Mobile:** o campo de digitação sobe junto com o teclado. Botões com pelo menos 48px. Nada passa da largura da tela (320px e 390px), mesmo com balão de texto longo ou palavra sem espaços; o ⋯ não empurra o balão para fora; a barra de abas nunca some; o aviso (toast) não cobre campo, formulário nem cartões.
 
 ### 4. Histórico de conversas (gaveta lateral do Chat)
 - **Perfil:** Marco.
@@ -121,7 +127,7 @@ título, o topo mostra "Nova conversa".
 - **Ações:**
   - tocar numa conversa abre essa conversa no Chat e fecha a gaveta;
   - deslizar (ou ⋯) e **Apagar** mostra o aviso "Apagado. Desfazer";
-  - apagar a conversa que está aberta leva ao Chat vazio.
+  - apagar a conversa que está aberta leva ao Chat vazio (o Chat também tem **⋯ → Apagar conversa** no topo).
 - **Estados:**
   - vazio: "Nenhuma conversa ainda.";
   - carregando: lista em esqueleto;
