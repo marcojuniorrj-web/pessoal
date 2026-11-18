@@ -191,9 +191,13 @@ html[data-teclado='aberto'] .folha { bottom: 0; }
 .separador-dia { align-self: center; max-width: 100%; margin: 6px 0 2px; }
 .separador-dia span { display: inline-block; max-width: 100%; padding: 2px 12px; border-radius: 999px; background: var(--superficie); color: var(--texto-2); font-size: 13px; line-height: 20px; overflow-wrap: anywhere; }
 
-/* Telas estreitas: com o ⋯ no topo, o selo "Modo decisão" passa para uma linha própria (senão o título some em 320px). */
-@media (max-width: 430px) {
-  .chat__topo { flex-wrap: wrap; }
-  .chat__titulo { min-width: 0; }
-  .chat__selo { order: 9; flex-basis: auto; margin: 0 0 8px 12px; }
+/* Telas estreitas (< 480px): o topo vira uma grade. ☰, título, + Nova e ⋯ na 1ª linha; o selo "Modo decisão" sempre na 2ª linha,
+   inteiro e sem tirar espaço do título (não depende de quebra automática de linha). */
+@media (max-width: 479px) {
+  .chat__topo { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; column-gap: 0; padding: 4px 4px; }
+  .chat__icone { grid-column: 1; grid-row: 1; }
+  .chat__titulo { grid-column: 2; grid-row: 1; min-width: 0; }
+  .chat__topo .chat__nova { grid-column: 3; grid-row: 1; padding: 0 6px; min-width: 0; }
+  .chat__mais { grid-column: 4; grid-row: 1; }
+  .chat__selo { grid-column: 1 / -1; grid-row: 2; justify-self: start; margin: 0 0 8px 12px; }
 }

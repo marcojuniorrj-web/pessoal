@@ -485,3 +485,25 @@ test.describe('Apagar conversa no topo do Chat (2b.6)', () => {
     await expect(page.getByRole('menuitem', { name: 'Apagar conversa' })).toBeDisabled();
   });
 });
+
+test.describe('Topo do Chat em modo decisão (correção F4)', () => {
+  for (const largura of [320, 360, 375, 390, 414, 430]) {
+    test(`${largura}px: o título tem pelo menos 140px, o selo fica inteiro numa linha própria e nada passa da largura`, async ({ page }) => {
+      await page.setViewportSize({ width: largura, height: 700 });
+      const c = novaConversa('d', 'Decisão sobre a proposta de trabalho', 5, 'decidir', [['marco', 'oi', 5]]);
+      await abrir(page, {}, [c]);
+      const [titulo] = await medir(page, '.chat__titulo');
+      const [selo] = await medir(page, '.chat__selo');
+      const [topo] = await medir(page, '.chat__topo');
+      expect(titulo!.width, `título em ${largura}px`).toBeGreaterThanOrEqual(140);
+      expect(selo!.y, 'selo abaixo da linha do título').toBeGreaterThanOrEqual(titulo!.y + titulo!.height - 0.5);
+      expect(selo!.y + selo!.height).toBeLessThanOrEqual(topo!.y + topo!.height + 0.5);
+      // o título não é cortado em "N…": mostra pelo menos o começo da frase
+      expect(await page.locator('.chat__titulo').evaluate((el) => el.scrollWidth - el.clientWidth < 400)).toBe(true);
+      const m = await elementosForaDaTela(page);
+      expect(m.rolagem).toBeLessThanOrEqual(m.largura);
+      expect(m.fora, JSON.stringify(m.fora)).toEqual([]);
+      expect(menoresQue(await medir(page, '.chat__topo button'))).toEqual([]);
+    });
+  }
+});
