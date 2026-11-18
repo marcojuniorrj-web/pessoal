@@ -3,8 +3,11 @@ import { useSessao } from '../estado/sessao';
 import { EsqueletoLista } from './Esqueleto';
 import { Casca } from './Casca';
 
-/** Guarda de rota: sem sessão (401) leva ao Login guardando a rota de volta. */
-export function RotaProtegida() {
+/**
+ * Guarda de rota: sem sessão (401) leva ao Login guardando a rota de volta.
+ * `semAbas`: só a tela de Boas-vindas (por desenho) dispensa a barra de abas; todas as outras rotas a mostram.
+ */
+export function RotaProtegida({ semAbas = false }: { semAbas?: boolean }) {
   const { estado } = useSessao();
   const local = useLocation();
   if (estado.situacao === 'carregando') return <EsqueletoLista />;
@@ -17,5 +20,5 @@ export function RotaProtegida() {
     const qs = params.toString();
     return <Navigate to={`/login${qs ? `?${qs}` : ''}`} replace />;
   }
-  return <Casca />;
+  return <Casca semAbas={semAbas} />;
 }

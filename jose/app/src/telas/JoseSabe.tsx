@@ -7,6 +7,8 @@ import { EsqueletoLista } from '../componentes/Esqueleto';
 import { EstadoVazio } from '../componentes/EstadoVazio';
 import { FormMemoria } from '../componentes/FormMemoria';
 import { useToast } from '../componentes/Toast';
+import { useNavigate } from 'react-router-dom';
+import { abrirBoasVindas, caminhoBoasVindas } from '../estado/boas-vindas';
 import { apagarComDesfazer } from '../estado/apagar-com-desfazer';
 import { agruparMemorias, formatarDataMemoria, useMemorias } from '../estado/memorias';
 import { posicionarMenu } from '../estado/menu-posicao';
@@ -25,6 +27,19 @@ export function JoseSabe() {
   const [adicionando, setAdicionando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [menuAbertoId, setMenuAbertoId] = useState<string | null>(null);
+  const ir = useNavigate();
+  const [abrindo, setAbrindo] = useState(false);
+
+  // "Fazer as boas-vindas" (vazio): abre as boas-vindas (retoma a conversa em aberto ou cria uma).
+  const fazerBoasVindas = async () => {
+    setAbrindo(true);
+    try {
+      ir(caminhoBoasVindas(await abrirBoasVindas(usuario)));
+    } catch {
+      toast('Não foi possível abrir as boas-vindas. Tente de novo.');
+      setAbrindo(false);
+    }
+  };
 
   // Quem abriu o formulário ou o menu recebe o foco de volta quando ele fecha por Esc ou Cancelar.
   const voltarFoco = useRef<string | null>(null);
@@ -113,8 +128,7 @@ export function JoseSabe() {
       )}
       {vazio && !adicionando && (
         <EstadoVazio texto="O José ainda não sabe nada sobre você.">
-          {/* As boas-vindas chegam na Fase 6: até lá o botão fica desabilitado. */}
-          <Botao variante="principal" disabled title="Em breve">
+          <Botao variante="principal" carregando={abrindo} disabled={semRede} onClick={() => void fazerBoasVindas()}>
             Fazer as boas-vindas
           </Botao>
         </EstadoVazio>

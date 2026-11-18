@@ -13,10 +13,10 @@ async function abrir(page: Page, inicial: Partial<MemoriasFalsas> = {}) {
 const grupo = (page: Page, rotulo: string) => page.getByRole('region', { name: rotulo });
 
 test.describe('Aba José sabe (4.6)', () => {
-  test('vazio: texto, botão "Fazer as boas-vindas" desabilitado (Fase 6) e ⚙ leva a Ajustes', async ({ page }) => {
+  test('vazio: texto, botão "Fazer as boas-vindas" habilitado (Fase 6) e ⚙ leva a Ajustes', async ({ page }) => {
     await abrir(page);
     await expect(page.getByText('O José ainda não sabe nada sobre você.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Fazer as boas-vindas' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Fazer as boas-vindas' })).toBeEnabled();
     await page.getByRole('link', { name: 'Ajustes' }).click();
     await expect(page).toHaveURL(/\/ajustes$/);
     await expect(page.getByRole('heading', { name: 'Ajustes' })).toBeVisible();

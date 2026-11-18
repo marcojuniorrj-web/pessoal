@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/cliente';
 import { Botao } from '../componentes/Botao';
 import { useToast } from '../componentes/Toast';
+import { abrirBoasVindas, caminhoBoasVindas } from '../estado/boas-vindas';
+import { useOnline } from '../estado/online';
 import { useSessao, useUsuario } from '../estado/sessao';
 
 type Pergunta = null | 'sair' | 'sair-todos';
@@ -14,6 +16,8 @@ export function Ajustes() {
   const toast = useToast();
   const [confirmar, setConfirmar] = useState<Pergunta>(null);
   const [saindo, setSaindo] = useState(false);
+  const [abrindo, setAbrindo] = useState(false);
+  const online = useOnline();
 
   // Esc fecha a confirmação, como o Cancelar.
   useEffect(() => {
@@ -34,6 +38,17 @@ export function Ajustes() {
     } catch {
       toast('Não foi possível sair. Tentar de novo');
       setSaindo(false);
+    }
+  };
+
+  // Refazer boas-vindas: abre uma nova conversa (ou retoma a em aberto) e mantém as memórias atuais.
+  const refazerBoasVindas = async () => {
+    setAbrindo(true);
+    try {
+      ir(caminhoBoasVindas(await abrirBoasVindas(usuario)));
+    } catch {
+      toast('Não foi possível abrir as boas-vindas. Tente de novo.');
+      setAbrindo(false);
     }
   };
 
@@ -69,6 +84,9 @@ export function Ajustes() {
         </div>
       ) : (
         <div className="lista-acoes">
+          <Botao carregando={abrindo} disabled={!online} onClick={() => void refazerBoasVindas()}>
+            Refazer boas-vindas
+          </Botao>
           <Botao onClick={() => setConfirmar('sair')}>Sair</Botao>
           <Botao onClick={() => setConfirmar('sair-todos')}>Sair de todos os aparelhos</Botao>
         </div>
