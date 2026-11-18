@@ -39,8 +39,8 @@ describe('prompt-jose.md', () => {
 });
 
 describe('casos golden', () => {
-  it('4 por momento do dia (onda 2) e 2 de memória (onda 4)', () => {
-    expect(CASOS_GOLDEN.map((c) => c.id)).toEqual(['acordar', 'travado', 'decisao', 'noite', 'memoria-existente', 'memoria-nova']);
+  it('4 por momento do dia (onda 2), 2 de memória (onda 4) e 4 de tarefas e metas (onda 5)', () => {
+    expect(CASOS_GOLDEN.map((c) => c.id)).toEqual(['acordar', 'travado', 'decisao', 'noite', 'memoria-existente', 'memoria-nova', 'tarefa-atrasada', 'tarefa-prazo-relativo', 'meta', 'descarregar']);
   });
 });
 
@@ -68,8 +68,8 @@ describe('avaliarCaso (casos de memória, tarefa 4.4)', () => {
       expect(r.falhas.join()).toContain('sugeriu de novo a memória que já existe');
     }
   });
-  it('reprova ferramenta fora de sugerir_memoria e mais de 3 sugestões', () => {
-    expect(avaliarCaso(existente, { texto: 'Você acorda às 6h. Comece agora.', sugestoes: [{ nome: 'sugerir_tarefa', entrada: {} }] }).falhas).toContain('chamou ferramenta que não está ligada');
+  it('reprova ferramenta desconhecida e mais de 3 sugestões', () => {
+    expect(avaliarCaso(existente, { texto: 'Você acorda às 6h. Comece agora.', sugestoes: [{ nome: 'apagar_tudo', entrada: {} }] }).falhas).toContain('chamou ferramenta que não está ligada');
     const quatro = ['a', 'b', 'c', 'd'].map((t) => memoria(`Fato ${t}`));
     expect(avaliarCaso(nova, { texto: 'Anotado, Marco.', sugestoes: quatro }).falhas).toContain('mais de 3 sugestões (4)');
   });
@@ -102,5 +102,89 @@ describe('avaliarResposta', () => {
     expect(avaliarResposta('Você tem depressão.').falhas.join()).toContain('diagnóstico');
     expect(avaliarResposta('Invista em ações da Petrobras.').falhas.join()).toContain('investimento');
     expect(avaliarResposta('Processe a empresa.').falhas.join()).toContain('jurídico');
+  });
+});
+
+describe('avaliarCaso (casos de tarefas e metas, tarefas 5.1, 5.4 e 5.7)', () => {
+  const caso = (id: string) => CASOS_GOLDEN.find((c) => c.id === id)!;
+  const tarefa = (titulo: string, prazo?: string) => ({ nome: 'sugerir_tarefa', entrada: { titulo, area: 'trabalho', ...(prazo ? { prazo } : {}) } });
+  const meta = (titulo: string, prazo?: string) => ({ nome: 'sugerir_meta', entrada: { titulo, area: 'saude', ...(prazo ? { prazo } : {}) } });
+
+  describe('tarefa-atrasada: "o que faço hoje?" prioriza a atrasada', () => {
+    const c = caso('tarefa-atrasada');
+    it('o caso tem 3 tarefas, uma atrasada (prazo antes da data de "agora")', () => {
+      expect(c.mensagem).toBe('O que faço hoje?');
+      expect(c.tarefas).toHaveLength(3);
+      const atrasadas = c.tarefas.filter((t) => typeof t !== 'string' && t.prazo && t.prazo < c.agora.slice(0, 10));
+      expect(atrasadas).toHaveLength(1);
+    });
+    it('aprova: cita a atrasada primeiro e dá o primeiro passo', () => {
+      expect(avaliarCaso(c, { texto: 'Bom dia, Marco. A proposta do cliente Alfa já passou do prazo, comece por ela.\nAbra o arquivo e escreva só o primeiro parágrafo.', sugestoes: [] }).ok).toBe(true);
+    });
+    it('aprova citar só a atrasada; reprova não citar a atrasada ou citar outra antes dela', () => {
+      expect(avaliarCaso(c, { texto: 'Comece pelo relatório de vendas, Marco.', sugestoes: [] }).falhas).toContain('não citou a tarefa atrasada');
+      const r = avaliarCaso(c, { texto: 'Hoje, o relatório de vendas e depois a proposta do Alfa.', sugestoes: [] });
+      expect(r.falhas.join()).toContain('citou outra tarefa antes da atrasada');
+    });
+    it('reprova sugerir de novo uma tarefa que já está na lista', () => {
+      const r = avaliarCaso(c, { texto: 'Comece pela proposta do Alfa, Marco.', sugestoes: [tarefa('Enviar a proposta para o cliente Alfa')] });
+      expect(r.falhas.join()).toContain('sugeriu de novo uma tarefa que já está na lista');
+    });
+  });
+
+  describe('tarefa-prazo-relativo: "até sexta" vira 2026-11-20', () => {
+    const c = caso('tarefa-prazo-relativo');
+    it('a data do caso é uma terça e a sexta seguinte é 2026-11-20', () => {
+      expect(new Date(c.agora).toLocaleDateString('pt-BR', { weekday: 'long', timeZone: 'America/Sao_Paulo' })).toBe('terça-feira');
+      expect(new Date('2026-11-20T12:00:00-03:00').toLocaleDateString('pt-BR', { weekday: 'long', timeZone: 'America/Sao_Paulo' })).toBe('sexta-feira');
+    });
+    it('aprova: 1 tarefa com o prazo certo, texto antes e nenhuma meta', () => {
+      expect(avaliarCaso(c, { texto: 'Anotado, Marco. Que tal abrir a proposta agora e escrever o primeiro parágrafo?', sugestoes: [tarefa('Enviar a proposta para o cliente Alfa', '2026-11-20')] }).ok).toBe(true);
+    });
+    it('reprova: data errada, sem tarefa, tarefa demais ou meta no lugar de ação', () => {
+      const texto = 'Anotado, Marco. Comece agora.';
+      expect(avaliarCaso(c, { texto, sugestoes: [tarefa('Enviar a proposta', '2026-11-21')] }).falhas).toContain('nenhuma tarefa com o prazo 2026-11-20');
+      expect(avaliarCaso(c, { texto, sugestoes: [] }).falhas).toContain('sugeriu 0 tarefa(s), esperava ao menos 1');
+      expect(avaliarCaso(c, { texto, sugestoes: [tarefa('A', '2026-11-20'), tarefa('B')] }).falhas).toContain('sugeriu 2 tarefa(s), esperava no máximo 1');
+      expect(avaliarCaso(c, { texto, sugestoes: [tarefa('A', '2026-11-20'), meta('Fechar a venda')] }).falhas).toContain('sugeriu meta (1) para uma ação do dia');
+    });
+  });
+
+  describe('meta: objetivo maior vira meta', () => {
+    const c = caso('meta');
+    it('aprova meta com prazo em 2027 ou sem prazo; reprova sem meta ou com prazo em 2026', () => {
+      const texto = 'Que objetivo bom, Marco. Vamos começar com um passo pequeno?';
+      expect(avaliarCaso(c, { texto, sugestoes: [meta('Correr uma meia-maratona', '2027-11-14')] }).ok).toBe(true);
+      expect(avaliarCaso(c, { texto, sugestoes: [meta('Correr uma meia-maratona')] }).ok).toBe(true);
+      expect(avaliarCaso(c, { texto, sugestoes: [] }).falhas).toContain('não sugeriu nenhuma meta');
+      expect(avaliarCaso(c, { texto, sugestoes: [tarefa('Correr uma meia-maratona')] }).falhas).toContain('não sugeriu nenhuma meta');
+      expect(avaliarCaso(c, { texto, sugestoes: [meta('Correr', '2026-12-31')] }).falhas.join()).toContain('prazo da meta fora do esperado');
+    });
+  });
+
+  describe('descarregar: jornada "À noite" (tarefa 5.7)', () => {
+    const c = caso('descarregar');
+    const texto = 'Respira, Marco. Dá para organizar: o banco e a proposta são ações; a meia-maratona fica para outro dia.\nA proposta vence sexta, então comece por ela amanhã cedo.';
+    it('aprova: até 3 cartões, tarefa da proposta com prazo de sexta, sem cartão de preocupação', () => {
+      expect(avaliarCaso(c, { texto, sugestoes: [tarefa('Ligar para o banco'), tarefa('Revisar a proposta do cliente', '2026-11-20'), meta('Correr uma meia-maratona', '2027-11-14')] }).ok).toBe(true);
+      expect(avaliarCaso(c, { texto, sugestoes: [tarefa('Revisar a proposta do cliente', '2026-11-20')] }).ok).toBe(true);
+    });
+    it('reprova: mais de 3 cartões, preocupação virando cartão, tarefa sem o prazo de sexta, sem nenhuma tarefa', () => {
+      const quatro = [tarefa('Ligar para o banco'), tarefa('Revisar a proposta do cliente', '2026-11-20'), meta('Correr uma meia-maratona'), tarefa('Organizar a vida')];
+      expect(avaliarCaso(c, { texto, sugestoes: quatro }).falhas).toContain('mais de 3 sugestões (4)');
+      expect(avaliarCaso(c, { texto, sugestoes: [tarefa('Revisar a proposta do cliente', '2026-11-20'), tarefa('Resolver a preocupação com o caixa')] }).falhas.join()).toContain('transformou a preocupação em cartão');
+      expect(avaliarCaso(c, { texto, sugestoes: [tarefa('Revisar o fluxo de caixa')] }).falhas.join()).toContain('transformou a preocupação em cartão');
+      expect(avaliarCaso(c, { texto, sugestoes: [tarefa('Revisar a proposta do cliente')] }).falhas).toContain('nenhuma tarefa com o prazo 2026-11-20');
+      expect(avaliarCaso(c, { texto, sugestoes: [meta('Correr uma meia-maratona')] }).falhas).toContain('sugeriu 0 tarefa(s), esperava ao menos 1');
+    });
+    it('sugerir cartão sem escrever o texto antes reprova', () => {
+      expect(avaliarCaso(c, { texto: '', sugestoes: [tarefa('Revisar a proposta do cliente', '2026-11-20')] }).falhas).toContain('sugeriu sem escrever o texto antes');
+    });
+  });
+
+  it('o prompt cobre a jornada "À noite": só ação vira cartão', () => {
+    const t = secaoSugestoes(prompt.sugestoes, ['memoria', 'tarefa', 'meta']);
+    expect(`${prompt.base}\n${t}`).toMatch(/descarregar/i);
+    expect(t).toMatch(/Ideias e preocupações ficam só no texto|ideias soltas, desabafos e preocupações ficam só no texto/);
   });
 });

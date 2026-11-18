@@ -2,6 +2,7 @@
 //   sistema → memórias → metas → tarefas (até 50) → [ponto de cache] → data/hora → 20 mensagens em texto puro.
 import { ROTULO_AREA, type AreaMemoria } from '@compartilhado/areas';
 import { FUSO_PADRAO } from '@compartilhado/datas';
+import { grupoDaTarefa } from '@compartilhado/ordenacao';
 import type { MensagemIA, TipoSugestao } from '../../adaptadores/ia/tipos';
 import type { Prompt } from '../../adaptadores/ia/prompt';
 
@@ -60,6 +61,12 @@ export function secaoSugestoes(modelo: string, ligados: TipoSugestao[]): string 
 
 const linhaPrazo = (prazo: string | null) => (prazo ? ` (prazo ${prazo})` : '');
 
+/** Tarefa com o prazo e, se for o caso, ATRASADA ou hoje (o modelo não calcula datas sozinho). Só muda à meia-noite do fuso do Marco. */
+function linhaTarefa(t: TarefaCtx, agora: Date, fuso: string): string {
+  const marca = { atrasada: ', ATRASADA', hoje: ', hoje', futura: '', sem_prazo: '' }[grupoDaTarefa(t.prazo, agora, fuso)];
+  return `- [${ROTULO_AREA[t.area]}] ${t.titulo}${t.prazo ? ` (prazo ${t.prazo}${marca})` : ''}`;
+}
+
 /** Texto da linha-resumo de uma sugestão antiga: [sugeriu tarefa "X" — salva]. */
 export function resumoSugestao(s: SugestaoCtx): string {
   let titulo = s.conteudo;
@@ -97,7 +104,7 @@ export function montarContexto(e: EntradaContexto): ContextoMontado {
   const tarefas = e.tarefas.slice(0, LIMITE_TAREFAS_CONTEXTO);
   partes.push(
     tarefas.length
-      ? `Tarefas pendentes do Marco (as mais urgentes primeiro):\n${tarefas.map((t) => `- [${ROTULO_AREA[t.area]}] ${t.titulo}${linhaPrazo(t.prazo)}`).join('\n')}`
+      ? `Tarefas pendentes do Marco (as mais urgentes primeiro: atrasadas, de hoje, próximas, sem prazo):\n${tarefas.map((t) => linhaTarefa(t, e.agora, e.fuso ?? FUSO_PADRAO)).join('\n')}`
       : 'Tarefas pendentes do Marco: nenhuma.',
   );
 

@@ -363,6 +363,33 @@ describe('POST /api/conversas/:id/mensagens (SSE)', () => {
       log.mockRestore();
     });
 
+    it('tarefa 5.4: as tarefas pendentes (até 50, na ordem da regra 5, com atrasada marcada) e as metas ativas entram no contexto; concluídas ficam de fora', async () => {
+      const x = await preparar([{}], ligadas);
+      const dono = (await x.t.env.DB.prepare('SELECT id FROM usuarios').first<{ id: string }>())!.id;
+      const ins = (id: string, titulo: string, prazo: string | null, concluida: number, criada = '2026-11-10T00:00:00Z') =>
+        x.t.env.DB.prepare("INSERT INTO tarefas (id, usuario_id, titulo, area, prazo, concluida, concluida_em, origem, criada_em) VALUES (?, ?, ?, 'trabalho', ?, ?, ?, 'manual', ?)").bind(id, dono, titulo, prazo, concluida, concluida ? '2026-11-16T00:00:00Z' : null, criada).run();
+      await ins('a', 'Sem prazo', null, 0);
+      await ins('b', 'Atrasada de ontem', '2026-11-16', 0);
+      await ins('c', 'Para hoje', '2026-11-17', 0);
+      await ins('d', 'Já feita', '2026-11-16', 1);
+      for (let i = 0; i < 60; i++) await ins(`f${i}`, `Futura ${String(i).padStart(2, '0')}`, '2026-12-01', 0, `2026-11-11T00:${String(i).padStart(2, '0')}:00Z`);
+      await x.t.env.DB.prepare("INSERT INTO metas (id, usuario_id, titulo, area, status, origem, criada_em) VALUES ('m1', ?, 'Meta ativa', 'saude', 'ativa', 'manual', '2026-11-01T00:00:00Z')").bind(dono).run();
+      await x.t.env.DB.prepare("INSERT INTO metas (id, usuario_id, titulo, area, status, concluida_em, origem, criada_em) VALUES ('m2', ?, 'Meta concluída', 'saude', 'concluida', '2026-11-05T00:00:00Z', 'manual', '2026-11-01T00:00:00Z')").bind(dono).run();
+      await (await x.enviar({ id: UUID(64), texto: 'o que faço hoje?' })).text();
+      const estavel = x.pedidos[0]!.sistemaEstavel;
+      const bloco = estavel.slice(estavel.indexOf('Tarefas pendentes do Marco'));
+      const titulos = [...bloco.matchAll(/^- \[[^\]]+\] (.+?)(?: \(.*\))?$/gm)].map((m) => m[1]);
+      expect(titulos).toHaveLength(50);
+      expect(titulos.slice(0, 3)).toEqual(['Atrasada de ontem', 'Para hoje', 'Futura 59']); // atrasada, hoje, futuras (empate: a mais nova primeiro)
+      expect(bloco).toContain('- [Trabalho] Atrasada de ontem (prazo 2026-11-16, ATRASADA)');
+      expect(bloco).toContain('- [Trabalho] Para hoje (prazo 2026-11-17, hoje)');
+      expect(bloco).not.toContain('Já feita');
+      expect(bloco).not.toContain('Sem prazo'); // 4 + 60 pendentes: a de 51ª posição (sem prazo) fica de fora
+      expect(estavel).toContain('Metas ativas do Marco:\n- [Saúde e rotina] Meta ativa');
+      expect(estavel).not.toContain('Meta concluída');
+      expect(estavel.indexOf('Metas ativas')).toBeLessThan(estavel.indexOf('Tarefas pendentes')); // memórias → metas → tarefas (ponto de cache)
+    });
+
     it('um cartão salvo/descartado não reaparece como pendente ao reenviar a mensagem', async () => {
       const x = await preparar([{ sugestoes: [tarefa('Ligar para o banco'), meta('Correr uma meia')] }], ligadas);
       const primeira = await lerEventos(await x.enviar({ id: UUID(65), texto: 'oi' }));

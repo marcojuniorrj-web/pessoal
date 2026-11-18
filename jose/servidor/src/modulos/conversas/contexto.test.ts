@@ -30,12 +30,29 @@ describe('montarContexto', () => {
       Metas ativas do Marco:
       - [Trabalho] Fechar a meta do trimestre (prazo 2026-12-20)
 
-      Tarefas pendentes do Marco (as mais urgentes primeiro):
-      - [Trabalho] Enviar proposta (prazo 2026-11-17)
+      Tarefas pendentes do Marco (as mais urgentes primeiro: atrasadas, de hoje, próximas, sem prazo):
+      - [Trabalho] Enviar proposta (prazo 2026-11-17, hoje)
       - [Família e casa] Pagar condomínio"
     `);
     expect(c.sistemaVolatil).toMatchInlineSnapshot(`"Agora: terça-feira, 17 de novembro de 2026, 14:20 (America/Sao_Paulo). Hoje é 2026-11-17."`);
     expect(c.mensagens).toEqual([{ papel: 'user', texto: 'oi' }]);
+  });
+
+  it('tarefas: marca ATRASADA (prazo antes de hoje) e hoje no fuso do Marco; a virada do dia é à meia-noite de São Paulo', () => {
+    const tarefas = [
+      { titulo: 'A', area: 'trabalho' as const, prazo: '2026-11-16' },
+      { titulo: 'B', area: 'trabalho' as const, prazo: '2026-11-17' },
+      { titulo: 'C', area: 'trabalho' as const, prazo: '2026-11-18' },
+      { titulo: 'D', area: 'trabalho' as const, prazo: null },
+    ];
+    const linhas = (iso: string, fuso?: string) => montarContexto(entrada({ tarefas, agora: new Date(iso), fuso })).sistemaEstavel.split('Tarefas pendentes')[1]!.split('\n').filter((l) => /^- \[Trabalho\]/.test(l));
+    expect(linhas('2026-11-17T23:59:00-03:00')).toEqual(['- [Trabalho] A (prazo 2026-11-16, ATRASADA)', '- [Trabalho] B (prazo 2026-11-17, hoje)', '- [Trabalho] C (prazo 2026-11-18)', '- [Trabalho] D']);
+    expect(linhas('2026-11-18T00:01:00-03:00')).toEqual(['- [Trabalho] A (prazo 2026-11-16, ATRASADA)', '- [Trabalho] B (prazo 2026-11-17, ATRASADA)', '- [Trabalho] C (prazo 2026-11-18, hoje)', '- [Trabalho] D']);
+    // o mesmo instante (23h59 em SP) já é dia 18 em Tóquio
+    expect(linhas('2026-11-17T23:59:00-03:00', 'Asia/Tokyo')[1]).toBe('- [Trabalho] B (prazo 2026-11-17, ATRASADA)');
+    // o bloco estável só muda quando o dia muda (cache): mesma data, horas diferentes → igual
+    const manha = montarContexto(entrada({ tarefas, agora: new Date('2026-11-17T08:00:00-03:00') })).sistemaEstavel;
+    expect(montarContexto(entrada({ tarefas, agora: new Date('2026-11-17T23:59:00-03:00') })).sistemaEstavel).toBe(manha);
   });
 
   it('data/hora ficam depois do ponto de cache (só no bloco volátil)', () => {

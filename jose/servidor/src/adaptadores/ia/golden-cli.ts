@@ -1,8 +1,9 @@
 // Roda os casos golden no Haiku de verdade e confere cada resposta. Uso: npm run golden
 // Precisa de ANTHROPIC_API_KEY no ambiente (nunca no código). Custa centavos de dólar.
+import { ordenarPendentes } from '@compartilhado/ordenacao';
 import { montarContexto } from '../../modulos/conversas/contexto';
 import { criarClienteClaude } from './claude';
-import { avaliarCaso, CASOS_GOLDEN } from './golden';
+import { avaliarCaso, CASOS_GOLDEN, SUGESTOES_LIGADAS } from './golden';
 import { prompt } from './prompt';
 import type { EventoIA } from './tipos';
 
@@ -13,19 +14,29 @@ if (!apiKey) {
 }
 const modelo = process.env.MODELO_PADRAO || 'claude-haiku-5-5';
 const ia = criarClienteClaude({ apiKey });
-// Igual ao app na onda 4: só a ferramenta de memória está ligada.
-const LIGADAS = ['memoria'] as const;
+// Igual ao app na onda 5: memória, tarefa e meta ligadas.
+const LIGADAS = SUGESTOES_LIGADAS;
+const ICONE = { sugerir_memoria: '🧠', sugerir_tarefa: '📌', sugerir_meta: '🎯' } as Record<string, string>;
 
 let reprovados = 0;
 for (const caso of CASOS_GOLDEN) {
+  const agora = new Date(caso.agora);
+  // Tarefas como o app as manda: pendentes na ordem da regra 5 (a ordem listada no caso desempata).
+  const tarefas = ordenarPendentes(
+    caso.tarefas.map((t, i) => {
+      const o = typeof t === 'string' ? { titulo: t } : t;
+      return { titulo: o.titulo, area: o.area ?? ('trabalho' as const), prazo: o.prazo ?? null, criada_em: new Date(agora.getTime() - i * 1000).toISOString() };
+    }),
+    agora,
+  );
   const contexto = montarContexto({
     prompt,
     sugestoes: [...LIGADAS],
     modo: caso.modo ?? (caso.id === 'decisao' ? 'decidir' : 'padrao'),
     memorias: caso.memorias.map((m) => (typeof m === 'string' ? { texto: m, area: 'sobre_mim' as const } : m)),
     metas: caso.metas.map((titulo) => ({ titulo, area: 'trabalho' as const, prazo: null })),
-    tarefas: caso.tarefas.map((titulo) => ({ titulo, area: 'trabalho' as const, prazo: null })),
-    agora: new Date(caso.agora),
+    tarefas,
+    agora,
     mensagens: [{ autor: 'marco', texto: caso.mensagem }],
   });
   let texto = '';
@@ -39,7 +50,7 @@ for (const caso of CASOS_GOLDEN) {
   console.log(`\n=== ${caso.momento} [${r.ok ? 'OK' : 'REPROVADO'}] ===`);
   console.log(`Marco: ${caso.mensagem}`);
   console.log(`José (${r.linhas} linhas):\n${texto}`);
-  for (const s of sugestoes) console.log(`  🧠 ${s.nome}: ${JSON.stringify(s.entrada)}`);
+  for (const s of sugestoes) console.log(`  ${ICONE[s.nome] ?? '?'} ${s.nome}: ${JSON.stringify(s.entrada)}`);
   if (!r.ok) console.log(`Falhas: ${r.falhas.join('; ')}`);
 }
 console.log(`\n${CASOS_GOLDEN.length - reprovados}/${CASOS_GOLDEN.length} casos dentro das regras. Mostre o resultado ao Marco para revisar o tom.`);
