@@ -10,6 +10,8 @@ type Mostrar = (mensagem: string, acao?: { rotulo: string; aoTocar: () => void }
 
 export interface OpcoesApagar {
   id: string;
+  /** Texto do aviso (padrão: "Apagado."). Ex.: "Descartado." nos cartões de sugestão. */
+  mensagem?: string;
   mostrar: Mostrar;
   /** Chamada só depois dos 5 s sem "Desfazer". */
   apagar: () => Promise<void>;
@@ -30,7 +32,7 @@ export function apagarComDesfazer(o: OpcoesApagar): void {
   }, ESPERA_APAGAR_MS);
   pendentes.set(o.id, timer);
   o.mostrar(
-    'Apagado.',
+    o.mensagem ?? 'Apagado.',
     {
       rotulo: 'Desfazer',
       aoTocar: () => {

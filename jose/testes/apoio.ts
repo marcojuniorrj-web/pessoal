@@ -17,8 +17,12 @@ export async function simularApi(page: Page, logado = true) {
 export type Plano = 'ok' | 'erro-ia' | 'cortada' | 'limite' | '401';
 
 interface MsgFalsa { id: string; autor: 'marco' | 'jose'; texto: string; origem: 'texto' | 'voz'; modelo: string | null; criada_em: string }
+export interface SugestaoFalsa {
+  id: string; mensagem_id: string; tipo: 'memoria'; conteudo: { texto: string; area: string }; status: 'pendente' | 'salva' | 'descartada'; item_id: string | null;
+}
 export interface ConversaFalsa {
   id: string; titulo: string | null; tipo: 'normal'; modo: 'padrao' | 'decidir'; criada_em: string; atualizada_em: string; mensagens: MsgFalsa[];
+  sugestoes?: SugestaoFalsa[];
 }
 
 export interface ChatFalso {
@@ -36,6 +40,15 @@ export interface ChatFalso {
   postsMensagem: Array<{ conversa: string; id: string; texto: string }>;
   postsConversa: Array<Record<string, unknown>>;
   deletes: string[];
+  /** Memórias que a próxima resposta do José sugere (cartões 🧠). */
+  sugerir: Array<{ texto: string; area: string }>;
+  /** Quantas chamadas de salvar devem falhar (500) antes de funcionar. */
+  salvarFalhas: number;
+  /** Atraso (ms) antes de responder salvar. */
+  atrasoSalvarMs: number;
+  /** Chamadas de salvar/descartar recebidas, na ordem. */
+  salvos: Array<{ id: string; conteudo?: { texto: string; area: string } }>;
+  descartados: string[];
 }
 
 const iso = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
@@ -49,12 +62,38 @@ export function novaConversa(id: string, titulo: string | null, minutosAtras = 0
 
 const sse = (eventos: Array<[string, unknown]>) => eventos.map(([e, d]) => `event: ${e}\ndata: ${JSON.stringify(d)}\n\n`).join('');
 const resumo = (c: ConversaFalsa) => ({ id: c.id, titulo: c.titulo, tipo: c.tipo, modo: c.modo, atualizada_em: c.atualizada_em });
-const completa = (c: ConversaFalsa) => ({ conversa: { id: c.id, titulo: c.titulo, tipo: c.tipo, modo: c.modo, criada_em: c.criada_em, atualizada_em: c.atualizada_em }, mensagens: c.mensagens, sugestoes: [] });
+const completa = (c: ConversaFalsa) => ({ conversa: { id: c.id, titulo: c.titulo, tipo: c.tipo, modo: c.modo, criada_em: c.criada_em, atualizada_em: c.atualizada_em }, mensagens: c.mensagens, sugestoes: c.sugestoes ?? [] });
 
 export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}): Promise<ChatFalso> {
-  const f: ChatFalso = { conversas: [], hoje: null, planos: [], atrasoMs: 0, atrasoListaMs: 0, listaFalha: false, postsMensagem: [], postsConversa: [], deletes: [], ...inicial };
+  const f: ChatFalso = { conversas: [], hoje: null, planos: [], atrasoMs: 0, atrasoListaMs: 0, listaFalha: false, postsMensagem: [], postsConversa: [], deletes: [], sugerir: [], salvarFalhas: 0, atrasoSalvarMs: 0, salvos: [], descartados: [], ...inicial };
   let proximo = 1;
   const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  // Salvar e descartar sugestões (a lista de memórias salvas vai para o simulador de memórias, se houver).
+  let proximaMemoria = 1;
+  await page.route((url) => url.pathname.startsWith('/api/sugestoes/'), async (rota) => {
+    const [, , id, acao] = new URL(rota.request().url()).pathname.split('/').filter(Boolean);
+    const sug = f.conversas.flatMap((c) => c.sugestoes ?? []).find((x) => x.id === id);
+    if (!sug) return rota.fulfill({ status: 404, json: { erro: { codigo: 'nao_encontrado', mensagem: 'Não encontrado.' } } });
+    if (acao === 'descartar') {
+      f.descartados.push(sug.id);
+      if (sug.status !== 'pendente') return rota.fulfill({ status: 409, json: { erro: { codigo: 'sugestao_ja_tratada', mensagem: 'x' } } });
+      sug.status = 'descartada';
+      return rota.fulfill({ status: 204 });
+    }
+    const corpo = (rota.request().postDataJSON() as { conteudo?: { texto: string; area: string } } | null) ?? {};
+    f.salvos.push({ id: sug.id, conteudo: corpo.conteudo });
+    if (f.atrasoSalvarMs) await espera(f.atrasoSalvarMs);
+    if (f.salvarFalhas > 0) {
+      f.salvarFalhas--;
+      return rota.fulfill({ status: 500, json: { erro: { codigo: 'erro_interno', mensagem: 'x' } } });
+    }
+    if (sug.status !== 'pendente') return rota.fulfill({ status: 409, json: { erro: { codigo: 'sugestao_ja_tratada', mensagem: 'x' } } });
+    sug.status = 'salva';
+    if (corpo.conteudo) sug.conteudo = corpo.conteudo;
+    sug.item_id = `mem${proximaMemoria++}`;
+    return rota.fulfill({ status: 200, json: { item: { id: sug.item_id, texto: sug.conteudo.texto, area: sug.conteudo.area, origem: 'chat', criada_em: new Date().toISOString(), atualizada_em: null } } });
+  });
 
   // (predicado, e não glob: '**/api/conversas**' também casaria o módulo app/src/api/conversas.ts do Vite)
   await page.route((url) => url.pathname.startsWith('/api/conversas'), async (rota) => {
@@ -108,7 +147,13 @@ export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}):
     conversa.atualizada_em = iso(0);
     const titulo = conversa.titulo ? undefined : 'Título de teste';
     if (titulo) conversa.titulo = titulo;
-    return corpoSse([['texto', { delta: 'Resposta do José. ' }], ['texto', { delta: 'Próximo passo: abrir o arquivo.' }], ['fim', titulo ? { mensagem_id: resposta.id, titulo } : { mensagem_id: resposta.id }]]);
+    const novas = f.sugerir.splice(0).map((c, i): SugestaoFalsa => ({ id: `sg-${resposta.id}-${i}`, mensagem_id: resposta.id, tipo: 'memoria', conteudo: c, status: 'pendente', item_id: null }));
+    conversa.sugestoes = [...(conversa.sugestoes ?? []), ...novas];
+    return corpoSse([
+      ['texto', { delta: 'Resposta do José. ' }], ['texto', { delta: 'Próximo passo: abrir o arquivo.' }],
+      ...novas.map((n): [string, unknown] => ['sugestao', { id: n.id, tipo: n.tipo, conteudo: n.conteudo }]),
+      ['fim', titulo ? { mensagem_id: resposta.id, titulo } : { mensagem_id: resposta.id }],
+    ]);
   });
   return f;
 }

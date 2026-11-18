@@ -8,6 +8,13 @@ import {
 import { limparRascunho, salvarRascunho } from './rascunho';
 
 export type TipoErroBolha = 'ia' | 'rede' | 'interrompida' | 'limite' | 'sessao';
+/** Cartão de sugestão ligado a uma resposta do José. */
+export interface SugestaoDoChat {
+  id: string;
+  tipo: 'tarefa' | 'meta' | 'memoria';
+  conteudo: unknown;
+  status: 'pendente' | 'salva' | 'descartada';
+}
 export interface Bolha {
   id: string;
   autor: 'marco' | 'jose';
@@ -15,6 +22,8 @@ export interface Bolha {
   origem: 'texto' | 'voz';
   estado: 'ok' | 'transmitindo' | 'erro';
   erro?: { tipo: TipoErroBolha; mensagem: string };
+  /** Cartões de sugestão desta resposta (no máximo 3). */
+  sugestoes?: SugestaoDoChat[];
 }
 export interface ConversaAberta {
   id: string | null;
@@ -26,7 +35,10 @@ export type Carga = 'carregando' | 'ok' | 'erro';
 export const MENSAGEM_LIMITE_DIARIO = 'Limite de hoje atingido, volta amanhã.';
 const ID_TEMPORARIO = 'resposta-em-andamento';
 
-const bolhaDe = (m: ConversaCompleta['mensagens'][number]): Bolha => ({ id: m.id, autor: m.autor, texto: m.texto, origem: m.origem, estado: 'ok' });
+const bolhaDe = (m: ConversaCompleta['mensagens'][number], sugestoes: ConversaCompleta['sugestoes'] = []): Bolha => {
+  const proprias = sugestoes.filter((s) => s.mensagem_id === m.id).map((s) => ({ id: s.id, tipo: s.tipo, conteudo: s.conteudo, status: s.status }));
+  return { id: m.id, autor: m.autor, texto: m.texto, origem: m.origem, estado: 'ok', ...(proprias.length ? { sugestoes: proprias } : {}) };
+};
 
 function erroDeExcecao(e: unknown): NonNullable<Bolha['erro']> {
   if (e instanceof ErroHttp && e.status === 401) return { tipo: 'sessao', mensagem: 'Sua sessão expirou.' };
@@ -94,7 +106,7 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
           reiniciar({ id: null, titulo: null, modo: 'padrao' });
         } else {
           reiniciar({ id: dados.conversa.id, titulo: dados.conversa.titulo, modo: dados.conversa.modo });
-          const lista = dados.mensagens.map(bolhaDe);
+          const lista = dados.mensagens.map((m) => bolhaDe(m, dados.sugestoes));
           const ultima = dados.mensagens.at(-1);
           // A última mensagem é do Marco, sem resposta (falhou antes): oferece "Tentar de novo" com o mesmo id.
           if (ultima?.autor === 'marco') {
@@ -132,7 +144,14 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
           limparRascunho(conversaRef.current.id);
         }
         if (ev.tipo === 'texto') atualizarResposta((b) => ({ ...b, texto: b.texto + ev.delta }));
-        else if (ev.tipo === 'fim') {
+        else if (ev.tipo === 'sugestao') {
+          // O servidor manda no máximo 3; o app também limita (um repetido por reenvio não duplica o cartão).
+          atualizarResposta((b) => {
+            const atuais = b.sugestoes ?? [];
+            if (atuais.length >= 3 || atuais.some((x) => x.id === ev.id)) return b;
+            return { ...b, sugestoes: [...atuais, { id: ev.id, tipo: ev.sugestaoTipo, conteudo: ev.conteudo, status: 'pendente' }] };
+          });
+        } else if (ev.tipo === 'fim') {
           pendenteRef.current = null;
           atualizarResposta((b) => ({ ...b, id: ev.mensagemId, estado: 'ok' }));
           if (ev.titulo) definirConversa({ ...conversaRef.current, titulo: ev.titulo });
@@ -208,5 +227,10 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
 
   const recarregar = useCallback(() => setTentativaCarga((n) => n + 1), []);
 
-  return { geracao, carga, conversa, bolhas, ocupado, enviar, tentarDeNovo, iniciarDecisao, recarregar };
+  /** Atualiza o status de um cartão (salvo/descartado) e, ao salvar, o conteúdo que ficou valendo. */
+  const atualizarSugestao = useCallback((id: string, mudanca: Partial<Pick<SugestaoDoChat, 'status' | 'conteudo'>>) => {
+    setBolhas((lista) => lista.map((b) => (b.sugestoes?.some((s) => s.id === id) ? { ...b, sugestoes: b.sugestoes.map((s) => (s.id === id ? { ...s, ...mudanca } : s)) } : b)));
+  }, []);
+
+  return { geracao, carga, conversa, bolhas, ocupado, enviar, tentarDeNovo, iniciarDecisao, recarregar, atualizarSugestao };
 }

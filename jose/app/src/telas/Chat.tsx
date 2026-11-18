@@ -4,6 +4,7 @@ import { saudacao } from '@compartilhado/datas';
 import { LIMITE_MENSAGEM } from '@compartilhado/schemas';
 import { Balao } from '../componentes/Balao';
 import { Botao } from '../componentes/Botao';
+import { CartaoSugestao } from '../componentes/CartaoSugestao';
 import { EsqueletoLista } from '../componentes/Esqueleto';
 import { GavetaHistorico } from '../componentes/GavetaHistorico';
 import { useToast } from '../componentes/Toast';
@@ -30,7 +31,7 @@ export function Chat() {
   const nova = params.get('nova') === '1';
   useTecladoVirtual();
 
-  const { geracao, carga, conversa, bolhas, ocupado, enviar, tentarDeNovo, iniciarDecisao, recarregar } = useChat({
+  const { geracao, carga, conversa, bolhas, ocupado, enviar, tentarDeNovo, iniciarDecisao, recarregar, atualizarSugestao } = useChat({
     idUrl,
     nova,
     // A URL passa a apontar para a conversa criada: um 401 volta exatamente para ela.
@@ -146,9 +147,11 @@ export function Chat() {
             <p className="texto-2">Conte qual é a decisão. Vou fazer até 3 perguntas, mostrar prós e contras e dar uma recomendação.</p>
           </div>
         )}
-        {bolhas.map((b) => (
-          <Balao key={b.id} bolha={b} aoTentarDeNovo={() => void tentarDeNovo()} />
-        ))}
+        {bolhas.flatMap((b) => [
+          <Balao key={b.id} bolha={b} aoTentarDeNovo={() => void tentarDeNovo()} />,
+          // Chave pelo id da sugestão: o cartão não é remontado quando a resposta ganha o id definitivo.
+          ...(b.sugestoes ?? []).map((s) => <CartaoSugestao key={s.id} sugestao={s} aoMudar={atualizarSugestao} />),
+        ])}
         <div ref={fimRef} />
       </div>
 

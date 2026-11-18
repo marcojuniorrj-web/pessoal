@@ -58,3 +58,25 @@ describe('fila de Toast (1 por vez, 4 s)', () => {
     fila.fechar();
   });
 });
+
+describe('layout no iPhone (cartões e José sabe): nada passa da largura', () => {
+  const chat = readFileSync(new URL('./chat.css', import.meta.url), 'utf8');
+  const regra = (css: string, seletor: string) => css.match(new RegExp(`${seletor.replace(/[.[\]]/g, '\\$&')}\\s*\\{([^}]*)\\}`))?.[1] ?? '';
+  it('o cartão de sugestão quebra palavras longas, não estoura a coluna e seus botões quebram de linha', () => {
+    const cartao = regra(chat, '.cartao-sugestao');
+    expect(cartao).toMatch(/min-width: 0/);
+    expect(cartao).toMatch(/max-width: 100%/);
+    expect(cartao).toMatch(/overflow-wrap: anywhere/);
+    expect(regra(chat, '.cartao-sugestao__texto')).toMatch(/overflow-wrap: anywhere/);
+    expect(regra(chat, '.cartao-sugestao__acoes')).toMatch(/flex-wrap: wrap/);
+    expect(regra(chat, '.chips-area')).toMatch(/flex-wrap: wrap/);
+    expect(regra(chat, '.cartao-sugestao__campo')).toMatch(/max-width: 100%/);
+  });
+  it('chips e alvos do cartão têm pelo menos 48px', () => {
+    expect(regra(chat, '.chip-area')).toMatch(/min-height: var\(--alvo-minimo\)/);
+    expect(regra(chat, '.cartao-sugestao__salvo')).toMatch(/min-height: var\(--alvo-minimo\)/);
+  });
+  it('campos de texto herdam a fonte (16px ou mais: o iPhone dá zoom em campo menor)', () => {
+    expect(regra(chat, '.cartao-sugestao__campo')).toMatch(/font: inherit/);
+  });
+});

@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [md],
   resolve: { alias: { '@compartilhado': fileURLToPath(new URL('./compartilhado', import.meta.url)) } },
   test: {
-    include: ['{app,servidor,compartilhado,scripts}/**/*.test.{ts,tsx}'],
+    include: ['{app,servidor,compartilhado,scripts,testes}/**/*.test.{ts,tsx}'],
     environment: 'node',
   },
 });
