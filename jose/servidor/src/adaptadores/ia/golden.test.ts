@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { avaliarCaso, avaliarResposta, CASOS_GOLDEN } from './golden';
+import { avaliarCaso, avaliarDecisao, avaliarResposta, CASOS_GOLDEN, TERMOS_PROIBIDOS } from './golden';
 import { secaoSugestoes } from '../../modulos/conversas/contexto';
 import { lerPrompt, prompt } from './prompt';
 
@@ -27,8 +27,8 @@ describe('prompt-jose.md', () => {
     expect(prompt.base).toMatch(/aconselhamento médico, jurídico nem financeiro/);
     expect(prompt.sugestoes).toContain('No máximo 3 sugestões');
     expect(prompt.sugestoes).toContain('Não sugira uma memória que já está');
-    expect(prompt.decidir).toMatch(/até 3 perguntas/);
-    expect(prompt.decidir).toMatch(/prós e contras/);
+    expect(prompt.decidir).toMatch(/no máximo 3 no total/);
+    expect(prompt.decidir).toMatch(/ganhos e as perdas/);
     expect(prompt.decidir).toMatch(/recomendação/);
     expect(prompt.titulo).toContain('6 palavras');
   });
@@ -55,8 +55,8 @@ describe('prompt-jose.md', () => {
 });
 
 describe('casos golden', () => {
-  it('4 por momento do dia (onda 2), 2 de memória (onda 4), 4 de tarefas e metas (onda 5), 2 de coaching e as boas-vindas (onda 6)', () => {
-    expect(CASOS_GOLDEN.map((c) => c.id)).toEqual(['acordar', 'travado', 'decisao', 'noite', 'memoria-existente', 'memoria-nova', 'tarefa-atrasada', 'tarefa-prazo-relativo', 'meta', 'travado-solucao', 'meta-positiva', 'descarregar', 'boasvindas-memorias']);
+  it('4 por momento do dia (onda 2), 2 de memória (onda 4), 4 de tarefas e metas (onda 5), 2 de coaching, as boas-vindas e 3 do modo decisão (onda 6)', () => {
+    expect(CASOS_GOLDEN.map((c) => c.id)).toEqual(['acordar', 'travado', 'decisao', 'noite', 'memoria-existente', 'memoria-nova', 'tarefa-atrasada', 'tarefa-prazo-relativo', 'meta', 'travado-solucao', 'meta-positiva', 'descarregar', 'boasvindas-memorias', 'decisao-abertura', 'decisao-coaching', 'decisao-coaching-completa']);
   });
 });
 
@@ -281,5 +281,105 @@ describe('contexto das boas-vindas (6.1)', () => {
     expect(prompt.boasvindas).toMatch(/Não sugira o que já está lá/);
     expect(prompt.boasvindas).toMatch(/versão nova/);
     expect(prompt.boasvindas).not.toMatch(/DISC|Gallup|GROW|SLAC/);
+  });
+});
+
+describe('prompt: nenhuma seção cita GROW, SLAC, DISC nem Gallup (o José não explica teoria nem cita testes)', () => {
+  for (const [nome, texto] of Object.entries(prompt)) {
+    it(`seção ${nome}`, () => {
+      expect(texto).not.toMatch(/GROW|SLAC|DISC|Gallup/i);
+      expect(texto).not.toMatch(TERMOS_PROIBIDOS);
+    });
+  }
+  it('o prompt inteiro (arquivo bruto, comentários incluídos) também não cita', async () => {
+    const { default: bruto } = await import('./prompt-jose.md');
+    expect(bruto).not.toMatch(/GROW|SLAC|DISC|Gallup/i);
+  });
+});
+
+describe('prompt: seção DECIDIR (coaching do Marco, tarefa 6.5)', () => {
+  const d = prompt.decidir;
+  it('abre com UMA pergunta curta e faz no máximo 3 perguntas, uma por vez, só as que faltam', () => {
+    expect(d).toContain('"Qual é a decisão?"');
+    expect(d).toMatch(/UMA pergunta curta/);
+    expect(d).toMatch(/no máximo 3 no total/);
+    expect(d).toMatch(/uma pergunta por vez/);
+    expect(d).toMatch(/pergunte só o que falta/);
+  });
+  it('as perguntas cobrem resultado, situação real, opções (inclusive não fazer nada) e o que fará e quando', () => {
+    expect(d).toMatch(/resultado que ele quer/);
+    expect(d).toMatch(/situação está de verdade hoje/);
+    expect(d).toMatch(/incluindo não fazer nada/);
+    expect(d).toMatch(/o que ele vai fazer e até quando/);
+  });
+  it('com informação suficiente na 1ª mensagem não pergunta nada e vai à recomendação', () => {
+    expect(d).toMatch(/não faça pergunta nenhuma: vá direto aos ganhos e perdas e à recomendação/);
+  });
+  it('mostra ganhos e perdas (até 3 de cada, uma linha por opção) e tem pergunta de congruência com o que importa', () => {
+    expect(d).toMatch(/ganhos e as perdas de cada opção, uma linha por opção/);
+    expect(d).toMatch(/no máximo 3 ganhos e 3 perdas/);
+    expect(d).toMatch(/congruência com o que importa para ele/);
+  });
+  it('termina com UMA recomendação e o primeiro passo, oferecido como tarefa com prazo se ele falou de prazo', () => {
+    expect(d).toMatch(/UMA recomendação clara/);
+    expect(d).toMatch(/primeiro passo concreto/);
+    expect(d).toMatch(/como tarefa, com prazo se ele falou de prazo/);
+  });
+  it('tom: curto, opções e desafios, corta a análise em excesso, sem aconselhamento profissional e sem explicar método', () => {
+    expect(d).toMatch(/até 5 linhas/);
+    expect(d).toMatch(/opções e desafios em vez de ordens/);
+    expect(d).toMatch(/girando em torno do mesmo ponto/);
+    expect(d).toMatch(/médico, jurídico nem financeiro profissional/);
+    expect(d).toMatch(/não explique método nenhum/);
+  });
+});
+
+describe('avaliarDecisao (tarefa 6.5)', () => {
+  it('abertura: UMA pergunta curta aprova; texto longo, duas perguntas ou matriz reprovam', () => {
+    expect(avaliarDecisao('Qual é a decisão?', 'abertura').ok).toBe(true);
+    expect(avaliarDecisao('Qual é a decisão? E qual o prazo?', 'abertura').falhas).toContain('2 perguntas (esperado exatamente UMA)');
+    expect(avaliarDecisao(`Conte com calma qual é a decisão ${'que você precisa tomar '.repeat(8)}?`, 'abertura').falhas.join()).toMatch(/longa demais/);
+    expect(avaliarDecisao('Ficar: ganha segurança. Perde crescimento. Qual é a decisão?', 'abertura').falhas).toContain('mostrou ganhos e perdas antes da hora');
+  });
+  it('pergunta: uma pergunta curta aprova; recomendar antes da hora ou passar de 3 linhas reprova', () => {
+    expect(avaliarDecisao('O que você quer ter daqui a 2 anos nessa carreira?', 'pergunta').ok).toBe(true);
+    expect(avaliarDecisao('Entendi. Eu iria de aceitar.\nQual é o prazo?', 'pergunta').falhas).toContain('recomendou antes da hora');
+    expect(avaliarDecisao('a\nb\nc\nd?', 'pergunta').falhas).toContain('mais de 3 linhas (4)');
+    expect(avaliarDecisao('Sem pergunta nenhuma.', 'pergunta').falhas).toContain('0 perguntas (esperado exatamente UMA)');
+  });
+  const completa = [
+    'Ficar na empresa: ganha autonomia, equipe conhecida. Perde crescimento e salário.',
+    'Aceitar a proposta: ganha 30% a mais, equipe maior. Perde tempo com o filho.',
+    'Recomendo aceitar, com viagens limitadas por escrito. Topa?',
+    'Primeiro passo: pedir a proposta por escrito até sexta.',
+  ].join('\n');
+  it('recomendacao: ganhos e perdas + recomendação + primeiro passo em até 8 linhas aprova', () => {
+    expect(avaliarDecisao(completa, 'recomendacao')).toEqual({ ok: true, falhas: [], linhas: 4 });
+  });
+  it('recomendacao: reprova sem ganhos/perdas, sem recomendação, sem primeiro passo ou com mais de 8 linhas', () => {
+    expect(avaliarDecisao('Recomendo aceitar. Primeiro passo: ligar hoje.', 'recomendacao').falhas).toContain('faltam os ganhos e as perdas das opções');
+    expect(avaliarDecisao('Ficar ganha segurança e perde crescimento. Pense bem.', 'recomendacao').falhas).toEqual(expect.arrayContaining(['faltou a recomendação clara', 'faltou o primeiro passo']));
+    expect(avaliarDecisao(Array(9).fill('Ganha X. Perde Y. Recomendo aceitar, primeiro passo hoje.').join('\n'), 'recomendacao').falhas).toContain('mais de 8 linhas (9)');
+  });
+  it('reprova citar GROW, SLAC, DISC ou Gallup em qualquer tipo (e não confunde com palavras comuns)', () => {
+    for (const t of ['abertura', 'pergunta', 'recomendacao'] as const) {
+      expect(avaliarDecisao('Pelo modelo GROW, qual é a decisão?', t).falhas).toContain('citou técnica, teste ou perfil (GROW, SLAC, DISC ou Gallup)');
+      expect(avaliarDecisao('Seu perfil DISC pede ritmo. Qual é a decisão?', t).ok).toBe(false);
+    }
+    expect(avaliarDecisao('Qual é a decisão? Disciplina não é o ponto.', 'abertura').ok).toBe(true);
+  });
+  it('avaliarCaso dos 3 casos de decisão: usa as regras do modo e confere o cartão de tarefa com o prazo de sexta', () => {
+    const [abertura, pergunta, completaCaso] = ['decisao-abertura', 'decisao-coaching', 'decisao-coaching-completa'].map((id) => CASOS_GOLDEN.find((c) => c.id === id)!);
+    expect(CASOS_GOLDEN.filter((c) => c.decisao).every((c) => c.modo === 'decidir')).toBe(true);
+    expect(abertura!.mensagem).toBe('Preciso decidir');
+    expect(avaliarCaso(abertura!, { texto: 'Qual é a decisão?', sugestoes: [] }).ok).toBe(true);
+    expect(avaliarCaso(pergunta!, { texto: 'Ficar ganha segurança, aceitar perde tempo. Qual o prazo?', sugestoes: [] }).ok).toBe(false); // matriz antes da hora
+    expect(avaliarCaso(pergunta!, { texto: 'Hoje, como está a sua situação na equipe atual?', sugestoes: [] }).ok).toBe(true);
+    const tarefa = { nome: 'sugerir_tarefa', entrada: { titulo: 'Pedir a proposta por escrito', area: 'trabalho', prazo: '2026-11-20' } };
+    expect(avaliarCaso(completaCaso!, { texto: completa, sugestoes: [tarefa] })).toMatchObject({ ok: true, falhas: [] });
+    expect(avaliarCaso(completaCaso!, { texto: completa, sugestoes: [] }).falhas).toContain('sugeriu 0 tarefa(s), esperava ao menos 1');
+    expect(avaliarCaso(completaCaso!, { texto: completa, sugestoes: [{ ...tarefa, entrada: { ...tarefa.entrada, prazo: '2026-11-21' } }] }).falhas).toContain('nenhuma tarefa com o prazo 2026-11-20');
+    expect(avaliarCaso(completaCaso!, { texto: `${completa}\nTome 10 mg de algo.`, sugestoes: [tarefa] }).falhas).toContain('conselho profissional: cita dose de remédio');
+    expect(avaliarCaso(pergunta!, { texto: 'Hoje, como está a sua situação?', sugestoes: [tarefa] }).falhas.join()).toMatch(/esperava no máximo 0/);
   });
 });

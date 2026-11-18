@@ -2,6 +2,7 @@
 // Cada evento devolvido aqui vira um evento SSE (`texto`, `sugestao`, `fim`, `erro`) na rota.
 import type { MensagemDto } from '@compartilhado/schemas';
 import { MAX_SUGESTOES_BOAS_VINDAS, perguntaDe, proximoPasso, type ProximoPasso } from '@compartilhado/boasvindas';
+import { ehAtalhoDecisao } from '@compartilhado/decisao';
 import { hoje } from '@compartilhado/datas';
 import { prompt } from '../../adaptadores/ia/prompt';
 import { ErroIA, type ClienteIA, type EventoIA, type PedidoIA, type TipoSugestao } from '../../adaptadores/ia/tipos';
@@ -228,11 +229,16 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
   }
 
   // Título automático (regra 4): depois da 1ª resposta, pelo modelo econômico; falhou → 40 primeiros caracteres.
+  // No modo decisão o aviso do atalho ("Preciso decidir") ainda não diz qual é a decisão: o título espera a 1ª mensagem de verdade.
   let titulo: string | undefined;
   if (!conversa.titulo) {
-    const primeira = mensagens.find((m) => m.autor === 'marco')?.texto ?? e.mensagem.texto;
-    titulo = await gerarTitulo(ia, { modelo: env.MODELO_PADRAO, promptTitulo: prompt.titulo, primeiraMensagem: primeira, resposta: texto, sinal });
-    await definirTitulo(env.DB, conversa.id, titulo);
+    const doMarco = mensagens.filter((m) => m.autor === 'marco');
+    const decisaoDe = conversa.modo === 'decidir' ? doMarco.filter((m) => !ehAtalhoDecisao(m.texto)) : doMarco;
+    if (decisaoDe.length || conversa.modo !== 'decidir') {
+      const primeira = decisaoDe[0]?.texto ?? e.mensagem.texto;
+      titulo = await gerarTitulo(ia, { modelo: env.MODELO_PADRAO, promptTitulo: prompt.titulo, primeiraMensagem: primeira, resposta: texto, sinal });
+      await definirTitulo(env.DB, conversa.id, titulo);
+    }
   }
 
   yield { evento: 'fim', dados: titulo ? { mensagem_id: respostaId, titulo } : { mensagem_id: respostaId } };

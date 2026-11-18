@@ -43,7 +43,17 @@ for (const caso of CASOS_GOLDEN) {
   });
   let texto = '';
   const sugestoes: Array<{ nome: string; entrada: unknown }> = [];
-  for await (const ev of ia.transmitir({ modelo, maxTokens: 1500, esforco: 'low', ferramentas: [...(caso.boasVindas ? SO_MEMORIA : LIGADAS)], ...contexto }) as AsyncIterable<EventoIA>) {
+  // O modo decisão usa o modelo profundo (com o fallback de recusa), como o app.
+  const profundo = (caso.modo ?? (caso.id === 'decisao' ? 'decidir' : 'padrao')) === 'decidir';
+  const pedido = {
+    modelo: profundo ? process.env.MODELO_PROFUNDO || 'claude-sonnet-5-5' : modelo,
+    maxTokens: profundo ? 4000 : 1500,
+    esforco: 'low' as const,
+    ferramentas: [...(caso.boasVindas ? SO_MEMORIA : LIGADAS)],
+    fallbackRecusa: profundo,
+    ...contexto,
+  };
+  for await (const ev of ia.transmitir(pedido) as AsyncIterable<EventoIA>) {
     if (ev.tipo === 'texto') texto += ev.delta;
     else if (ev.tipo === 'sugestao') sugestoes.push({ nome: ev.nome, entrada: ev.entrada });
   }

@@ -54,6 +54,12 @@ export interface CasoGolden {
    * aparecer em ao menos uma memória (coerência com as respostas); nenhuma memória pode repetir uma existente.
    */
   boasVindas?: { min: number; cobrir: RegExp[] };
+  /**
+   * Modo decisão com o coaching do Marco (6.5): `abertura` = só "Preciso decidir" → UMA pergunta curta; `pergunta` = informação incompleta →
+   * UMA pergunta curta, sem ganhos/perdas nem recomendação; `recomendacao` = informação completa → ganhos e perdas + recomendação + primeiro
+   * passo, até ~8 linhas. Nenhum cita teoria, técnica, teste ou perfil. Troca as regras gerais de tamanho (5 linhas, 1 próximo passo).
+   */
+  decisao?: 'abertura' | 'pergunta' | 'recomendacao';
 }
 
 export const CASOS_GOLDEN: CasoGolden[] = [
@@ -214,6 +220,44 @@ export const CASOS_GOLDEN: CasoGolden[] = [
     mensagem: 'Acordo às 6h e durmo às 22h30.',
     boasVindas: { min: 2, cobrir: [/22\s?h\s?30|22:30/, /meia[- ]maratona/i, /come[çc]ar|enrol|grande demais|trav/i] },
   },
+  {
+    // Tarefa 6.5: o atalho "Preciso decidir" envia só o aviso; o José (modelo profundo) abre com UMA pergunta curta.
+    id: 'decisao-abertura',
+    momento: 'Modo decisão: abertura ("Preciso decidir") com uma única pergunta curta',
+    agora: '2026-11-18T15:00:00-03:00',
+    modo: 'decidir',
+    memorias: [{ texto: 'Gerente comercial; competitivo e direto, não gosta de ser controlado.', area: 'sobre_mim' }],
+    metas: [],
+    tarefas: [],
+    mensagem: 'Preciso decidir',
+    decisao: 'abertura',
+  },
+  {
+    // Tarefa 6.5: informação incompleta → UMA pergunta curta (sem ganhos/perdas nem recomendação ainda, sem teoria).
+    id: 'decisao-coaching',
+    momento: 'Modo decisão: informação incompleta → uma pergunta curta (coaching, sem teoria)',
+    agora: '2026-11-18T15:00:00-03:00',
+    modo: 'decidir',
+    memorias: [{ texto: 'Gerente comercial há mais de 17 anos.', area: 'trabalho' }, { texto: 'Tende a analisar demais antes de agir.', area: 'sobre_mim' }],
+    metas: [],
+    tarefas: [],
+    mensagem: 'Recebi uma proposta para gerenciar outra equipe, mas ainda não sei se vale a pena.',
+    decisao: 'pergunta',
+    cartoes: { tarefas: { max: 0 } },
+  },
+  {
+    // Tarefa 6.5: informação completa → ganhos e perdas + recomendação + primeiro passo (como tarefa com o prazo que ele disse), até ~8 linhas.
+    id: 'decisao-coaching-completa',
+    momento: 'Modo decisão: informação completa → ganhos e perdas, recomendação e primeiro passo (até ~8 linhas)',
+    agora: '2026-11-18T15:00:00-03:00',
+    modo: 'decidir',
+    memorias: [{ texto: 'Gerente comercial há mais de 17 anos.', area: 'trabalho' }, { texto: 'Quer mais tempo com o filho pequeno.', area: 'casa' }],
+    metas: ['Crescer na carreira sem perder tempo com a família'],
+    tarefas: [],
+    mensagem: 'Preciso decidir: fico na empresa atual, onde tenho equipe e autonomia há 6 anos, ou aceito gerenciar uma equipe maior em outra empresa, com 30% a mais de salário e mais viagens. Quero crescer sem perder tempo com meu filho e não ficar só analisando. Tenho que responder até sexta.',
+    decisao: 'recomendacao',
+    cartoes: { tarefas: { min: 1, max: 1, prazo: '2026-11-20' }, meta: { quantidade: 'nenhuma' } },
+  },
 ];
 
 /** Conferências da chamada final das boas-vindas sobre os textos das memórias sugeridas. */
@@ -229,6 +273,39 @@ function conferirBoasVindas(caso: CasoGolden, textos: string[]): string[] {
   if (repetidas.length) falhas.push(`sugeriu de novo memória que já existe (${repetidas.length})`);
   for (const padrao of b.cobrir) if (!textos.some((t) => padrao.test(t))) falhas.push(`nenhuma memória cobre ${padrao.source}`);
   return falhas;
+}
+
+/** Nomes que o José nunca pode citar (técnicas de coaching, testes e perfis do Marco). */
+export const TERMOS_PROIBIDOS = /\b(GROW|SLAC|DISC|Gallup)\b/i;
+const RECOMENDACAO = /recomend|sugiro|minha (sugestão|indicação|aposta)|eu (iria|ficaria|aceitaria|escolheria|seguiria|toparia|topava|apostaria|começaria)|\b(iria|ficaria|aceitaria|escolheria) (de|por|com|na|no)\b|vá de\b|\bvai de\b/i;
+const PRIMEIRO_PASSO = /primeiro passo|1º passo|comece|começa|agende|marque|ligue|responda|envie|escreva|converse|peça|monte|separe|defina|hoje|amanhã|até (segunda|terça|quarta|quinta|sexta|sábado|domingo)/i;
+
+/** Confere uma resposta do modo decisão (6.5). */
+export function avaliarDecisao(texto: string, tipo: NonNullable<CasoGolden['decisao']>): ResultadoGolden {
+  const falhas: string[] = [];
+  const linhasTexto = texto.split('\n').map((l) => l.trim()).filter(Boolean);
+  const linhas = linhasTexto.length;
+  const perguntas = (texto.match(/\?/g) ?? []).length;
+  const temMatriz = /ganh/i.test(texto) && /perd/i.test(texto);
+  const temRecomendacao = RECOMENDACAO.test(texto);
+  if (linhas === 0) falhas.push('resposta vazia');
+  if (TERMOS_PROIBIDOS.test(texto)) falhas.push('citou técnica, teste ou perfil (GROW, SLAC, DISC ou Gallup)');
+  if (tipo === 'abertura' || tipo === 'pergunta') {
+    if (perguntas !== 1) falhas.push(`${perguntas} perguntas (esperado exatamente UMA)`);
+    if (temMatriz) falhas.push('mostrou ganhos e perdas antes da hora');
+    if (temRecomendacao) falhas.push('recomendou antes da hora');
+    const limite = tipo === 'abertura' ? 2 : 3;
+    if (linhas > limite) falhas.push(`mais de ${limite} linhas (${linhas})`);
+    if (tipo === 'abertura' && texto.length > 140) falhas.push(`abertura longa demais (${texto.length} caracteres)`);
+  } else {
+    if (linhas > 8) falhas.push(`mais de 8 linhas (${linhas})`);
+    if (texto.length > 900) falhas.push(`muito longa (${texto.length} caracteres)`);
+    if (!temMatriz) falhas.push('faltam os ganhos e as perdas das opções');
+    if (!temRecomendacao) falhas.push('faltou a recomendação clara');
+    if (!PRIMEIRO_PASSO.test(texto)) falhas.push('faltou o primeiro passo');
+    if (perguntas > 1) falhas.push(`${perguntas} perguntas (informação completa: no máximo 1, para a combinar a ação)`);
+  }
+  return { ok: falhas.length === 0, falhas, linhas };
 }
 
 export interface ResultadoGolden {
@@ -275,8 +352,10 @@ const textoDe = (s: { entrada: unknown }): string => {
 
 /** Confere o caso inteiro: regras gerais da resposta + as de memória, tarefa e meta do caso (se houver). */
 export function avaliarCaso(caso: CasoGolden, saida: SaidaGolden): ResultadoGolden {
-  const geral = avaliarResposta(saida.texto);
+  // Modo decisão tem regras de tamanho próprias (a resposta com ganhos, perdas e recomendação vai até ~8 linhas); o resto vale igual.
+  const geral = caso.decisao ? avaliarDecisao(saida.texto, caso.decisao) : avaliarResposta(saida.texto);
   const falhas = [...geral.falhas];
+  if (caso.decisao) for (const [padrao, motivo] of PADROES_PROFISSIONAIS) if (padrao.test(saida.texto)) falhas.push(`conselho profissional: ${motivo}`);
   const textosMemoria = saida.sugestoes.filter((s) => s.nome === NOME_FERRAMENTA.memoria).map(textoDe).filter(Boolean);
   const permitidas = (caso.boasVindas ? (['memoria'] as TipoSugestao[]) : SUGESTOES_LIGADAS).map((t) => NOME_FERRAMENTA[t]);
   if (saida.sugestoes.some((s) => !permitidas.includes(s.nome))) falhas.push('chamou ferramenta que não está ligada');
