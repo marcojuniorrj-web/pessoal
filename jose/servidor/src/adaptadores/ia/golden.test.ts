@@ -3,6 +3,22 @@ import { avaliarCaso, avaliarResposta, CASOS_GOLDEN } from './golden';
 import { secaoSugestoes } from '../../modulos/conversas/contexto';
 import { lerPrompt, prompt } from './prompt';
 
+describe('prompt-jose.md (ajuste de coaching)', () => {
+  it('tem o tom do Marco, o corte de análise, o foco na solução e a formulação de metas', () => {
+    expect(prompt.base).toContain('opções e desafios em vez de ordens');
+    expect(prompt.base).toContain('corte a análise');
+    expect(prompt.base).toContain('perguntas focadas na solução');
+    expect(prompt.base).toContain('formulá-lo bem');
+    expect(prompt.base).toContain('sem explicar o método');
+  });
+  it('a meta sugerida é positiva e concreta', () => {
+    expect(prompt.sugestoes).toContain('O título da meta é positivo, concreto e depende do Marco');
+  });
+  it('não cita o perfil DISC nem teorias no texto do prompt', () => {
+    expect(prompt.base).not.toMatch(/DISC|Gallup|GROW/);
+  });
+});
+
 describe('prompt-jose.md', () => {
   it('tem as quatro seções e as regras de arquitetura.md §4', () => {
     expect(Object.keys(prompt).sort()).toEqual(['base', 'decidir', 'sugestoes', 'titulo']);
@@ -39,8 +55,8 @@ describe('prompt-jose.md', () => {
 });
 
 describe('casos golden', () => {
-  it('4 por momento do dia (onda 2), 2 de memória (onda 4) e 4 de tarefas e metas (onda 5)', () => {
-    expect(CASOS_GOLDEN.map((c) => c.id)).toEqual(['acordar', 'travado', 'decisao', 'noite', 'memoria-existente', 'memoria-nova', 'tarefa-atrasada', 'tarefa-prazo-relativo', 'meta', 'descarregar']);
+  it('4 por momento do dia (onda 2), 2 de memória (onda 4), 4 de tarefas e metas (onda 5) e 2 de coaching', () => {
+    expect(CASOS_GOLDEN.map((c) => c.id)).toEqual(['acordar', 'travado', 'decisao', 'noite', 'memoria-existente', 'memoria-nova', 'tarefa-atrasada', 'tarefa-prazo-relativo', 'meta', 'travado-solucao', 'meta-positiva', 'descarregar']);
   });
 });
 

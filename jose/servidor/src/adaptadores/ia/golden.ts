@@ -144,6 +144,30 @@ export const CASOS_GOLDEN: CasoGolden[] = [
     cartoes: { meta: { quantidade: 'espera', prazo: /^2027-\d{2}-\d{2}$/ } },
   },
   {
+    // Ajuste de coaching: "travei" usa pergunta focada na solução, 1 por vez, sem caçar a causa nem dar ordem.
+    id: 'travado-solucao',
+    momento: 'Travado: pergunta focada na solução (ajuste de coaching)',
+    agora: '2026-11-18T10:40:00-03:00',
+    memorias: ['Foco em resultados: direto, competitivo e rápido; não gosta de ser controlado.', 'Tende a analisar demais antes de agir.'],
+    metas: [],
+    tarefas: ['Montar a apresentação do lançamento'],
+    mensagem: 'travei na apresentação do lançamento, fico pensando em como começar e não saio do lugar',
+  },
+  {
+    // Ajuste de coaching: objetivo em forma de queixa vira meta positiva.
+    id: 'meta-positiva',
+    momento: 'Objetivo como queixa: reformula de forma positiva (ajuste de coaching)',
+    agora: '2026-11-18T20:00:00-03:00',
+    memorias: [],
+    metas: [],
+    tarefas: [],
+    mensagem: 'Quero parar de perder cliente por demorar a responder. Anota isso como meta.',
+    cartoes: {
+      meta: { quantidade: 'espera' },
+      semCartaoDe: { padrao: /^\s*(parar de|deixar de|evitar)\b/i, motivo: 'a meta ficou negativa (parar de/deixar de/evitar); deve ser positiva e concreta' },
+    },
+  },
+  {
     // Tarefa 5.7 (jornada "À noite"): só ações viram cartão (no máximo 3); ideias e preocupações ficam só no texto.
     id: 'descarregar',
     momento: 'À noite: descarregar a cabeça (no máximo 3 cartões; preocupação só no texto)',
