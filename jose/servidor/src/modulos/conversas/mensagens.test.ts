@@ -113,6 +113,28 @@ describe('POST /api/conversas/:id/mensagens (SSE)', () => {
     expect((await x.enviar({ id: UUID(11), texto: 'c' })).status).toBe(200);
   });
 
+  it('apagar a resposta (ou a conversa) não libera o limite diário', async () => {
+    const x = await preparar([{}], { env: { LIMITE_MENSAGENS_DIA: '1' } });
+    await (await x.enviar({ id: UUID(20), texto: 'a' })).text();
+    expect(await x.contar('SELECT respostas AS n FROM uso_diario')).toBe(1);
+    await x.t.env.DB.prepare("DELETE FROM mensagens WHERE autor = 'jose'").run();
+    expect((await x.enviar({ id: UUID(21), texto: 'b' })).status).toBe(429);
+    await x.t.env.DB.prepare('DELETE FROM conversas WHERE id = ?').bind(x.id).run();
+    expect(await x.contar('SELECT respostas AS n FROM uso_diario')).toBe(1);
+    expect((await x.enviar({ id: UUID(22), texto: 'c' }, 'inexistente')).status).toBe(404);
+  });
+
+  it('uso_diario soma por dia local e só conta respostas gravadas (erro da IA não conta)', async () => {
+    let agora = sp('2026-11-17T23:50:00');
+    const x = await preparar([{}, { erro: new ErroIA('indisponivel', 'x') }, {}], { agora: () => agora });
+    await (await x.enviar({ id: UUID(23), texto: 'a' })).text();
+    await (await x.enviar({ id: UUID(24), texto: 'b' })).text();
+    agora = sp('2026-11-18T00:05:00');
+    await (await x.enviar({ id: UUID(25), texto: 'c' })).text();
+    const linhas = (await x.t.env.DB.prepare('SELECT dia, respostas FROM uso_diario ORDER BY dia').all()).results;
+    expect(linhas).toEqual([{ dia: '2026-11-17', respostas: 1 }, { dia: '2026-11-18', respostas: 1 }]);
+  });
+
   it('atualiza atualizada_em da conversa', async () => {
     let agora = sp('2026-11-17T09:00:00');
     const x = await preparar([{}], { agora: () => agora });

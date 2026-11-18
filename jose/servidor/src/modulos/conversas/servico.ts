@@ -1,7 +1,7 @@
 // Regra de negócio do chat: enviar mensagem, montar o contexto, chamar a IA e gravar a resposta.
 // Cada evento devolvido aqui vira um evento SSE (`texto`, `sugestao`, `fim`, `erro`) na rota.
 import type { MensagemDto } from '@compartilhado/schemas';
-import { diaLocal, hoje } from '@compartilhado/datas';
+import { hoje } from '@compartilhado/datas';
 import { prompt } from '../../adaptadores/ia/prompt';
 import { ErroIA, type ClienteIA, type EventoIA, type PedidoIA } from '../../adaptadores/ia/tipos';
 import type { Ambiente } from '../../ambiente';
@@ -17,8 +17,6 @@ import {
   buscarMensagem, inserirMensagemMarco, inserirRespostaJose, inserirSugestao, definirTitulo, mensagensDaConversa, memoriasDoUsuario, metasAtivas,
   respostasDoDia, sugestoesDaConversa, type ConversaLinha, type MensagemLinha,
 } from './repositorio';
-
-const MS_36H = 36 * 60 * 60 * 1000;
 
 export type EventoSaida =
   | { evento: 'texto'; dados: { delta: string } }
@@ -87,7 +85,7 @@ export async function prepararEnvio(e: EntradaEnvio, repetiu = false): Promise<(
 
   // Limite diário (regra 9): conta as respostas do José no dia local, inclusive as de "Tentar de novo".
   const limite = Number(env.LIMITE_MENSAGENS_DIA) || 200;
-  const usadas = await respostasDoDia(env.DB, usuario.id, new Date(agora.getTime() - MS_36H).toISOString(), (iso) => diaLocal(iso, fuso), hoje(agora, fuso));
+  const usadas = await respostasDoDia(env.DB, usuario.id, hoje(agora, fuso));
   if (usadas >= limite) throw new ErroApi(429, 'limite_diario', MENSAGEM_LIMITE);
 
   if (!jaGravada) {
@@ -178,11 +176,13 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
   // Cortada por max_tokens: grava o que veio e marca com reticências para o Marco notar.
   if (fim.truncada) texto += ' …';
   const respostaId = uuidv7();
+  const gravadaEm = deps.agora();
   await inserirRespostaJose(
     env.DB,
     conversa.id,
     { id: respostaId, texto, modelo: fim.modelo, tokensEntrada: fim.uso.tokensEntrada, tokensSaida: fim.uso.tokensSaida, tokensCache: fim.uso.tokensCache },
-    deps.agora(),
+    gravadaEm,
+    { usuarioId: usuario.id, dia: hoje(gravadaEm, fuso) },
   );
   // Só ids, modelo, tempos e tokens (nunca o conteúdo); serve para medir se o cache está pegando.
   if (fim.truncada) console.warn('ia truncada por max_tokens', { conversa: conversa.id, modelo: fim.modelo });

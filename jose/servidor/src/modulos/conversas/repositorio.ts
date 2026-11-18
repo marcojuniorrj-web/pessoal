@@ -94,15 +94,10 @@ export async function metasAtivas(db: D1Database, usuarioId: string) {
   return results;
 }
 
-/** Quantas respostas do José o usuário já recebeu no dia local `diaHoje` (regra 9). */
-export async function respostasDoDia(db: D1Database, usuarioId: string, desdeIso: string, diaDe: (iso: string) => string, diaHoje: string): Promise<number> {
-  const { results } = await db
-    .prepare(
-      "SELECT m.criada_em FROM mensagens m JOIN conversas c ON c.id = m.conversa_id WHERE c.usuario_id = ? AND m.autor = 'jose' AND m.criada_em >= ?",
-    )
-    .bind(usuarioId, desdeIso)
-    .all<{ criada_em: string }>();
-  return results.filter((r) => diaDe(r.criada_em) === diaHoje).length;
+/** Quantas respostas do José o usuário já recebeu no dia local `dia` (regra 9). Lê `uso_diario`: apagar mensagens não diminui. */
+export async function respostasDoDia(db: D1Database, usuarioId: string, dia: string): Promise<number> {
+  const linha = await db.prepare('SELECT respostas FROM uso_diario WHERE usuario_id = ? AND dia = ?').bind(usuarioId, dia).first<{ respostas: number }>();
+  return linha?.respostas ?? 0;
 }
 
 export async function buscarMensagem(db: D1Database, id: string) {
@@ -122,6 +117,7 @@ export async function inserirRespostaJose(
   conversaId: string,
   r: { id: string; texto: string; modelo: string; tokensEntrada: number; tokensSaida: number; tokensCache: number },
   agora: Date,
+  uso: { usuarioId: string; dia: string },
 ) {
   const iso = agora.toISOString();
   await db.batch([
@@ -129,6 +125,10 @@ export async function inserirRespostaJose(
       .prepare("INSERT INTO mensagens (id, conversa_id, autor, texto, origem, modelo, tokens_entrada, tokens_saida, tokens_cache, criada_em) VALUES (?, ?, 'jose', ?, 'texto', ?, ?, ?, ?, ?)")
       .bind(r.id, conversaId, r.texto, r.modelo, r.tokensEntrada, r.tokensSaida, r.tokensCache, iso),
     db.prepare('UPDATE conversas SET atualizada_em = ? WHERE id = ?').bind(iso, conversaId),
+    // Na mesma transação da resposta: o limite diário conta toda resposta gravada e nunca diminui.
+    db
+      .prepare('INSERT INTO uso_diario (usuario_id, dia, respostas) VALUES (?, ?, 1) ON CONFLICT (usuario_id, dia) DO UPDATE SET respostas = respostas + 1')
+      .bind(uso.usuarioId, uso.dia),
   ]);
 }
 

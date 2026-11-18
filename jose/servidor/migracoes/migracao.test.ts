@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { criarD1Simulado } from '../testes/d1-simulado';
 
 const agora = '2026-11-17T12:00:00.000Z';
@@ -50,5 +53,48 @@ describe('migração 0001_inicial', () => {
     await db.prepare('DELETE FROM usuarios WHERE id = ?').bind('u1').run();
     const n = await db.prepare('SELECT COUNT(*) AS n FROM mensagens').first<{ n: number }>();
     expect(n?.n).toBe(0);
+  });
+});
+
+describe('migração 0002_uso_diario', () => {
+  const pasta = fileURLToPath(new URL('.', import.meta.url));
+  const sql0002 = readFileSync(join(pasta, '0002_uso_diario.sql'), 'utf8');
+  const sql0001 = readFileSync(join(pasta, '0001_inicial.sql'), 'utf8');
+
+  it('aplicada do zero: tabela vazia, chave (usuario_id, dia) e cascata ao apagar o usuário', async () => {
+    const db = await semente();
+    expect((await db.prepare('SELECT COUNT(*) AS n FROM uso_diario').first<{ n: number }>())?.n).toBe(0);
+    await db.prepare('INSERT INTO uso_diario(usuario_id,dia,respostas) VALUES(?,?,?)').bind('u1', '2026-11-18', 1).run();
+    await expect(db.prepare('INSERT INTO uso_diario(usuario_id,dia,respostas) VALUES(?,?,?)').bind('u1', '2026-11-18', 1).run()).rejects.toThrow();
+    await expect(db.prepare('INSERT INTO uso_diario(usuario_id,dia,respostas) VALUES(?,?,?)').bind('x', '2026-11-18', 1).run()).rejects.toThrow();
+    await db.prepare('DELETE FROM usuarios WHERE id = ?').bind('u1').run();
+    expect((await db.prepare('SELECT COUNT(*) AS n FROM uso_diario').first<{ n: number }>())?.n).toBe(0);
+  });
+
+  it('sobre um banco existente: preenche só o dia de hoje (fuso do usuário) com as respostas do José', async () => {
+    const db = criarD1Simulado(false);
+    await db.exec(sql0001);
+    const agora = new Date();
+    const horas = (h: number) => new Date(agora.getTime() + h * 3_600_000).toISOString();
+    // Dois usuários: um em São Paulo (UTC-3) e um em UTC.
+    await db.prepare('INSERT INTO usuarios(id,email,nome,criado_em) VALUES(?,?,?,?)').bind('u1', 'a@x.com', 'A', horas(-100)).run();
+    await db.prepare("INSERT INTO usuarios(id,email,nome,fuso_horario,criado_em) VALUES(?,?,?,?,?)").bind('u2', 'b@x.com', 'B', 'UTC', horas(-100)).run();
+    for (const u of ['u1', 'u2']) {
+      await db.prepare('INSERT INTO conversas(id,usuario_id,tipo,criada_em,atualizada_em) VALUES(?,?,?,?,?)').bind(`c-${u}`, u, 'normal', horas(-100), horas(-100)).run();
+    }
+    const msg = (id: string, conv: string, autor: string, criada: string) =>
+      db.prepare("INSERT INTO mensagens(id,conversa_id,autor,texto,origem,criada_em) VALUES(?,?,?,?,'texto',?)").bind(id, conv, autor, 'x', criada).run();
+    await msg('a1', 'c-u1', 'jose', agora.toISOString());
+    await msg('a2', 'c-u1', 'jose', agora.toISOString());
+    await msg('a3', 'c-u1', 'marco', agora.toISOString()); // do Marco: não conta
+    await msg('a4', 'c-u1', 'jose', horas(-30)); // outro dia: não conta
+    await msg('b1', 'c-u2', 'jose', agora.toISOString());
+    await db.exec(sql0002);
+    const dia = (fuso: number) => new Date(agora.getTime() + fuso * 3_600_000).toISOString().slice(0, 10);
+    const linhas = (await db.prepare('SELECT usuario_id, dia, respostas FROM uso_diario ORDER BY usuario_id').all()).results;
+    expect(linhas).toEqual([
+      { usuario_id: 'u1', dia: dia(-3), respostas: 2 },
+      { usuario_id: 'u2', dia: dia(0), respostas: 1 },
+    ]);
   });
 });

@@ -19,7 +19,7 @@ Fase 2 (Chat e Histórico) e Fase 4 (cartões de sugestão). Vem antes da Fase 3
 
 ## Tarefas (prompts pequenos)
 - [x] 2b.1 Atualizar a SPEC (telas, usuarios, dados, arquitetura) com as regras acima, antes do código. Aceite: os 4 arquivos descrevem o ⋯ do balão, o apagar conversa no topo, a rota, a tabela `uso_diario` e o horário.
-- [ ] 2b.2 Migração `0002_uso_diario.sql` e ajuste do limite diário para ler `uso_diario` (incrementa quando o José responde; apagar não decrementa). Aceite: teste em que apagar a resposta não libera o limite; migração aplicada do zero e sobre a existente (preenche o dia de hoje com a contagem atual de respostas).
+- [x] 2b.2 Migração `0002_uso_diario.sql` e ajuste do limite diário para ler `uso_diario` (incrementa quando o José responde; apagar não decrementa). Aceite: teste em que apagar a resposta não libera o limite; migração aplicada do zero e sobre a existente (preenche o dia de hoje com a contagem atual de respostas).
 - [ ] 2b.3 `DELETE /api/mensagens/:id` com `com_resposta`. Aceite: testes de posse (404), só mensagem do Marco aceita `com_resposta`, cascata nas sugestões, itens salvos permanecem, 204 idempotente.
 - [ ] 2b.4 Horário e separadores de dia no Chat (função pura testada com fuso e virada do dia 23h59/00h01 em São Paulo; rótulos "Hoje", "Ontem" e data). Aceite: testes de unidade + e2e em 320 e 390 px sem rolagem lateral.
 - [ ] 2b.5 Menu ⋯ do balão com "Apagar mensagem" e "Apagar mensagem e resposta", com Desfazer de 5 s, foco e Esc. Aceite: e2e (apagar → Desfazer: nada é chamado; esperar 5 s: DELETE sai; resposta em andamento sem ⋯; menu abre para cima no fim da lista), 320/390/1280.
