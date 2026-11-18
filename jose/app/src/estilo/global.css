@@ -1,6 +1,7 @@
 @import './tokens.css';
 @import './chat.css';
 @import './tarefas.css';
+@import './boasvindas.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #raiz { height: 100%; margin: 0; }

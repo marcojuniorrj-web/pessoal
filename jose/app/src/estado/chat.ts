@@ -56,9 +56,15 @@ interface Opcoes {
   nova: boolean;
   /** Chamado quando uma conversa é criada aqui (a URL passa a apontar para ela). */
   aoCriar: (id: string) => void;
+  /** Boas-vindas: a conversa já existe e esta tela NUNCA cria outra (nem num 404): sem id, o envio falha em vez de criar um chat normal. */
+  fixa?: boolean;
+  /** Máximo de cartões por resposta (3; nas boas-vindas a chamada final traz até 8 memórias). */
+  maxSugestoes?: number;
+  /** A conversa não pôde ser aberta (ex.: 404 nas boas-vindas). */
+  aoFalharCarga?: (e: unknown) => void;
 }
 
-export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
+export function useChat({ idUrl, nova, aoCriar, fixa = false, maxSugestoes = 3, aoFalharCarga }: Opcoes) {
   const [carga, setCarga] = useState<Carga>('carregando');
   const [tentativaCarga, setTentativaCarga] = useState(0);
   const [conversa, setConversa] = useState<ConversaAberta>({ id: null, titulo: null, modo: 'padrao' });
@@ -72,6 +78,8 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
   const abortoRef = useRef<AbortController | null>(null);
   const aoCriarRef = useRef(aoCriar);
   aoCriarRef.current = aoCriar;
+  const aoFalharCargaRef = useRef(aoFalharCarga);
+  aoFalharCargaRef.current = aoFalharCarga;
 
   const definirConversa = useCallback((c: ConversaAberta) => {
     conversaRef.current = c;
@@ -119,8 +127,10 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
         }
         setCarga('ok');
       })
-      .catch(() => {
-        if (!cancelado) setCarga('erro');
+      .catch((e) => {
+        if (cancelado) return;
+        setCarga('erro');
+        aoFalharCargaRef.current?.(e);
       });
     return () => {
       cancelado = true;
@@ -147,10 +157,10 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
         }
         if (ev.tipo === 'texto') atualizarResposta((b) => ({ ...b, texto: b.texto + ev.delta }));
         else if (ev.tipo === 'sugestao') {
-          // O servidor manda no máximo 3; o app também limita (um repetido por reenvio não duplica o cartão).
+          // O servidor manda no máximo 3 (8 nas boas-vindas); o app também limita (um repetido por reenvio não duplica o cartão).
           atualizarResposta((b) => {
             const atuais = b.sugestoes ?? [];
-            if (atuais.length >= 3 || atuais.some((x) => x.id === ev.id)) return b;
+            if (atuais.length >= maxSugestoes || atuais.some((x) => x.id === ev.id)) return b;
             return { ...b, sugestoes: [...atuais, { id: ev.id, tipo: ev.sugestaoTipo, conteudo: ev.conteudo, status: ev.status, itemId: ev.itemId }] };
           });
         } else if (ev.tipo === 'fim') {
@@ -172,14 +182,16 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
         criouAqui = true;
       };
       try {
-        if (!conversaRef.current.id) await criar();
-        else desmarcarPendenteDeApagar(conversaRef.current.id); // voltou a ter mensagem: a exclusão da conversa vazia perde o sentido
+        if (!conversaRef.current.id) {
+          if (fixa) throw new Error('Conversa ainda não carregada.');
+          await criar();
+        } else desmarcarPendenteDeApagar(conversaRef.current.id); // voltou a ter mensagem: a exclusão da conversa vazia perde o sentido
         try {
           await enviarMensagem(conversaRef.current.id!, msg, aoEvento, ctl.signal);
         } catch (e) {
           // Rede de segurança: a conversa aberta já não existe no servidor (404; ex.: apagada nos 5 s do Desfazer ou em outro aparelho).
           // Cria uma conversa nova e reenvia a MESMA mensagem uma única vez (mesmo id: sem duplicar, sem perder o texto).
-          if (!(e instanceof ErroHttp && e.status === 404) || criouAqui || ctl.signal.aborted) throw e;
+          if (fixa || !(e instanceof ErroHttp && e.status === 404) || criouAqui || ctl.signal.aborted) throw e;
           confirmarConversaApagada(conversaRef.current.id!);
           setBolhas((l) => l.filter((b) => b.id === msg.id || b.id === ID_TEMPORARIO));
           await criar();
@@ -193,7 +205,7 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
         if (abortoRef.current === ctl) setOcupado(false);
       }
     },
-    [atualizarResposta, definirConversa],
+    [atualizarResposta, definirConversa, fixa, maxSugestoes],
   );
 
   const enviar = useCallback(

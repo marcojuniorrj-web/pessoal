@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { inserirNoCampo, perguntaDe, type RespostaRapida } from '@compartilhado/boasvindas';
 import { FUSO_PADRAO, saudacao, separadoresDeDia } from '@compartilhado/datas';
 import { LIMITE_MENSAGEM } from '@compartilhado/schemas';
 import { Balao } from '../componentes/Balao';
@@ -10,8 +11,11 @@ import { CartaoSugestao } from '../componentes/CartaoSugestao';
 import { EsqueletoLista } from '../componentes/Esqueleto';
 import { FolhaAcoes } from '../componentes/FolhaAcoes';
 import { GavetaHistorico } from '../componentes/GavetaHistorico';
+import { ListaAprendi } from '../componentes/ListaAprendi';
+import { RespostasRapidas } from '../componentes/RespostasRapidas';
 import { useToast, useToastAtual } from '../componentes/Toast';
 import { apagarConversa, apagarMensagem } from '../api/conversas';
+import { ErroHttp } from '../api/cliente';
 import { useAgora } from '../estado/agora';
 import { apagarComDesfazer } from '../estado/apagar-com-desfazer';
 import { useChat, type Bolha } from '../estado/chat';
@@ -24,6 +28,7 @@ import { useOnline } from '../estado/online';
 import { limparRascunho, lerRascunho, salvarRascunho } from '../estado/rascunho';
 import { useSessao, useUsuario } from '../estado/sessao';
 import { useTecladoVirtual } from '../estado/teclado';
+import { useBoasVindas } from '../estado/usar-boas-vindas';
 
 const ATALHOS = [
   { icone: '☀️', rotulo: 'O que faço hoje?' },
@@ -31,7 +36,17 @@ const ATALHOS = [
   { icone: '🌙', rotulo: 'Descarregar a cabeça' },
 ] as const;
 
-export function Chat() {
+/** Boas-vindas: o Chat abre uma conversa que já existe (a de boas-vindas), sem barra de abas, histórico nem apagar. */
+export interface ConfigBoasVindas {
+  conversaId: string;
+  /** Salvou ou pulou: a tela marca as boas-vindas como concluídas e vai ao Chat. */
+  aoConcluir: () => void;
+  /** A conversa não existe mais (404): a tela cria outra ou volta ao Chat. */
+  aoNaoEncontrada: () => void;
+}
+
+export function Chat({ boasVindas }: { boasVindas?: ConfigBoasVindas } = {}) {
+  const bv = !!boasVindas;
   const usuario = useUsuario();
   const { estado } = useSessao();
   const online = useOnline();
@@ -44,11 +59,17 @@ export function Chat() {
   useTecladoVirtual();
 
   const { geracao, carga, conversa, bolhas, ocupado, enviar, tentarDeNovo, iniciarDecisao, recarregar, atualizarSugestao, removerBolhas, reconciliar } = useChat({
-    idUrl,
-    nova,
+    idUrl: boasVindas ? boasVindas.conversaId : idUrl,
+    nova: boasVindas ? false : nova,
     // A URL passa a apontar para a conversa criada: um 401 volta exatamente para ela.
     aoCriar: (id) => ir(`/?c=${encodeURIComponent(id)}`, { replace: true }),
+    fixa: bv,
+    maxSugestoes: bv ? 8 : 3,
+    aoFalharCarga: boasVindas ? (e) => e instanceof ErroHttp && e.status === 404 && boasVindas.aoNaoEncontrada() : undefined,
   });
+  const bem = useBoasVindas({ conversaId: boasVindas?.conversaId ?? '', bolhas, aoConcluir: boasVindas?.aoConcluir ?? (() => {}) });
+  const revisando = bv && bem.etapa.fase === 'revisando';
+
 
   const fuso = usuario.fuso_horario ?? FUSO_PADRAO;
   const agora = useAgora(fuso);
@@ -234,7 +255,7 @@ export function Chat() {
   };
 
   const enviarTexto = async (conteudo: string) => {
-    if (semRede) return;
+    if (semRede || (bv && !conversa.id)) return;
     setTexto('');
     await enviar(conteudo);
   };
@@ -257,6 +278,35 @@ export function Chat() {
     if (semRede) return;
     if (!(await iniciarDecisao())) toast('Não foi possível iniciar. Tente de novo.');
   };
+
+  // Boas-vindas: a pergunta que está na tela (a última mensagem, do José e pronta) define as respostas rápidas.
+  const ultimaBolha = bolhas.at(-1);
+  const perguntaAtual = bv && bem.etapa.fase === 'perguntando' && ultimaBolha?.autor === 'jose' && ultimaBolha.estado === 'ok' && carga === 'ok' ? perguntaDe(bem.etapa.respostas) : undefined;
+  const escolherRapida = (r: RespostaRapida) => {
+    if (semRede || ocupado || vozAtiva) return;
+    const t = r.texto ?? r.rotulo;
+    if (r.modo === 'enviar') {
+      void enviarTexto(t);
+      return;
+    }
+    // "inserir": acrescenta ao campo (dá para escolher mais de uma área antes de enviar). Sem focar o campo: no celular abriria o teclado.
+    const novo = inserirNoCampo(texto, t);
+    setTexto(novo);
+    salvarRascunho(conversa.id, novo);
+  };
+
+  // Pular falhou (sem rede ou erro do servidor): o aviso fica acima do rodapé e o Pular continua à mão para tentar de novo.
+  useEffect(() => {
+    if (bem.erroPular) toast('Não foi possível pular. Tente de novo.');
+  }, [bem.erroPular, toast]);
+
+  // Na revisão: leva o início da lista à vista (o resumo do José fica logo acima) e o foco ao 1º item com erro.
+  useEffect(() => {
+    if (revisando) document.querySelector<HTMLElement>('[data-aprendi]')?.scrollIntoView({ block: 'start' });
+  }, [revisando]);
+  useEffect(() => {
+    if (bem.itemComErro) document.querySelector<HTMLElement>(`[data-item-id="${bem.itemComErro}"] textarea`)?.focus();
+  }, [bem.itemComErro]);
 
   /** A resposta do José logo depois (visível e pronta), para "Apagar mensagem e resposta". */
   const respostaDe = (b: Bolha): Bolha | null => {
@@ -384,10 +434,23 @@ export function Chat() {
   const podeEnviar = !!texto.trim() && !ocupado && !semRede;
   // Botão único à direita do campo (como no WhatsApp): vazio = 🎤; com texto = Enviar; gravando = ■; transcrevendo = ocupado.
   const modoAcao: ModoAcao = gravandoVoz ? 'parar' : transcrevendoVoz ? 'transcrevendo' : texto.trim() ? 'enviar' : 'microfone';
-  const acaoDesabilitada = modoAcao === 'enviar' ? !podeEnviar : semRede || ocupado;
+  const acaoDesabilitada = (bv && !conversa.id) || (modoAcao === 'enviar' ? !podeEnviar : semRede || ocupado);
 
   return (
-    <section className="chat">
+    <section className="chat" data-boas-vindas={bv || undefined}>
+      {bv ? (
+        <header className="bv__topo">
+          <div className="bv__titulos">
+            <h1 className="bv__titulo">Boas-vindas</h1>
+            <p className="bv__progresso" aria-live="polite">
+              {bem.progresso}
+            </p>
+          </div>
+          <button type="button" className="botao botao--link bv__pular" disabled={bem.pulando} onClick={() => void bem.pular()}>
+            Pular
+          </button>
+        </header>
+      ) : (
       <header className="chat__topo">
         <button type="button" className="chat__icone" aria-label="Histórico" onClick={() => setGavetaAberta(true)}>
           ☰
@@ -439,6 +502,7 @@ export function Chat() {
           </>
         )}
       </header>
+      )}
 
       <div ref={listaRef} className="chat__mensagens" aria-live="polite">
         {carga === 'carregando' && <EsqueletoLista linhas={3} />}
@@ -448,7 +512,7 @@ export function Chat() {
             <Botao onClick={recarregar}>Tentar de novo</Botao>
           </div>
         )}
-        {vazio && conversa.modo === 'padrao' && (
+        {vazio && !bv && conversa.modo === 'padrao' && (
           <div className="chat-vazio">
             <h2 className="chat-vazio__saudacao">{saudacao(usuario.nome, new Date())}</h2>
             <div className="atalhos">
@@ -463,7 +527,7 @@ export function Chat() {
             </div>
           </div>
         )}
-        {vazio && conversa.modo === 'decidir' && (
+        {vazio && !bv && conversa.modo === 'decidir' && (
           <div className="chat-vazio">
             <h2 className="chat-vazio__saudacao">Modo decisão</h2>
             <p className="texto-2">Conte qual é a decisão. Vou fazer até 3 perguntas, mostrar prós e contras e dar uma recomendação.</p>
@@ -476,47 +540,74 @@ export function Chat() {
             bolha={b}
             fuso={fuso}
             aoTentarDeNovo={() => void tentarDeNovo()}
-            aoAbrirAcoes={podeAbrirAcoes(b, i) ? (bolha, origem) => setFolha({ id: bolha.id, origem }) : undefined}
+            aoAbrirAcoes={!bv && podeAbrirAcoes(b, i) ? (bolha, origem) => setFolha({ id: bolha.id, origem }) : undefined}
           />,
           // Chave pelo id da sugestão: o cartão não é remontado quando a resposta ganha o id definitivo.
-          ...(b.sugestoes ?? []).map((s) => <CartaoSugestao key={s.id} sugestao={s} aoMudar={atualizarSugestao} />),
+          // (nas boas-vindas as sugestões só existem na lista marcável, nunca como cartões)
+          ...(bv ? [] : (b.sugestoes ?? []).map((s) => <CartaoSugestao key={s.id} sugestao={s} aoMudar={atualizarSugestao} />)),
         ])}
+        {revisando && <ListaAprendi itens={bem.itens} aoEditar={bem.editar} desabilitado={bem.salvando} mostrarErros={bem.mostrarErros} />}
         <div ref={fimRef} />
       </div>
 
-      <form ref={rodapeRef} className="chat__rodape" data-voz={gravandoVoz ? 'gravando' : transcrevendoVoz ? 'transcrevendo' : undefined} onSubmit={aoEnviar}>
-        {gravandoVoz || transcrevendoVoz ? (
+      <form
+        ref={rodapeRef}
+        className={`chat__rodape${bv ? ' bv__rodape' : ''}`}
+        data-voz={gravandoVoz ? 'gravando' : transcrevendoVoz ? 'transcrevendo' : undefined}
+        data-revisao={revisando || undefined}
+        onSubmit={revisando ? (e) => { e.preventDefault(); void bem.salvar(); } : aoEnviar}
+      >
+        {revisando ? (
           <>
-            <BarraGravacao fase={gravandoVoz ? 'gravando' : 'transcrevendo'} restanteMs={voz.restanteMs} aoCancelar={voz.cancelar} />
-            {gravandoVoz && (
-              <span className="so-leitor" role="status">
-                Gravando áudio. Toque em parar para enviar.
-              </span>
+            {bem.erro && (
+              <p className="mensagem-erro bv__erro" role="alert">
+                {bem.erro === 'rede' ? 'Sem conexão.' : 'Não foi possível salvar.'}
+              </p>
             )}
+            <p className="texto-2 bv__marcadas" aria-live="polite">
+              {bem.itens.length ? `${bem.itens.filter((i) => i.marcado).length} de ${bem.itens.length} marcadas` : 'Nada novo a guardar.'}
+            </p>
+            <Botao type="submit" variante="principal" className="bv__salvar" carregando={bem.salvando}>
+              {bem.erro ? 'Tentar de novo' : bem.rotuloSalvar}
+            </Botao>
           </>
         ) : (
           <>
-            <label className="so-leitor" htmlFor="campo-mensagem">
-              Mensagem para o José
-            </label>
-            <textarea
-              id="campo-mensagem"
-              ref={campoRef}
-              className="chat__campo"
-              rows={1}
-              maxLength={LIMITE_MENSAGEM}
-              placeholder={semRede ? 'Sem conexão' : 'Fale com o José…'}
-              value={texto}
-              disabled={semRede}
-              onChange={(e) => aoDigitar(e.target.value)}
-              onKeyDown={aoTeclar}
-            />
+            {perguntaAtual && !vozAtiva && <RespostasRapidas respostas={perguntaAtual.respostasRapidas} desabilitado={semRede || ocupado} aoEscolher={escolherRapida} />}
+            {gravandoVoz || transcrevendoVoz ? (
+              <>
+                <BarraGravacao fase={gravandoVoz ? 'gravando' : 'transcrevendo'} restanteMs={voz.restanteMs} aoCancelar={voz.cancelar} />
+                {gravandoVoz && (
+                  <span className="so-leitor" role="status">
+                    Gravando áudio. Toque em parar para enviar.
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <label className="so-leitor" htmlFor="campo-mensagem">
+                  Mensagem para o José
+                </label>
+                <textarea
+                  id="campo-mensagem"
+                  ref={campoRef}
+                  className="chat__campo"
+                  rows={1}
+                  maxLength={LIMITE_MENSAGEM}
+                  placeholder={semRede ? 'Sem conexão' : bv ? 'Sua resposta…' : 'Fale com o José…'}
+                  value={texto}
+                  disabled={semRede}
+                  onChange={(e) => aoDigitar(e.target.value)}
+                  onKeyDown={aoTeclar}
+                />
+              </>
+            )}
+            <BotaoAcaoChat modo={modoAcao} desabilitado={acaoDesabilitada} aoMicrofone={() => void voz.iniciar()} aoEnviar={() => aoEnviar()} aoParar={voz.parar} />
           </>
         )}
-        <BotaoAcaoChat modo={modoAcao} desabilitado={acaoDesabilitada} aoMicrofone={() => void voz.iniciar()} aoEnviar={() => aoEnviar()} aoParar={voz.parar} />
       </form>
 
-      {folha && bolhaDaFolha && (
+      {!bv && folha && bolhaDaFolha && (
         <FolhaAcoes
           origem={folha.origem}
           comResposta={!!respostaDe(bolhaDaFolha)}
@@ -534,6 +625,7 @@ export function Chat() {
         />
       )}
 
+      {!bv && (
       <GavetaHistorico
         aberta={gavetaAberta}
         aoFechar={() => setGavetaAberta(false)}
@@ -547,6 +639,7 @@ export function Chat() {
           ir('/?nova=1');
         }}
       />
+      )}
     </section>
   );
 }

@@ -1,0 +1,47 @@
+/* Boas-vindas (telas.md, tela 2): a interface do Chat, sem barra de abas. Só variáveis --safe-* (tokens.css), nenhum env() aqui. */
+
+/* Sem barra de abas o chão do Chat é só a área segura (a casca já soma --altura-barra, que aqui vale 0), e o aviso (toast) desce até o rodapé. */
+html[data-sem-abas] { --altura-barra: 0px; }
+
+.bv__preparando { padding: 16px; display: grid; gap: 16px; min-width: 0; }
+
+.bv__topo { display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 4px 4px 4px 16px; border-bottom: 1px solid var(--borda); }
+.bv__titulos { flex: 1; min-width: 0; display: grid; }
+.bv__titulo { font-size: 17px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.bv__progresso { font-size: var(--pequeno); line-height: 1.3; color: var(--texto-2); overflow-wrap: anywhere; }
+.botao.bv__pular { flex-shrink: 0; padding: 0 16px; }
+
+/* Rodapé: respostas rápidas (linha própria, dentro do rodapé: o aviso nunca as cobre), depois campo e botão de ação. */
+.bv__rodape { flex-wrap: wrap; }
+.rapidas { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 6px 8px; min-width: 0; }
+.botao.rapidas__botao { min-width: 0; max-width: 100%; padding: 0 12px; font-size: 16px; white-space: normal; text-align: center; overflow-wrap: anywhere; }
+/* Com o teclado aberto o Marco está digitando: as respostas rápidas saem do caminho para sobrar espaço às mensagens. */
+html[data-teclado='aberto'] .rapidas { display: none; }
+
+/* Revisão: o rodapé vira "n de m marcadas" + Salvar selecionadas (sempre visível, fixo abaixo da lista). */
+.bv__rodape[data-revisao] { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; align-items: stretch; }
+.bv__marcadas, .bv__erro { text-align: center; font-size: var(--pequeno); overflow-wrap: anywhere; }
+.botao.bv__salvar { width: 100%; }
+
+/* Lista "O que aprendi sobre você": nada passa da largura (texto de 300 caracteres, palavra de 80 sem espaços). */
+.aprendi { align-self: stretch; display: grid; gap: 12px; min-width: 0; max-width: 100%; margin-top: 8px; }
+.aprendi__titulo { font-size: var(--titulo); font-weight: 600; overflow-wrap: anywhere; }
+.aprendi__lista { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.aprendi__item { display: grid; grid-template-columns: var(--alvo-minimo) minmax(0, 1fr); align-items: start; min-width: 0; padding: 4px 12px 12px 0; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
+.aprendi__corpo { display: grid; gap: 8px; min-width: 0; padding-top: 4px; }
+.aprendi__caixa { display: grid; place-items: center; width: var(--alvo-minimo); height: var(--alvo-minimo); cursor: pointer; }
+.aprendi__caixa input {
+  -webkit-appearance: none; appearance: none; margin: 0; width: 24px; height: 24px; display: grid; place-content: center;
+  border: 2px solid var(--texto-2); border-radius: 6px; background: transparent; cursor: pointer;
+}
+.aprendi__caixa input:checked { background: var(--destaque); border-color: var(--destaque); }
+.aprendi__caixa input:checked::after { content: ''; width: 6px; height: 12px; margin-top: -2px; border: solid var(--texto-sobre-destaque); border-width: 0 3px 3px 0; transform: rotate(45deg); }
+.aprendi__caixa input:disabled { opacity: 0.5; cursor: not-allowed; }
+.aprendi__texto {
+  width: 100%; min-width: 0; max-width: 100%; min-height: var(--alvo-minimo); resize: none; overflow: hidden; padding: 12px;
+  background: var(--fundo); color: var(--texto); border: 1px solid var(--borda); border-radius: 12px; font: inherit; line-height: 1.35;
+  overflow-wrap: anywhere; word-break: break-word; field-sizing: content;
+}
+.aprendi__item[data-marcado='false'] .aprendi__texto { color: var(--texto-2); }
+.aprendi__contador { font-size: var(--pequeno); text-align: right; }
+.aprendi__erro { font-size: var(--pequeno); overflow-wrap: anywhere; }

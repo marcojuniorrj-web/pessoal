@@ -14,6 +14,8 @@ interface ContextoSessao {
   /** Chamado quando qualquer chamada da API devolve 401. */
   sessaoExpirou: () => void;
   recarregar: () => void;
+  /** Muda já o usuário em memória (e no cache), sem esperar o `/api/eu`: ex.: as boas-vindas acabaram de ser concluídas. */
+  atualizarUsuario: (mudanca: Partial<Usuario>) => void;
 }
 
 const CHAVE_CACHE = 'jose:eu';
@@ -34,7 +36,11 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     try {
       const eu = await api.get<Usuario>('/api/eu');
       localStorage.setItem(CHAVE_CACHE, JSON.stringify(eu));
-      setEstado({ situacao: 'logado', usuario: eu, offline: false });
+      // As boas-vindas concluídas nunca "desconcluem": uma leitura de /api/eu que começou antes de concluir não pode levar de volta a elas.
+      setEstado((atual) => {
+        const jaConcluiu = atual.situacao === 'logado' && atual.usuario.boas_vindas_concluida;
+        return { situacao: 'logado', usuario: jaConcluiu && !eu.boas_vindas_concluida ? { ...eu, boas_vindas_concluida: true, conversa_boas_vindas_id: undefined } : eu, offline: false };
+      });
     } catch (e) {
       if (e instanceof ErroHttp && e.status === 401) {
         localStorage.removeItem(CHAVE_CACHE);
@@ -90,6 +96,17 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
         setEstado({ situacao: 'deslogado' });
       },
       recarregar: () => void carregar(),
+      atualizarUsuario: (mudanca) =>
+        setEstado((atual) => {
+          if (atual.situacao !== 'logado') return atual;
+          const usuario = { ...atual.usuario, ...mudanca };
+          try {
+            localStorage.setItem(CHAVE_CACHE, JSON.stringify(usuario));
+          } catch {
+            /* cache indisponível: só a memória vale */
+          }
+          return { ...atual, usuario };
+        }),
     }),
     [estado, carregar],
   );
