@@ -10,6 +10,7 @@ import { Botao } from '../componentes/Botao';
 import { BotaoAcaoChat, type ModoAcao } from '../componentes/BotaoAcaoChat';
 import { CartaoSugestao } from '../componentes/CartaoSugestao';
 import { EsqueletoLista } from '../componentes/Esqueleto';
+import { FaixaInstalar } from '../componentes/FaixaInstalar';
 import { FolhaAcoes } from '../componentes/FolhaAcoes';
 import { GavetaHistorico } from '../componentes/GavetaHistorico';
 import { ListaAprendi } from '../componentes/ListaAprendi';
@@ -23,6 +24,7 @@ import { useChat, type Bolha } from '../estado/chat';
 import { copiarTexto } from '../estado/copiar';
 import { avisoDoEstado, AVISO_CANCELADA, ehIos, emAndamento } from '../estado/gravacao';
 import { useGravadorVoz } from '../estado/gravador-voz';
+import { deveMostrarFaixa, estaInstalado, lerEstadoInstalar, type EstadoInstalar } from '../estado/instalar';
 import { assinarConversasApagadas, conversaApagada, confirmarConversaApagada, consumirAviso, desmarcarPendenteDeApagar, marcarPendenteDeApagar, versaoConversasApagadas } from '../estado/conversas-apagadas';
 import { assinarOcultas, mensagemOculta, mostrarMensagens, ocultarMensagens, versaoOcultas } from '../estado/mensagens-ocultas';
 import { useOnline } from '../estado/online';
@@ -68,6 +70,9 @@ export function Chat({ boasVindas }: { boasVindas?: ConfigBoasVindas } = {}) {
     maxSugestoes: bv ? 8 : 3,
     aoFalharCarga: boasVindas ? (e) => e instanceof ErroHttp && e.status === 404 && boasVindas.aoNaoEncontrada() : undefined,
   });
+  // Faixa "Instalar na tela inicial": uma única vez depois das boas-vindas; nunca fechada de novo nem com o app já instalado.
+  const [estadoInstalar, setEstadoInstalar] = useState<EstadoInstalar>(() => lerEstadoInstalar());
+  const mostrarFaixaInstalar = !bv && deveMostrarFaixa(estadoInstalar, estaInstalado());
   const bem = useBoasVindas({ conversaId: boasVindas?.conversaId ?? '', bolhas, aoConcluir: boasVindas?.aoConcluir ?? (() => {}) });
   const revisando = bv && bem.etapa.fase === 'revisando';
 
@@ -504,6 +509,8 @@ export function Chat({ boasVindas }: { boasVindas?: ConfigBoasVindas } = {}) {
         )}
       </header>
       )}
+
+      {mostrarFaixaInstalar && <FaixaInstalar aoFechar={() => setEstadoInstalar('fechada')} />}
 
       <div ref={listaRef} className="chat__mensagens" aria-live="polite">
         {carga === 'carregando' && <EsqueletoLista linhas={3} />}

@@ -27,15 +27,21 @@ CHROME_PATH=/caminho/do/chrome npm run test:e2e   # Playwright (sem CHROME_PATH:
 
 ## IA (Claude) e casos golden
 - Variáveis: `MODELO_PADRAO` (Haiku) e `MODELO_PROFUNDO` (Sonnet, modo decisão) ficam no `wrangler.toml`; `LIMITE_MENSAGENS_DIA` (padrão 200). A chave entra só como segredo: `npx wrangler secret put ANTHROPIC_API_KEY --config servidor/wrangler.toml` (em desenvolvimento, em `servidor/.dev.vars`). Sem a chave, o chat responde 500 `ia_indisponivel`.
-- O prompt do José é `servidor/src/adaptadores/ia/prompt-jose.md` (seções BASE, SUGESTOES, DECIDIR e TITULO).
+- O prompt do José é `servidor/src/adaptadores/ia/prompt-jose.md` (seções BASE, SUGESTOES, DECIDIR, BOASVINDAS e TITULO).
 - **Casos golden** (6 casos, no Haiku, com a ferramenta `sugerir_memoria` ligada como no app). Os 4 primeiros são os momentos do dia e conferem: no máximo 5 linhas, 1 próximo passo, sem conselho médico/financeiro/jurídico. Os 2 de memória (tarefa 4.4) conferem também:
   - `memoria-existente`: com a memória "Acorda às 6h." salva, a resposta a "O que faço hoje?" usa essa informação e **nenhuma** sugestão repete a memória;
   - `memoria-nova`: ao contar um fato novo ("trabalho melhor de manhã e odeio reunião depois das 17h"), o José escreve o texto e sugere de 1 a 3 memórias, sem repetir a que já existe.
+  - Onda 6 (boas-vindas e modo decisão), conferência automática testada sem rede em `golden.test.ts`: `boasvindas-memorias` (as 5 respostas viram memórias coerentes, até 8, sem repetir as existentes), `decisao-abertura` ("Preciso decidir" → UMA pergunta curta), `decisao-coaching` (informação incompleta → UMA pergunta curta, sem ganhos/perdas nem teoria) e `decisao-coaching-completa` (ganhos e perdas + recomendação + primeiro passo como cartão de tarefa com o prazo, até ~8 linhas). Os casos de decisão rodam no modelo profundo; nenhuma resposta pode citar GROW, SLAC, DISC ou Gallup (os testes do prompt também conferem o texto do `.md`).
   ```bash
   ANTHROPIC_API_KEY=sk-ant-... npm run golden   # custa centavos; mostra as respostas e as sugestões para o Marco revisar o tom
   ```
   Os testes automáticos (`npm test`) usam uma IA simulada e não precisam de chave.
 - Cada resposta grava `modelo` e tokens; os logs do Worker mostram `tokensCache` (se ficar 0 em conversas seguidas, o prefixo ainda está abaixo do mínimo de cache).
+
+## Boas-vindas e modo decisão
+- **Boas-vindas:** 5 perguntas fixas no código (`compartilhado/boasvindas.ts`), uma por vez, com respostas rápidas; a etapa vem só das mensagens da conversa (retomada sem estado extra). Na 5ª resposta uma chamada da IA gera até 8 memórias, que o Marco marca e edita na lista "O que aprendi sobre você" (`POST /api/conversas/:id/sugestoes/lote`, numa transação, que também conclui as boas-vindas). `boas_vindas_concluida` manda: quem já concluiu abre o Chat. Para uma conta que já usa o app, basta marcar a flag no banco: `UPDATE usuarios SET boas_vindas_concluida = 1 WHERE email = '...'`.
+- **Modo decisão:** o atalho cria a conversa em modo `decidir` e envia "Preciso decidir"; a pergunta inicial é a resposta do modelo profundo.
+- **Faixa "Instalar na tela inicial":** `localStorage` `jose:instalar` (`pendente` depois das boas-vindas, `fechada` depois do ✕). Só o iPhone real confirma o Compartilhar → Adicionar à Tela de Início.
 
 ## Voz no Chat
 - Com o campo vazio o botão da direita é o 🎤 (toque para gravar, ■ para parar e enviar, ✕ para cancelar; para sozinho aos 2:00). O áudio vai para `POST /api/voz`, é transcrito pelo Whisper (Workers AI) só em memória e descartado; o texto é enviado como mensagem de voz.

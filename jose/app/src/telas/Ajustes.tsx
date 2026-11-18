@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/cliente';
 import { Botao } from '../componentes/Botao';
+import { InstrucaoInstalar, useInstalar } from '../componentes/InstrucaoInstalar';
 import { useToast } from '../componentes/Toast';
 import { abrirBoasVindas, caminhoBoasVindas } from '../estado/boas-vindas';
 import { useOnline } from '../estado/online';
@@ -18,6 +19,8 @@ export function Ajustes() {
   const [saindo, setSaindo] = useState(false);
   const [abrindo, setAbrindo] = useState(false);
   const online = useOnline();
+  const instalar = useInstalar();
+  const [instrucaoAberta, setInstrucaoAberta] = useState(false);
 
   // Esc fecha a confirmação, como o Cancelar.
   useEffect(() => {
@@ -84,6 +87,23 @@ export function Ajustes() {
         </div>
       ) : (
         <div className="lista-acoes">
+          {instalar.instalado ? (
+            <p className="texto-2 instalar-ajustes__ok">Já está na tela inicial.</p>
+          ) : (
+            <>
+              <Botao
+                aria-expanded={instalar.modo === 'botao' ? undefined : instrucaoAberta}
+                onClick={() => (instalar.modo === 'botao' ? void instalar.instalarDireto() : setInstrucaoAberta((v) => !v))}
+              >
+                Instalar na tela inicial
+              </Botao>
+              {instrucaoAberta && instalar.modo !== 'botao' && (
+                <div className="cartao">
+                  <InstrucaoInstalar modo={instalar.modo} />
+                </div>
+              )}
+            </>
+          )}
           <Botao carregando={abrindo} disabled={!online} onClick={() => void refazerBoasVindas()}>
             Refazer boas-vindas
           </Botao>
