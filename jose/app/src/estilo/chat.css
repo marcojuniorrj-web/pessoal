@@ -43,7 +43,24 @@ html[data-teclado='aberto'] .barra-abas { display: none; }
   field-sizing: content;
 }
 .chat__campo:disabled { opacity: 0.6; }
-.chat__enviar { border-radius: 50%; padding: 0; width: var(--alvo-minimo); }
+.chat__acao { flex-shrink: 0; border-radius: 50%; padding: 0; width: var(--alvo-minimo); height: var(--alvo-minimo); }
+.chat__acao[aria-disabled='true'] { cursor: progress; }
+
+/* Voz: o rodapé vira a barra de gravação (✕ · ponto pulsante e contador · ■). Tudo com pelo menos 48px e dentro da largura. */
+.chat__rodape[data-voz] { align-items: center; }
+.chat__cancelar-gravacao {
+  flex-shrink: 0; display: grid; place-items: center; width: var(--alvo-minimo); height: var(--alvo-minimo); padding: 0;
+  background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 50%; color: var(--texto); cursor: pointer;
+}
+.gravacao {
+  position: relative; flex: 1; min-width: 0; min-height: var(--alvo-minimo); display: flex; align-items: center; gap: 12px; padding: 0 16px;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: 24px; color: var(--texto);
+}
+.gravacao__ponto { flex-shrink: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--destaque); animation: pulsar-gravacao 1.2s ease-in-out infinite; }
+.gravacao__tempo { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+.gravacao--transcrevendo { overflow-wrap: anywhere; }
+@keyframes pulsar-gravacao { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.75); } }
+@media (prefers-reduced-motion: reduce) { .gravacao__ponto { animation: none; opacity: 1; transform: none; } }
 
 /* Cartão de sugestão (🧠 memória). Nada pode passar da largura da tela: tudo quebra palavras longas e os botões quebram de linha. */
 .cartao-sugestao {
