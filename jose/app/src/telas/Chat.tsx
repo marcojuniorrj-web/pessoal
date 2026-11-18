@@ -54,6 +54,7 @@ export function Chat() {
 
   const [texto, setTexto] = useState('');
   const [menuTopo, setMenuTopo] = useState(false);
+  const [pedidoFoco, setPedidoFoco] = useState<{ n: number; id: string | null }>({ n: 0, id: null });
   const [folha, setFolha] = useState<{ id: string; origem: HTMLElement } | null>(null);
   const [gavetaAberta, setGavetaAberta] = useState(false);
   const campoRef = useRef<HTMLTextAreaElement>(null);
@@ -159,6 +160,11 @@ export function Chat() {
   const apagarMensagens = (b: Bolha, comResposta: boolean) => {
     const resposta = comResposta ? respostaDe(b) : null;
     const ids = resposta ? [b.id, resposta.id] : [b.id];
+    // O foco não pode se perder no body: vai para o balão vizinho que fica (o seguinte, senão o anterior).
+    const restantes = visiveis.filter((x) => !ids.includes(x.id) && x.estado === 'ok');
+    const posicao = visiveis.findIndex((x) => x.id === b.id);
+    const vizinho = restantes.find((x) => visiveis.indexOf(x) > posicao) ?? restantes.filter((x) => visiveis.indexOf(x) < posicao).at(-1);
+    setPedidoFoco((n) => ({ n: n.n + 1, id: vizinho?.id ?? null }));
     ocultarMensagens(ids);
     apagarComDesfazer({
       id: b.id,
@@ -189,6 +195,15 @@ export function Chat() {
     });
   };
 
+  // Depois de apagar: foco no balão vizinho; sem vizinho, no campo (mouse) ou em "+ Nova" (celular: focar o campo abriria o teclado).
+  useEffect(() => {
+    if (pedidoFoco.n === 0) return;
+    const alvo =
+      (pedidoFoco.id && document.querySelector<HTMLElement>(`[data-mensagem-id="${pedidoFoco.id}"] .balao`)) ||
+      (window.matchMedia('(pointer: coarse)').matches ? document.querySelector<HTMLElement>('.chat__nova') : campoRef.current);
+    alvo?.focus({ preventScroll: true });
+  }, [pedidoFoco]);
+
   const bolhaDaFolha = folha ? visiveis.find((b) => b.id === folha.id) ?? null : null;
   // A folha fecha sozinha se a mensagem sumiu (ex.: Desfazer de outra, ou a conversa mudou).
   useEffect(() => {
@@ -200,9 +215,12 @@ export function Chat() {
     toast((await copiarTexto(b.texto)) ? 'Copiado.' : 'Não foi possível copiar.');
   };
 
-  // Menu ⋯ do topo: Esc fecha (o foco volta ao ⋯) e tocar fora também.
+  // Menu ⋯ do topo: ao abrir o foco vai ao 1º item (ou ao menu, se estiver desabilitado); setas, Home e End andam entre os itens;
+  // Esc fecha (o foco volta ao ⋯) e tocar fora também.
   useEffect(() => {
     if (!menuTopo) return;
+    const menu = document.querySelector<HTMLElement>('.chat__menu');
+    (menu?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? menu)?.focus();
     const aoTeclar = (e: globalThis.KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       setMenuTopo(false);
@@ -239,7 +257,20 @@ export function Chat() {
               ⋯
             </button>
             {menuTopo && (
-              <div className="chat__menu" role="menu">
+              <div
+                className="chat__menu"
+                role="menu"
+                tabIndex={-1}
+                onKeyDown={(e) => {
+                  const itens = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)'));
+                  if (!itens.length || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+                  e.preventDefault();
+                  const i = itens.indexOf(document.activeElement as HTMLElement);
+                  const n = itens.length;
+                  const destino = e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : e.key === 'ArrowDown' ? (i + 1) % n : (i - 1 + n) % n;
+                  itens[destino]!.focus();
+                }}
+              >
                 <button
                   type="button"
                   role="menuitem"
@@ -248,6 +279,8 @@ export function Chat() {
                   onClick={() => {
                     setMenuTopo(false);
                     apagarConversaPorId(conversa.id!);
+                    // o ⋯ some junto com a conversa: o foco vai para "+ Nova" (nunca para o body)
+                    setTimeout(() => document.querySelector<HTMLElement>('.chat__nova')?.focus({ preventScroll: true }), 0);
                   }}
                 >
                   Apagar conversa

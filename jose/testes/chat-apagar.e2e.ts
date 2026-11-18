@@ -590,3 +590,60 @@ test.describe('⋯ do mouse (correção F8)', () => {
     });
   }
 });
+
+test.describe('Foco nos menus e depois de apagar (revisão)', () => {
+  test('menu ⋯ do topo: abre com o foco no 1º item, setas andam, Esc fecha e devolve o foco ao botão', async ({ page }) => {
+    await abrir(page);
+    const mais = page.getByRole('button', { name: 'Mais opções da conversa' });
+    await mais.click();
+    const item = page.getByRole('menuitem', { name: 'Apagar conversa' });
+    await expect(item).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(item).toBeFocused(); // um item só: dá a volta nele mesmo
+    await page.keyboard.press('ArrowUp');
+    await expect(item).toBeFocused();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('End');
+    await expect(item).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menuitem')).toHaveCount(0);
+    await expect(mais).toBeFocused();
+  });
+
+  test('menu ⋯ com o item desabilitado (José respondendo): o foco vai ao próprio menu, não ao body', async ({ page }) => {
+    await abrir(page, { atrasoMs: 1500 });
+    await page.getByLabel('Mensagem para o José').fill('mais uma');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByText('José está pensando')).toBeVisible();
+    await page.getByRole('button', { name: 'Mais opções da conversa' }).click();
+    await expect(page.getByRole('menu')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Mais opções da conversa' })).toBeFocused();
+  });
+
+  test('depois de "Apagar mensagem" o foco vai para o balão vizinho (nunca para o body)', async ({ page }) => {
+    await abrir(page, {}, [conversaA([['marco', 'Segunda pergunta', 10], ['jose', 'Segunda resposta', 9]])]);
+    await segurar(page, balaoJose(page).first());
+    await folha(page).getByRole('button', { name: 'Apagar mensagem', exact: true }).click();
+    await expect(balaoJose(page)).toHaveCount(1);
+    await expect.poll(() => page.evaluate(() => document.activeElement?.className ?? '')).toContain('balao');
+    await expect.poll(() => page.evaluate(() => document.activeElement?.textContent ?? '')).toBe('Segunda pergunta');
+  });
+
+  test('apagando a última mensagem que sobra, o foco vai ao campo (mouse) ou a "+ Nova" (celular) — não ao body', async ({ page }) => {
+    await abrir(page);
+    await segurar(page, balaoMarco(page));
+    await folha(page).getByRole('button', { name: 'Apagar mensagem e resposta' }).click();
+    await expect(page.locator('.balao')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => document.activeElement?.tagName ?? 'BODY')).not.toBe('BODY');
+    const ativo = await page.evaluate(() => ({ id: document.activeElement?.id, classe: document.activeElement?.className }));
+    expect(ativo.id === 'campo-mensagem' || String(ativo.classe).includes('chat__nova')).toBe(true);
+  });
+
+  test('depois de "Apagar conversa" o foco vai para "+ Nova"', async ({ page }) => {
+    await abrir(page);
+    await page.getByRole('button', { name: 'Mais opções da conversa' }).click();
+    await page.getByRole('menuitem', { name: 'Apagar conversa' }).click();
+    await expect.poll(() => page.evaluate(() => document.activeElement?.className ?? '')).toContain('chat__nova');
+  });
+});

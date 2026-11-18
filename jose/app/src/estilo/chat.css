@@ -201,3 +201,4 @@ html[data-teclado='aberto'] .folha { bottom: 0; }
   .chat__mais { grid-column: 4; grid-row: 1; }
   .chat__selo { grid-column: 1 / -1; grid-row: 2; justify-self: start; margin: 0 0 8px 12px; }
 }
+.chat__menu:focus { outline: none; }
