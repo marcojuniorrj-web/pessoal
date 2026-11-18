@@ -1,8 +1,8 @@
 # Execução (memória de construção)
 ## Onde paramos
-- Fase atual: onda 5 concluída; ajuste de coaching publicado (aguardando uso real); próxima: onda 3 (voz)
+- Fase atual: BUILD fase 2b (melhorias do Chat) em andamento
 - Última tarefa concluída: onda 4 inteira (cartão 🧠, aba José sabe), testada no iPhone
-- Próximo passo: o Marco testa o tom do coaching ("travei" e uma meta dita como queixa); depois onda 3 (voz) → 6 (boas-vindas e modo decisão com GROW + perdas e ganhos) → 7
+- Próximo passo: terminar a 2b (apagar mensagens/conversa no Chat e horário nas mensagens); depois 3 (voz) → 6 → 7
 ## Aprovações
 - [x] SPEC aprovada (2026-11-17)
 - [x] PLAN aprovado (2026-11-17)
