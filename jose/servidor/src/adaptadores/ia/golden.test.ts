@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { avaliarResposta, CASOS_GOLDEN } from './golden';
+import { avaliarCaso, avaliarResposta, CASOS_GOLDEN } from './golden';
 import { lerPrompt, prompt } from './prompt';
 
 describe('prompt-jose.md', () => {
@@ -21,8 +21,49 @@ describe('prompt-jose.md', () => {
 });
 
 describe('casos golden', () => {
-  it('são 4, um por momento do dia', () => {
-    expect(CASOS_GOLDEN.map((c) => c.id)).toEqual(['acordar', 'travado', 'decisao', 'noite']);
+  it('4 por momento do dia (onda 2) e 2 de memória (onda 4)', () => {
+    expect(CASOS_GOLDEN.map((c) => c.id)).toEqual(['acordar', 'travado', 'decisao', 'noite', 'memoria-existente', 'memoria-nova']);
+  });
+});
+
+describe('avaliarCaso (casos de memória, tarefa 4.4)', () => {
+  const existente = CASOS_GOLDEN.find((c) => c.id === 'memoria-existente')!;
+  const nova = CASOS_GOLDEN.find((c) => c.id === 'memoria-nova')!;
+  const memoria = (texto: string) => ({ nome: 'sugerir_memoria', entrada: { texto, area: 'saude' } });
+
+  it('o caso usa a memória "Acorda às 6h." e pergunta "O que faço hoje?"', () => {
+    expect(existente.memorias).toEqual([{ texto: 'Acorda às 6h.', area: 'saude' }]);
+    expect(existente.mensagem).toBe('O que faço hoje?');
+  });
+  it('aprova: usa a memória na resposta e não a sugere de novo', () => {
+    const r = avaliarCaso(existente, { texto: 'Bom dia, Marco. Você acorda às 6h, então a manhã é sua.\nComece pela proposta do cliente: abra o arquivo agora.', sugestoes: [] });
+    expect(r).toEqual({ ok: true, falhas: [], linhas: 2 });
+  });
+  it('reprova: não usou a memória', () => {
+    const r = avaliarCaso(existente, { texto: 'Comece pela proposta do cliente. Abra o arquivo agora.', sugestoes: [] });
+    expect(r.falhas).toContain('não usou a memória que já existe na resposta');
+  });
+  it('reprova: sugeriu de novo a memória que já existe (mesmo com outras palavras)', () => {
+    for (const texto of ['Acorda às 6h.', 'Costuma acordar cedo, por volta das 6h', 'Levanta às seis']) {
+      const r = avaliarCaso(existente, { texto: 'Você acorda às 6h. Comece pela proposta.', sugestoes: [memoria(texto)] });
+      expect(r.ok, texto).toBe(false);
+      expect(r.falhas.join()).toContain('sugeriu de novo a memória que já existe');
+    }
+  });
+  it('reprova ferramenta fora de sugerir_memoria e mais de 3 sugestões', () => {
+    expect(avaliarCaso(existente, { texto: 'Você acorda às 6h. Comece agora.', sugestoes: [{ nome: 'sugerir_tarefa', entrada: {} }] }).falhas).toContain('chamou ferramenta que não está ligada');
+    const quatro = ['a', 'b', 'c', 'd'].map((t) => memoria(`Fato ${t}`));
+    expect(avaliarCaso(nova, { texto: 'Anotado, Marco.', sugestoes: quatro }).falhas).toContain('mais de 3 sugestões (4)');
+  });
+  it('fato novo: precisa sugerir memória, com texto antes, sem repetir a que existe', () => {
+    expect(avaliarCaso(nova, { texto: 'Anotado, Marco. Vou proteger suas manhãs.', sugestoes: [memoria('Rende melhor de manhã.'), memoria('Evita reuniões depois das 17h.')] }).ok).toBe(true);
+    expect(avaliarCaso(nova, { texto: 'Anotado, Marco.', sugestoes: [] }).falhas).toContain('não sugeriu nenhuma memória');
+    expect(avaliarCaso(nova, { texto: '', sugestoes: [memoria('Rende melhor de manhã.')] }).falhas).toContain('sugeriu memória sem escrever o texto antes');
+    expect(avaliarCaso(nova, { texto: 'Anotado, Marco.', sugestoes: [memoria('Acorda às 6h.')] }).falhas.join()).toContain('sugeriu de novo');
+  });
+  it('casos antigos continuam valendo só pelas regras gerais', () => {
+    const acordar = CASOS_GOLDEN[0]!;
+    expect(avaliarCaso(acordar, { texto: 'Bom dia, Marco. Comece pela proposta do cliente Alfa.', sugestoes: [] }).ok).toBe(true);
   });
 });
 

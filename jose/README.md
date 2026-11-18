@@ -28,9 +28,11 @@ CHROME_PATH=/caminho/do/chrome npm run test:e2e   # Playwright (sem CHROME_PATH:
 ## IA (Claude) e casos golden
 - Variáveis: `MODELO_PADRAO` (Haiku) e `MODELO_PROFUNDO` (Sonnet, modo decisão) ficam no `wrangler.toml`; `LIMITE_MENSAGENS_DIA` (padrão 200). A chave entra só como segredo: `npx wrangler secret put ANTHROPIC_API_KEY --config servidor/wrangler.toml` (em desenvolvimento, em `servidor/.dev.vars`). Sem a chave, o chat responde 500 `ia_indisponivel`.
 - O prompt do José é `servidor/src/adaptadores/ia/prompt-jose.md` (seções BASE, SUGESTOES, DECIDIR e TITULO).
-- **Casos golden** (4 momentos do dia, no Haiku, conferem: no máximo 5 linhas, 1 próximo passo, sem conselho médico/financeiro/jurídico):
+- **Casos golden** (6 casos, no Haiku, com a ferramenta `sugerir_memoria` ligada como no app). Os 4 primeiros são os momentos do dia e conferem: no máximo 5 linhas, 1 próximo passo, sem conselho médico/financeiro/jurídico. Os 2 de memória (tarefa 4.4) conferem também:
+  - `memoria-existente`: com a memória "Acorda às 6h." salva, a resposta a "O que faço hoje?" usa essa informação e **nenhuma** sugestão repete a memória;
+  - `memoria-nova`: ao contar um fato novo ("trabalho melhor de manhã e odeio reunião depois das 17h"), o José escreve o texto e sugere de 1 a 3 memórias, sem repetir a que já existe.
   ```bash
-  ANTHROPIC_API_KEY=sk-ant-... npm run golden   # custa centavos; mostra as respostas para o Marco revisar o tom
+  ANTHROPIC_API_KEY=sk-ant-... npm run golden   # custa centavos; mostra as respostas e as sugestões para o Marco revisar o tom
   ```
   Os testes automáticos (`npm test`) usam uma IA simulada e não precisam de chave.
 - Cada resposta grava `modelo` e tokens; os logs do Worker mostram `tokensCache` (se ficar 0 em conversas seguidas, o prefixo ainda está abaixo do mínimo de cache).
