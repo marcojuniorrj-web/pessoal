@@ -63,7 +63,7 @@ test.describe('Gaveta de Histórico (2.9)', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
-  test('toast "Apagado" não cobre o campo de digitação nem o Enviar', async ({ page }) => {
+  test('toast "Apagado" não cobre o campo de digitação nem o botão de ação', async ({ page }) => {
     await simularApi(page);
     await simularChat(page, { conversas: conversas(), hoje: 'a' });
     await page.goto('/');
@@ -77,7 +77,7 @@ test.describe('Gaveta de Histórico (2.9)', () => {
     await expect(aviso).toBeVisible();
     await page.waitForTimeout(300); // fim da animação de entrada
     const t = (await aviso.boundingBox())!;
-    for (const alvo of [page.getByLabel('Mensagem para o José'), page.getByRole('button', { name: 'Enviar' })]) {
+    for (const alvo of [page.getByLabel('Mensagem para o José'), page.locator('.chat__acao')]) {
       const b = (await alvo.boundingBox())!;
       const sobrepoe = t.x < b.x + b.width && t.x + t.width > b.x && t.y < b.y + b.height && t.y + t.height > b.y;
       expect(sobrepoe).toBe(false);

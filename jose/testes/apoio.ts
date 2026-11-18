@@ -41,7 +41,7 @@ export interface ChatFalso {
   atrasoListaMs: number;
   /** Faz GET /api/conversas falhar (500). */
   listaFalha: boolean;
-  postsMensagem: Array<{ conversa: string; id: string; texto: string }>;
+  postsMensagem: Array<{ conversa: string; id: string; texto: string; origem: 'texto' | 'voz' }>;
   postsConversa: Array<Record<string, unknown>>;
   deletes: string[];
   /** Mensagens apagadas (DELETE /api/mensagens/:id), na ordem. */
@@ -168,7 +168,7 @@ export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}):
     // POST /api/conversas/:id/mensagens
     if (!conversa) return json(404, { erro: { codigo: 'nao_encontrado', mensagem: 'Não encontrado.' } });
     const msg = req.postDataJSON() as { id: string; texto: string; origem: 'texto' | 'voz' };
-    f.postsMensagem.push({ conversa: conversa.id, id: msg.id, texto: msg.texto });
+    f.postsMensagem.push({ conversa: conversa.id, id: msg.id, texto: msg.texto, origem: msg.origem });
     const plano = f.planos.shift() ?? 'ok';
     if (f.atrasoMs && (plano === '401' || plano === 'limite')) await espera(f.atrasoMs);
     if (plano === '401') return json(401, { erro: { codigo: 'nao_autenticado', mensagem: 'Entre de novo.' } });
@@ -338,3 +338,65 @@ export async function simularTarefas(page: Page, inicial: Partial<TarefasFalsas>
   }
   return f;
 }
+
+// ---- Voz: POST /api/voz simulado + microfone falso do Chromium (--use-fake-device-for-media-stream) ----
+export type PlanoVoz = 'ok' | 'falha' | 'vazio' | 'limite' | '401';
+export interface PedidoVoz { contentType: string; arquivo: string; tipoArquivo: string; bytes: number; duracaoMs: number | null }
+export interface VozFalsa {
+  /** Resultado de cada POST /api/voz, na ordem (padrão: ok). */
+  planos: PlanoVoz[];
+  texto: string;
+  /** Atraso (ms) antes de responder (para ver o "Transcrevendo áudio…"). */
+  atrasoMs: number;
+  pedidos: PedidoVoz[];
+}
+
+export async function simularVoz(page: Page, inicial: Partial<VozFalsa> = {}): Promise<VozFalsa> {
+  const v: VozFalsa = { planos: [], texto: 'preciso organizar a visita do cliente amanhã', atrasoMs: 0, pedidos: [], ...inicial };
+  await page.route((url) => url.pathname === '/api/voz', async (rota) => {
+    const corpo = (rota.request().postDataBuffer() ?? Buffer.alloc(0)).toString('latin1');
+    const arquivo = /name="audio"; filename="([^"]*)"\r\nContent-Type: ([^\r\n]*)/.exec(corpo);
+    const duracao = /name="duracao_ms"\r\n\r\n(\d+)/.exec(corpo);
+    v.pedidos.push({
+      contentType: rota.request().headers()['content-type'] ?? '',
+      arquivo: arquivo?.[1] ?? '',
+      tipoArquivo: arquivo?.[2] ?? '',
+      bytes: rota.request().postDataBuffer()?.length ?? 0,
+      duracaoMs: duracao ? Number(duracao[1]) : null,
+    });
+    if (v.atrasoMs) await new Promise((r) => setTimeout(r, v.atrasoMs));
+    const plano = v.planos.shift() ?? 'ok';
+    if (plano === 'falha') return rota.fulfill({ status: 500, json: { erro: { codigo: 'transcricao_falhou', mensagem: 'Não entendi o áudio. Tenta de novo ou digita.' } } });
+    if (plano === 'limite') return rota.fulfill({ status: 429, json: { erro: { codigo: 'limite_voz', mensagem: 'Limite de voz de hoje atingido. Digite sua mensagem.' } } });
+    if (plano === '401') return rota.fulfill({ status: 401, json: { erro: { codigo: 'nao_autenticado', mensagem: 'Entre de novo.' } } });
+    return rota.fulfill({ status: 200, json: { texto: plano === 'vazio' ? '' : v.texto } });
+  });
+  return v;
+}
+
+/**
+ * Microfone: dá a permissão e guarda cada MediaStream aberto (window.__fluxos) para conferir que as trilhas são encerradas.
+ * Com `negar`, getUserMedia falha como quando o Marco nega a permissão (NotAllowedError).
+ */
+export async function prepararMicrofone(page: Page, opcoes: { negar?: boolean } = {}) {
+  await page.context().grantPermissions(['microphone']);
+  await page.addInitScript((negar) => {
+    const w = window as unknown as { __fluxos: MediaStream[]; __pedidosMic: number };
+    w.__fluxos = [];
+    w.__pedidosMic = 0;
+    const md = navigator.mediaDevices;
+    const original = md.getUserMedia.bind(md);
+    md.getUserMedia = async (restricoes) => {
+      w.__pedidosMic++;
+      if (negar) throw new DOMException('Permission denied', 'NotAllowedError');
+      const fluxo = await original(restricoes);
+      w.__fluxos.push(fluxo);
+      return fluxo;
+    };
+  }, !!opcoes.negar);
+}
+
+/** Quantas trilhas de microfone continuam ao vivo (0 = o microfone foi liberado). */
+export const trilhasAoVivo = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __fluxos: MediaStream[] }).__fluxos.flatMap((f) => f.getTracks()).filter((t) => t.readyState === 'live').length);
+export const microfonesPedidos = (page: Page) => page.evaluate(() => (window as unknown as { __pedidosMic: number }).__pedidosMic);

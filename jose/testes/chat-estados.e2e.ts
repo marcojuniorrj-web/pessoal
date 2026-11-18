@@ -51,13 +51,13 @@ test.describe('Estados do Chat (2.8)', () => {
     await page.context().setOffline(true);
     await expect(page.getByRole('status').filter({ hasText: 'Offline' })).toBeVisible();
     await expect(campo).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Enviar' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Gravar áudio' })).toBeDisabled(); // o 🎤 fica desabilitado como o enviar
     await expect(page.getByRole('button', { name: /Travei/ })).toBeDisabled();
     await page.context().setOffline(false);
     await expect(campo).toBeEnabled();
   });
 
-  test('offline: com a faixa visível, campo e Enviar ficam inteiros na tela e fora da barra de abas', async ({ page }) => {
+  test('offline: com a faixa visível, campo e botão de ação ficam inteiros na tela e fora da barra de abas', async ({ page }) => {
     await simularApi(page);
     await simularChat(page);
     await page.goto('/');
@@ -66,7 +66,7 @@ test.describe('Estados do Chat (2.8)', () => {
     await expect(faixa).toBeVisible();
     const barra = (await page.locator('.barra-abas').boundingBox())!;
     const vp = page.viewportSize()!;
-    for (const alvo of [page.getByLabel('Mensagem para o José'), page.getByRole('button', { name: 'Enviar' })]) {
+    for (const alvo of [page.getByLabel('Mensagem para o José'), page.locator('.chat__acao')]) {
       const b = (await alvo.boundingBox())!;
       expect(b.y + b.height).toBeLessThanOrEqual(barra.y + 0.5);
       expect(b.y + b.height).toBeLessThanOrEqual(vp.height);

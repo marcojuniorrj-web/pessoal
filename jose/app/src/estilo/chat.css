@@ -29,6 +29,8 @@ html[data-teclado='aberto'] .barra-abas { display: none; }
 .balao--erro { border: 1px solid var(--erro); display: grid; gap: 10px; justify-items: start; }
 .balao--erro p { color: var(--texto); }
 .balao__parcial { color: var(--texto-2) !important; }
+/* Mensagem enviada por voz: microfone pequeno antes do texto (herda a cor do balão). */
+.balao__voz { display: inline-block; margin-right: 6px; vertical-align: -2px; line-height: 0; }
 .pontinhos { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
 .pontinhos span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: pulsar 1.2s ease-in-out infinite; }
 .pontinhos span:nth-child(2) { animation-delay: 0.2s; }

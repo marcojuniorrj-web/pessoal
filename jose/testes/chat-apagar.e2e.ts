@@ -126,7 +126,7 @@ for (const largura of [320, 390]) {
       await expect(aviso).toContainText('Apagado.');
       await page.waitForTimeout(300);
       const [toast] = await medir(page, '.toast');
-      for (const alvo of ['#campo-mensagem', 'button[aria-label="Enviar"]']) {
+      for (const alvo of ['#campo-mensagem', '.chat__acao']) {
         const [caixa] = await medir(page, alvo);
         expect(sobrepoe(toast!, caixa!), `o aviso cobre ${alvo}`).toBe(false);
       }

@@ -1,5 +1,6 @@
 import { horaMensagem } from '@compartilhado/datas';
 import { Botao } from './Botao';
+import { IconeMicrofone } from './IconesVoz';
 import type { Bolha } from '../estado/chat';
 import { usePressaoLonga } from '../estado/usar-pressao-longa';
 
@@ -52,7 +53,11 @@ export function Balao({ bolha, fuso, aoTentarDeNovo, aoAbrirAcoes }: Props) {
     return (
       <div className="mensagem mensagem--marco" data-mensagem-id={bolha.id}>
         <div className="balao balao--marco" data-autor="marco" {...acoes}>
-          {bolha.origem === 'voz' && <span aria-label="Enviado por voz" className="balao__voz">🎤 </span>}
+          {bolha.origem === 'voz' && (
+            <span role="img" aria-label="Enviado por voz" className="balao__voz">
+              <IconeMicrofone tamanho={14} />
+            </span>
+          )}
           {bolha.texto}
         </div>
         <Hora bolha={bolha} fuso={fuso} aoAbrirMais={abrirDoMais} />

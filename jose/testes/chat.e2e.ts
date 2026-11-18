@@ -45,10 +45,12 @@ test.describe('Chat (2.7)', () => {
     await simularApi(page);
     const f = await simularChat(page);
     await page.goto('/');
-    const enviar = page.getByRole('button', { name: 'Enviar' });
-    await expect(enviar).toBeDisabled();
+    // Com o campo vazio o botão da direita é o 🎤; com texto vira Enviar (o mesmo botão).
+    await expect(page.getByRole('button', { name: 'Enviar' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Gravar áudio' })).toBeEnabled();
     const campo = page.getByLabel('Mensagem para o José');
     await campo.fill('travei no relatório de vendas');
+    const enviar = page.getByRole('button', { name: 'Enviar' });
     await expect(enviar).toBeEnabled();
     await enviar.click();
     await expect(campo).toHaveValue('');
@@ -104,7 +106,7 @@ test.describe('Chat (2.7)', () => {
     expect(campo!.y + campo!.height).toBeLessThanOrEqual(barra!.y + 1);
     expect(barra!.y + barra!.height).toBeLessThanOrEqual(vp.height + 1);
     // alvos de toque de pelo menos 48px
-    const enviar = await page.getByRole('button', { name: 'Enviar' }).boundingBox();
+    const enviar = await page.locator('.chat__acao').boundingBox();
     expect(enviar!.height).toBeGreaterThanOrEqual(48);
   });
 });

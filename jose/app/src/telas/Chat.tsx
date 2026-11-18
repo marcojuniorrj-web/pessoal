@@ -3,7 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FUSO_PADRAO, saudacao, separadoresDeDia } from '@compartilhado/datas';
 import { LIMITE_MENSAGEM } from '@compartilhado/schemas';
 import { Balao } from '../componentes/Balao';
+import { BarraGravacao } from '../componentes/BarraGravacao';
 import { Botao } from '../componentes/Botao';
+import { BotaoAcaoChat, type ModoAcao } from '../componentes/BotaoAcaoChat';
 import { CartaoSugestao } from '../componentes/CartaoSugestao';
 import { EsqueletoLista } from '../componentes/Esqueleto';
 import { FolhaAcoes } from '../componentes/FolhaAcoes';
@@ -14,6 +16,8 @@ import { useAgora } from '../estado/agora';
 import { apagarComDesfazer } from '../estado/apagar-com-desfazer';
 import { useChat, type Bolha } from '../estado/chat';
 import { copiarTexto } from '../estado/copiar';
+import { avisoDoEstado, AVISO_CANCELADA, ehIos, emAndamento } from '../estado/gravacao';
+import { useGravadorVoz } from '../estado/gravador-voz';
 import { assinarConversasApagadas, conversaApagada, confirmarConversaApagada, consumirAviso, desmarcarPendenteDeApagar, marcarPendenteDeApagar, versaoConversasApagadas } from '../estado/conversas-apagadas';
 import { assinarOcultas, mensagemOculta, mostrarMensagens, ocultarMensagens, versaoOcultas } from '../estado/mensagens-ocultas';
 import { useOnline } from '../estado/online';
@@ -116,12 +120,84 @@ export function Chat() {
     limparRascunho(idAberta);
     ir('/?nova=1', { replace: true });
   }, [idAberta, apagadaAgora, ocupado, ir, toast]);
+  const semRedeRef = useRef(false);
   const semRede = !online || (estado.situacao === 'logado' && estado.offline);
+  semRedeRef.current = semRede;
 
   // O rascunho da conversa aberta volta para o campo (ex.: depois de um 401 e novo login), mas nunca por cima
   // do que o Marco digitou enquanto a conversa carregava: nesse caso o texto fica e passa a ser o rascunho dela.
   const textoRef = useRef('');
   textoRef.current = texto;
+
+  // ---- Voz (telas.md, Chat): 🎤 grava, ■ envia; o texto transcrito vai como mensagem com origem = voz. ----
+  const enviarRef = useRef(enviar);
+  enviarRef.current = enviar;
+  const aoTextoVoz = (t: string) => {
+    if (semRedeRef.current || ocupadoRef.current) {
+      // O José ainda está respondendo (ou a rede caiu): o texto não se perde, vai para o campo para o Marco enviar.
+      const atual = textoRef.current;
+      const novo = atual.trim() ? `${atual}\n${t}` : t;
+      setTexto(novo);
+      salvarRascunho(conversaRef.current, novo);
+      toast('Texto pronto no campo. Toque em enviar.');
+      return;
+    }
+    void enviarRef.current(t, 'voz');
+  };
+  const voz = useGravadorVoz({ aoTexto: aoTextoVoz, aoAvisar: toast });
+  const gravandoVoz = voz.estado.tipo === 'gravando';
+  const transcrevendoVoz = voz.estado.tipo === 'transcrevendo';
+  const vozAtiva = emAndamento(voz.estado);
+  const ios = ehIos(navigator.userAgent, navigator.platform, navigator.maxTouchPoints);
+
+  // Avisos da voz (toast): falha, vazio, limite, negado, saiu da tela. Se o app está escondido, mostra ao voltar.
+  useEffect(() => {
+    const aviso = avisoDoEstado(voz.estado, { ios });
+    if (!aviso) return;
+    const mostrar = () => toast(aviso, undefined, aviso.length > 60 ? 7000 : undefined);
+    if (document.visibilityState !== 'hidden') {
+      mostrar();
+      return;
+    }
+    const aoVoltar = () => {
+      if (document.visibilityState !== 'visible') return;
+      document.removeEventListener('visibilitychange', aoVoltar);
+      mostrar();
+    };
+    document.addEventListener('visibilitychange', aoVoltar);
+    return () => document.removeEventListener('visibilitychange', aoVoltar);
+  }, [voz.estado, ios, toast]);
+
+  // Trocar de conversa (☰, ✎, apagar) cancela o que foi gravado: não vale para a outra conversa.
+  const cancelarVozRef = useRef(voz.cancelarTudo);
+  cancelarVozRef.current = voz.cancelarTudo;
+  useEffect(() => {
+    cancelarVozRef.current(AVISO_CANCELADA);
+  }, [geracao]);
+
+  // Esc cancela a gravação (a menos que uma folha, o menu ⋯ ou a gaveta estejam abertos: aí o Esc fecha só eles).
+  const sobreposicaoRef = useRef(false);
+  sobreposicaoRef.current = !!folha || menuTopo || gavetaAberta;
+  const cancelarGravacao = voz.cancelar;
+  useEffect(() => {
+    if (voz.estado.tipo !== 'gravando' && voz.estado.tipo !== 'preparando') return;
+    const aoTeclar = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'Escape' || sobreposicaoRef.current) return;
+      cancelarGravacao();
+    };
+    document.addEventListener('keydown', aoTeclar);
+    return () => document.removeEventListener('keydown', aoTeclar);
+  }, [voz.estado.tipo, cancelarGravacao]);
+
+  // O ✕ some ao cancelar: o foco volta ao botão de ação (nunca fica no body).
+  const eraGravando = useRef(false);
+  useEffect(() => {
+    if (eraGravando.current && !gravandoVoz) {
+      const alvo = document.querySelector<HTMLElement>('.chat__acao');
+      if (!document.activeElement || document.activeElement === document.body) alvo?.focus({ preventScroll: true });
+    }
+    eraGravando.current = gravandoVoz;
+  }, [gravandoVoz]);
   const editouNaCargaRef = useRef(false);
   useEffect(() => {
     if (carga === 'carregando') {
@@ -165,7 +241,7 @@ export function Chat() {
 
   const aoEnviar = (e?: FormEvent) => {
     e?.preventDefault();
-    if (!texto.trim() || ocupado || semRede) return;
+    if (!texto.trim() || ocupado || semRede || vozAtiva) return;
     void enviarTexto(texto);
   };
 
@@ -306,6 +382,9 @@ export function Chat() {
 
   const vazio = carga === 'ok' && visiveis.length === 0;
   const podeEnviar = !!texto.trim() && !ocupado && !semRede;
+  // Botão único à direita do campo (como no WhatsApp): vazio = 🎤; com texto = Enviar; gravando = ■; transcrevendo = ocupado.
+  const modoAcao: ModoAcao = gravandoVoz ? 'parar' : transcrevendoVoz ? 'transcrevendo' : texto.trim() ? 'enviar' : 'microfone';
+  const acaoDesabilitada = modoAcao === 'enviar' ? !podeEnviar : semRede || ocupado;
 
   return (
     <section className="chat">
@@ -374,11 +453,11 @@ export function Chat() {
             <h2 className="chat-vazio__saudacao">{saudacao(usuario.nome, new Date())}</h2>
             <div className="atalhos">
               {ATALHOS.map((a) => (
-                <Botao key={a.rotulo} className="atalho" disabled={ocupado || semRede} onClick={() => void enviarTexto(a.rotulo)}>
+                <Botao key={a.rotulo} className="atalho" disabled={ocupado || semRede || vozAtiva} onClick={() => void enviarTexto(a.rotulo)}>
                   <span aria-hidden="true">{a.icone}</span> {a.rotulo}
                 </Botao>
               ))}
-              <Botao className="atalho" disabled={ocupado || semRede} onClick={() => void decidir()}>
+              <Botao className="atalho" disabled={ocupado || semRede || vozAtiva} onClick={() => void decidir()}>
                 <span aria-hidden="true">⚖️</span> Preciso decidir
               </Botao>
             </div>
@@ -405,25 +484,36 @@ export function Chat() {
         <div ref={fimRef} />
       </div>
 
-      <form ref={rodapeRef} className="chat__rodape" onSubmit={aoEnviar}>
-        <label className="so-leitor" htmlFor="campo-mensagem">
-          Mensagem para o José
-        </label>
-        <textarea
-          id="campo-mensagem"
-          ref={campoRef}
-          className="chat__campo"
-          rows={1}
-          maxLength={LIMITE_MENSAGEM}
-          placeholder={semRede ? 'Sem conexão' : 'Fale com o José…'}
-          value={texto}
-          disabled={semRede}
-          onChange={(e) => aoDigitar(e.target.value)}
-          onKeyDown={aoTeclar}
-        />
-        <Botao variante="principal" type="submit" className="chat__enviar" aria-label="Enviar" disabled={!podeEnviar}>
-          ➤
-        </Botao>
+      <form ref={rodapeRef} className="chat__rodape" data-voz={gravandoVoz ? 'gravando' : transcrevendoVoz ? 'transcrevendo' : undefined} onSubmit={aoEnviar}>
+        {gravandoVoz || transcrevendoVoz ? (
+          <>
+            <BarraGravacao fase={gravandoVoz ? 'gravando' : 'transcrevendo'} restanteMs={voz.restanteMs} aoCancelar={voz.cancelar} />
+            {gravandoVoz && (
+              <span className="so-leitor" role="status">
+                Gravando áudio. Toque em parar para enviar.
+              </span>
+            )}
+          </>
+        ) : (
+          <>
+            <label className="so-leitor" htmlFor="campo-mensagem">
+              Mensagem para o José
+            </label>
+            <textarea
+              id="campo-mensagem"
+              ref={campoRef}
+              className="chat__campo"
+              rows={1}
+              maxLength={LIMITE_MENSAGEM}
+              placeholder={semRede ? 'Sem conexão' : 'Fale com o José…'}
+              value={texto}
+              disabled={semRede}
+              onChange={(e) => aoDigitar(e.target.value)}
+              onKeyDown={aoTeclar}
+            />
+          </>
+        )}
+        <BotaoAcaoChat modo={modoAcao} desabilitado={acaoDesabilitada} aoMicrofone={() => void voz.iniciar()} aoEnviar={() => aoEnviar()} aoParar={voz.parar} />
       </form>
 
       {folha && bolhaDaFolha && (

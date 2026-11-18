@@ -174,7 +174,7 @@ for (const largura of [320, 390]) {
       await expect(aviso).toContainText('Descartado.');
       await page.waitForTimeout(300); // fim da animação de entrada
       const [toast] = await medir(page, '.toast');
-      for (const alvo of ['#campo-mensagem', 'button[aria-label="Enviar"]']) {
+      for (const alvo of ['#campo-mensagem', '.chat__acao']) {
         const [caixa] = await medir(page, alvo);
         expect(sobrepoe(toast!, caixa!), `o aviso cobre ${alvo}`).toBe(false);
       }
@@ -301,7 +301,7 @@ for (const tamanho of [{ width: 320, height: 640 }, { width: 390, height: 844 },
     // Conversa já longa: o fim da lista fica colado no campo de digitação, onde o aviso aparece.
     for (const t of ['oi', 'tudo bem?', 'hoje foi corrido']) {
       await enviar(page, t);
-      await expect(page.getByRole('button', { name: 'Enviar' })).toBeDisabled();
+      await expect(page.getByRole('button', { name: 'Gravar áudio' })).toBeEnabled(); // a resposta terminou
       await expect(page.getByText('Próximo passo: abrir o arquivo.')).toHaveCount(['oi', 'tudo bem?', 'hoje foi corrido'].indexOf(t) + 1);
     }
     f.sugerir.push(
