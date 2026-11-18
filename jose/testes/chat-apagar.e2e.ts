@@ -631,7 +631,7 @@ test.describe('Foco nos menus e depois de apagar (revisão)', () => {
     await expect.poll(() => page.evaluate(() => document.activeElement?.textContent ?? '')).toBe('Segunda pergunta');
   });
 
-  test('apagando a última mensagem que sobra, o foco vai ao campo (mouse) ou a "+ Nova" (celular) — não ao body', async ({ page }) => {
+  test('apagando a última mensagem que sobra, o foco vai ao campo (mouse) ou a "Nova conversa" (celular) — não ao body', async ({ page }) => {
     await abrir(page);
     await segurar(page, balaoMarco(page));
     await folha(page).getByRole('button', { name: 'Apagar mensagem e resposta' }).click();
@@ -641,7 +641,7 @@ test.describe('Foco nos menus e depois de apagar (revisão)', () => {
     expect(ativo.id === 'campo-mensagem' || String(ativo.classe).includes('chat__nova')).toBe(true);
   });
 
-  test('depois de "Apagar conversa" o foco vai para "+ Nova"', async ({ page }) => {
+  test('depois de "Apagar conversa" o foco vai para "Nova conversa"', async ({ page }) => {
     await abrir(page);
     await page.getByRole('button', { name: 'Mais opções da conversa' }).click();
     await page.getByRole('menuitem', { name: 'Apagar conversa' }).click();

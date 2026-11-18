@@ -67,12 +67,12 @@ test.describe('Chat (2.7)', () => {
     await expect(page.getByRole('button', { name: /Travei/ })).toHaveCount(0);
   });
 
-  test('+ Nova abre o Chat vazio com os atalhos', async ({ page }) => {
+  test('Nova conversa abre o Chat vazio com os atalhos', async ({ page }) => {
     await simularApi(page);
     await simularChat(page, { conversas: [novaConversa('h1', 'Plano do dia', 10, 'padrao', [['marco', 'oi'], ['jose', 'Bom dia, Marco.']])], hoje: 'h1' });
     await page.goto('/');
     await expect(page.locator('.balao--marco')).toBeVisible();
-    await page.getByRole('button', { name: '+ Nova' }).click();
+    await page.getByRole('button', { name: 'Nova conversa' }).click();
     await expect(page).toHaveURL(/nova=1/);
     await expect(page.locator('.balao')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /O que faço hoje\?/ })).toBeVisible();
@@ -87,10 +87,10 @@ test.describe('Chat (2.7)', () => {
     await expect(page.getByText('Modo decisão', { exact: true }).first()).toBeVisible();
     expect(f.postsConversa).toEqual([{ tipo: 'normal', modo: 'decidir' }]);
     await expect(page.getByRole('button', { name: /Travei/ })).toHaveCount(0);
-    // ao reabrir a conversa o selo continua; + Nova sai do modo
+    // ao reabrir a conversa o selo continua; Nova conversa sai do modo
     await page.reload();
     await expect(page.locator('.chat__selo')).toHaveText('Modo decisão');
-    await page.getByRole('button', { name: '+ Nova' }).click();
+    await page.getByRole('button', { name: 'Nova conversa' }).click();
     await expect(page.locator('.chat__selo')).toHaveCount(0);
   });
 
@@ -147,13 +147,40 @@ test.describe('Digitar enquanto a conversa de hoje carrega', () => {
   });
 });
 
-test('"+ Nova" continua limpando o campo (o texto digitado depois da carga não é tratado como digitado durante a carga)', async ({ page }) => {
+test('"Nova conversa" continua limpando o campo (o texto digitado depois da carga não é tratado como digitado durante a carga)', async ({ page }) => {
   await simularApi(page);
   await simularChat(page, { conversas: [novaConversa('h1', 'Plano do dia', 10, 'padrao', [['marco', 'oi'], ['jose', 'Bom dia, Marco.']])], hoje: 'h1' });
   await page.goto('/');
   await expect(page.locator('.balao--marco')).toBeVisible();
   await page.getByLabel('Mensagem para o José').fill('texto da conversa antiga');
-  await page.getByRole('button', { name: '+ Nova' }).click();
+  await page.getByRole('button', { name: 'Nova conversa' }).click();
   await expect(page.getByRole('heading', { name: 'Nova conversa' })).toBeVisible();
   await expect(page.getByLabel('Mensagem para o José')).toHaveValue('');
 });
+
+// Pedido do Marco: a barra de cima estava apertada ("Nova" grudada nos 3 pontinhos). O ✎ de nova conversa e o ⋯ têm alvo
+// de pelo menos 48 px e folga de pelo menos 12 px entre as caixas de toque, e o título continua com espaço, em qualquer largura de celular.
+for (const largura of [320, 360, 390, 430, 1280]) {
+  test(`barra do topo em ${largura}px: ✎ e ⋯ separados (>= 12 px entre as caixas de toque), alvos >= 48 px e título com espaço`, async ({ page }) => {
+    await page.setViewportSize({ width: largura, height: 800 });
+    await simularApi(page);
+    await simularChat(page, { conversas: [novaConversa('h1', 'Organizando prioridades do dia', 10, 'padrao', [['marco', 'oi'], ['jose', 'Bom dia, Marco.']])], hoje: 'h1' });
+    await page.goto('/');
+    const nova = page.getByRole('button', { name: 'Nova conversa' });
+    const mais = page.getByRole('button', { name: 'Mais opções da conversa' });
+    await expect(mais).toBeVisible();
+    const n = (await nova.boundingBox())!;
+    const m = (await mais.boundingBox())!;
+    const t = (await page.getByRole('heading', { name: 'Organizando prioridades do dia' }).boundingBox())!;
+    expect(n.width).toBeGreaterThanOrEqual(48);
+    expect(n.height).toBeGreaterThanOrEqual(48);
+    expect(m.width).toBeGreaterThanOrEqual(48);
+    expect(m.height).toBeGreaterThanOrEqual(48);
+    // as áreas clicáveis não se tocam e há folga entre os ícones (a caixa do botão tem 48 px; o ícone fica no centro)
+    expect(m.x - (n.x + n.width)).toBeGreaterThanOrEqual(12);
+    expect((m.x + m.width / 2) - (n.x + n.width / 2)).toBeGreaterThanOrEqual(60);
+    expect(t.width).toBeGreaterThanOrEqual(largura <= 320 ? 100 : 140);
+    // nada passa da largura
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+}

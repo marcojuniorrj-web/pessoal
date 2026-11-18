@@ -262,7 +262,7 @@ export function Chat() {
     });
   };
 
-  // Depois de apagar: foco no balão vizinho; sem vizinho, no campo (mouse) ou em "+ Nova" (celular: focar o campo abriria o teclado).
+  // Depois de apagar: foco no balão vizinho; sem vizinho, no campo (mouse) ou em "Nova conversa" (celular: focar o campo abriria o teclado).
   useEffect(() => {
     if (pedidoFoco.n === 0) return;
     const alvo =
@@ -315,9 +315,12 @@ export function Chat() {
         </button>
         <h1 className="chat__titulo">{conversa.titulo ?? 'Nova conversa'}</h1>
         {conversa.modo === 'decidir' && <span className="chat__selo">Modo decisão</span>}
-        <Botao variante="link" className="chat__nova" onClick={() => ir('/?nova=1')}>
-          + Nova
-        </Botao>
+        <button type="button" className="chat__nova" aria-label="Nova conversa" title="Nova conversa" onClick={() => ir('/?nova=1')}>
+          <svg className="chat__nova-icone" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+        </button>
         {conversa.id && carga === 'ok' && (
           <>
             <button type="button" className="chat__mais" aria-label="Mais opções da conversa" aria-haspopup="menu" aria-expanded={menuTopo} onClick={() => setMenuTopo((v) => !v)}>
@@ -346,7 +349,7 @@ export function Chat() {
                   onClick={() => {
                     setMenuTopo(false);
                     apagarConversaPorId(conversa.id!);
-                    // o ⋯ some junto com a conversa: o foco vai para "+ Nova" (nunca para o body)
+                    // o ⋯ some junto com a conversa: o foco vai para "Nova conversa" (nunca para o body)
                     setTimeout(() => document.querySelector<HTMLElement>('.chat__nova')?.focus({ preventScroll: true }), 0);
                   }}
                 >

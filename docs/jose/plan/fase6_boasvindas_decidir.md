@@ -26,5 +26,5 @@ Fase 4 (memórias e cartões). A Fase 5 ajuda (sugestão de tarefa na decisão),
 1. Em Ajustes, toque em "Refazer boas-vindas" (ou entre pela 1ª vez). Responda 2 perguntas e feche o app.
 2. Reabra: o app continua na pergunta 3. Termine as 5.
 3. Em "O que aprendi sobre você", desmarque uma memória, edite outra e toque em "Salvar selecionadas". Confira em **José sabe**.
-4. No Chat, toque em **+ Nova** e depois em "⚖️ Preciso decidir". Escreva: "fico na Unnità ou aceito uma proposta para gerenciar outra equipe?".
+4. No Chat, toque em **✎ (nova conversa)** e depois em "⚖️ Preciso decidir". Escreva: "fico na Unnità ou aceito uma proposta para gerenciar outra equipe?".
 5. O José faz até 3 perguntas, depois mostra prós e contras curtos e uma recomendação. O topo mostra "Modo decisão".

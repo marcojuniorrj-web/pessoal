@@ -13,7 +13,7 @@ Login (Google) ──► [boas-vindas não concluídas?] ──sim──► Boas
 
 Barra inferior fixa (3 abas):
   Chat ─┬─ ☰ Histórico de conversas ──► abre uma conversa no Chat
-        └─ + Nova conversa
+        └─ ✎ Nova conversa
   Tarefas (tarefas e metas)
   José sabe (memórias)
      └─ ⚙ Ajustes (← volta para José sabe)
@@ -78,7 +78,7 @@ título, o topo mostra "Nova conversa".
   - **Topo:**
     - ☰ (Histórico);
     - título da conversa;
-    - **+ Nova**;
+    - **✎ (nova conversa)**;
     - **⋯** (alvo de 48px) com **"Apagar conversa"** (aparece quando há uma conversa aberta);
     - selo **"Modo decisão"**, quando a conversa está nesse modo.
   - **Área de mensagens:** balões. As mensagens do Marco ficam à direita e as do José à esquerda. Um áudio enviado aparece como balão de texto com o ícone 🎤.
@@ -95,7 +95,7 @@ título, o topo mostra "Nova conversa".
     - "☀️ O que faço hoje?", "🧱 Travei" e "🌙 Descarregar a cabeça" enviam o próprio texto como 1ª mensagem;
     - **"⚖️ Preciso decidir"** cria a conversa em **modo decisão**, respondida pelo modelo mais profundo, e o José pergunta qual é a decisão.
 
-    Para sair do modo decisão, toca-se em **+ Nova**.
+    Para sair do modo decisão, toca-se em **✎ (nova conversa)**.
   - **Faixa "Instalar na tela inicial"**, mostrada uma única vez depois das boas-vindas. No iPhone, ela explica: Compartilhar → Adicionar à Tela de Início.
   - **Rodapé:** campo "Fale com o José…", botão 🎤 e botão enviar.
     - O 🎤 funciona com **um toque para gravar e outro para parar e enviar**, e ✕ cancela a gravação.

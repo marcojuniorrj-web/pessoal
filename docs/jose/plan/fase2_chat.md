@@ -33,7 +33,7 @@ Fase 1.
 1. Abra o app: aparece a saudação com os 4 atalhos.
 2. Toque em "☀️ O que faço hoje?". O José responde curto, com 1 próximo passo.
 3. Escreva "travei no relatório de vendas". A resposta deve ser um passo pequeno, de até 5 minutos.
-4. Toque em **+ Nova**, converse sobre outro assunto e abra o ☰: as duas conversas aparecem em "Hoje".
+4. Toque em **✎ (nova conversa)**, converse sobre outro assunto e abra o ☰: as duas conversas aparecem em "Hoje".
 5. Apague uma conversa e toque em "Desfazer": ela continua lá. Apague de novo e espere: some.
 6. Ligue o modo avião no meio de uma resposta: aparece o erro com "Tentar de novo". Desligue e toque: a resposta vem sem repetir a sua mensagem.
 7. Feche e reabra o app: ele volta na conversa de hoje.

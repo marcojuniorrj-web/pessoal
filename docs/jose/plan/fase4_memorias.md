@@ -27,5 +27,5 @@ Fase 2.
 1. No Chat, escreva "eu trabalho melhor de manhã e odeio reunião depois das 17h".
 2. Aparece um cartão 🧠 com a memória sugerida. Toque em Editar, ajuste o texto e Salve.
 3. Abra a aba **José sabe**: a memória está na área certa.
-4. Volte ao Chat, toque em **+ Nova** e pergunte "o que faço hoje?". A resposta deve levar em conta que você rende melhor de manhã.
+4. Volte ao Chat, toque em **✎ (nova conversa)** e pergunte "o que faço hoje?". A resposta deve levar em conta que você rende melhor de manhã.
 5. Na aba José sabe, apague uma memória e toque em "Desfazer". Depois apague de vez.
