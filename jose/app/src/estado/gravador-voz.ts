@@ -22,8 +22,17 @@ export function plataformaDoNavegador(): PlataformaVoz {
   return {
     temSuporte: () => typeof MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia,
     pedirMicrofone: () => navigator.mediaDevices.getUserMedia({ audio: true }),
-    criarGravador: (fluxo, tipo) => new MediaRecorder(fluxo, tipo ? { mimeType: tipo } : undefined),
-    tipoSuportado: (tipo) => MediaRecorder.isTypeSupported(tipo),
+    criarGravador: (fluxo, tipo) => {
+      if (!tipo) return new MediaRecorder(fluxo);
+      try {
+        return new MediaRecorder(fluxo, { mimeType: tipo });
+      } catch {
+        // O navegador recusou o formato escolhido (NotSupportedError): grava no formato padrão dele em vez de falhar.
+        return new MediaRecorder(fluxo);
+      }
+    },
+    // Navegador sem `isTypeSupported`: nenhum formato "confirmado" => o navegador escolhe o padrão.
+    tipoSuportado: (tipo) => typeof MediaRecorder.isTypeSupported === 'function' && MediaRecorder.isTypeSupported(tipo),
     ios: () => ehIos(navigator.userAgent, navigator.platform, navigator.maxTouchPoints),
     agora: () => Date.now(),
     visivel: () => document.visibilityState !== 'hidden',
