@@ -44,6 +44,8 @@ export interface ChatFalso {
   postsMensagem: Array<{ conversa: string; id: string; texto: string }>;
   postsConversa: Array<Record<string, unknown>>;
   deletes: string[];
+  /** Mensagens apagadas (DELETE /api/mensagens/:id), na ordem. */
+  deletesMensagem: Array<{ id: string; comResposta: boolean }>;
   /** Cartões que a próxima resposta do José sugere (🧠 memória, 📌 tarefa, 🎯 meta). */
   sugerir: CartaoFalso[];
   /** Quantas chamadas de salvar devem falhar (500) antes de funcionar. */
@@ -57,10 +59,11 @@ export interface ChatFalso {
 
 const iso = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
 
-export function novaConversa(id: string, titulo: string | null, minutosAtras = 0, modo: 'padrao' | 'decidir' = 'padrao', mensagens: Array<[string, string]> = []): ConversaFalsa {
+/** `mensagens`: [autor, texto, minutosAtras?]; sem o 3º valor a mensagem tem a hora da conversa. */
+export function novaConversa(id: string, titulo: string | null, minutosAtras = 0, modo: 'padrao' | 'decidir' = 'padrao', mensagens: Array<[string, string, number?]> = []): ConversaFalsa {
   return {
     id, titulo, tipo: 'normal', modo, criada_em: iso(minutosAtras), atualizada_em: iso(minutosAtras),
-    mensagens: mensagens.map(([autor, texto], i) => ({ id: `${id}-m${i}`, autor: autor as 'marco' | 'jose', texto, origem: 'texto', modelo: autor === 'jose' ? 'claude-haiku-5-5' : null, criada_em: iso(minutosAtras) })),
+    mensagens: mensagens.map(([autor, texto, minutos], i) => ({ id: `${id}-m${i}`, autor: autor as 'marco' | 'jose', texto, origem: 'texto', modelo: autor === 'jose' ? 'claude-haiku-5-5' : null, criada_em: iso(minutos ?? minutosAtras) })),
   };
 }
 
@@ -69,7 +72,7 @@ const resumo = (c: ConversaFalsa) => ({ id: c.id, titulo: c.titulo, tipo: c.tipo
 const completa = (c: ConversaFalsa) => ({ conversa: { id: c.id, titulo: c.titulo, tipo: c.tipo, modo: c.modo, criada_em: c.criada_em, atualizada_em: c.atualizada_em }, mensagens: c.mensagens, sugestoes: c.sugestoes ?? [] });
 
 export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}): Promise<ChatFalso> {
-  const f: ChatFalso = { conversas: [], hoje: null, planos: [], atrasoMs: 0, atrasoHojeMs: 0, atrasoListaMs: 0, listaFalha: false, postsMensagem: [], postsConversa: [], deletes: [], sugerir: [], salvarFalhas: 0, atrasoSalvarMs: 0, salvos: [], descartados: [], ...inicial };
+  const f: ChatFalso = { conversas: [], hoje: null, planos: [], atrasoMs: 0, atrasoHojeMs: 0, atrasoListaMs: 0, listaFalha: false, postsMensagem: [], postsConversa: [], deletes: [], deletesMensagem: [], sugerir: [], salvarFalhas: 0, atrasoSalvarMs: 0, salvos: [], descartados: [], ...inicial };
   let proximo = 1;
   const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -99,6 +102,22 @@ export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}):
     const base = { id: sug.item_id, area: sug.conteudo.area, origem: 'chat', criada_em: new Date().toISOString() };
     const item = sug.tipo === 'memoria' ? { ...base, texto: sug.conteudo.texto, atualizada_em: null } : { ...base, titulo: sug.conteudo.titulo, prazo: sug.conteudo.prazo ?? null };
     return rota.fulfill({ status: 200, json: { item } });
+  });
+
+  // Apagar mensagem: DELETE /api/mensagens/:id[?com_resposta=1] (404 se não existe, como o servidor).
+  await page.route((url) => url.pathname.startsWith('/api/mensagens/'), async (rota) => {
+    const url = new URL(rota.request().url());
+    const id = decodeURIComponent(url.pathname.split('/').filter(Boolean)[2] ?? '');
+    const comResposta = url.searchParams.get('com_resposta') === '1';
+    const conversa = f.conversas.find((c) => c.mensagens.some((m) => m.id === id));
+    if (!conversa) return rota.fulfill({ status: 404, json: { erro: { codigo: 'nao_encontrado', mensagem: 'Não encontrado.' } } });
+    f.deletesMensagem.push({ id, comResposta });
+    const i = conversa.mensagens.findIndex((m) => m.id === id);
+    const seguinte = conversa.mensagens[i + 1];
+    const apagar = new Set([id, ...(comResposta && seguinte?.autor === 'jose' ? [seguinte.id] : [])]);
+    conversa.mensagens = conversa.mensagens.filter((m) => !apagar.has(m.id));
+    conversa.sugestoes = (conversa.sugestoes ?? []).filter((s) => !apagar.has(s.mensagem_id));
+    return rota.fulfill({ status: 204 });
   });
 
   // (predicado, e não glob: '**/api/conversas**' também casaria o módulo app/src/api/conversas.ts do Vite)

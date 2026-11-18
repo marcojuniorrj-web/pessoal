@@ -89,3 +89,21 @@ describe('layout no iPhone (cartões e José sabe): nada passa da largura', () =
     expect(regra(chat, '.cartao-sugestao__campo')).toMatch(/font: inherit/);
   });
 });
+
+describe('horário e folha de ações (fase 2b)', () => {
+  const chat = readFileSync(new URL('./chat.css', import.meta.url), 'utf8');
+  it('a hora usa a cor secundária do tema, com contraste >= 4,5:1 sobre o fundo e a superfície', () => {
+    expect(chat).toMatch(/\.mensagem__hora\s*\{[^}]*color:\s*var\(--texto-2\)/);
+    for (const fundo of ['fundo', 'superficie']) expect(contraste(cor('texto-2'), cor(fundo))).toBeGreaterThanOrEqual(4.5);
+  });
+  it('o balão que abre ações não deixa o iOS selecionar texto nem abrir o próprio menu', () => {
+    expect(chat).toMatch(/\.balao\[data-acoes\]\s*\{[^}]*-webkit-touch-callout:\s*none/);
+    expect(chat).toMatch(/\.balao\[data-acoes\]\s*\{[^}]*user-select:\s*none/);
+  });
+  it('as ações da folha e o ⋯ do topo têm pelo menos 48px; a folha fica acima do aviso e da barra', () => {
+    expect(chat).toMatch(/\.folha__acao\s*\{[^}]*min-height:\s*var\(--alvo-minimo\)/);
+    expect(chat).toMatch(/\.chat__mais\s*\{[^}]*min-height:\s*var\(--alvo-minimo\)/);
+    const z = (re: RegExp, texto: string) => Number(texto.match(re)![1]);
+    expect(z(/\.folha-fundo\s*\{[^}]*z-index:\s*(\d+)/, chat)).toBeGreaterThan(z(/\.toast\s*\{[^}]*z-index:\s*(\d+)/s, global));
+  });
+});
