@@ -240,13 +240,22 @@ export function Chat() {
   };
 
   const apagarConversaPorId = (id: string) => {
+    // Nos 5 s do Desfazer a conversa já não pode ser reaberta (nem por um Chat remontado); confirmada, é definitiva.
+    marcarPendenteDeApagar(id);
     ir('/?nova=1');
     apagarComDesfazer({
       id,
       mostrar: toast,
-      apagar: () => apagarConversa(id),
-      aoDesfazer: () => ir(`/?c=${encodeURIComponent(id)}`),
+      apagar: async () => {
+        await apagarConversa(id);
+        confirmarConversaApagada(id);
+      },
+      aoDesfazer: () => {
+        desmarcarPendenteDeApagar(id);
+        ir(`/?c=${encodeURIComponent(id)}`);
+      },
       aoFalhar: () => {
+        desmarcarPendenteDeApagar(id);
         ir(`/?c=${encodeURIComponent(id)}`);
         toast('Não foi possível apagar.', { rotulo: 'Tentar de novo', aoTocar: () => apagarConversaPorId(id) });
       },

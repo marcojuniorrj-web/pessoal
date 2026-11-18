@@ -6,6 +6,7 @@ import {
   abrirConversa, conversaDeHoje, criarConversa, enviarMensagem, ErroInterrompido, type EventoChat, type MensagemParaEnviar,
 } from '../api/conversas';
 import { limparRascunho, salvarRascunho } from './rascunho';
+import { estaPendente } from './apagar-com-desfazer';
 import { conversaIndisponivel, confirmarConversaApagada, desmarcarPendenteDeApagar } from './conversas-apagadas';
 import { bolhaDe, ID_TEMPORARIO, mesclarComServidor, servidorJaRespondeu } from './reconciliar';
 
@@ -103,7 +104,7 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
       .then((dados) => {
         if (cancelado) return;
         // Uma conversa que o Marco acabou de apagar (ainda nos 5 s do Desfazer) não volta como "conversa de hoje".
-        if (!dados || conversaIndisponivel(dados.conversa.id)) {
+        if (!dados || conversaIndisponivel(dados.conversa.id) || estaPendente(dados.conversa.id)) {
           reiniciar({ id: null, titulo: null, modo: 'padrao' });
         } else {
           reiniciar({ id: dados.conversa.id, titulo: dados.conversa.titulo, modo: dados.conversa.modo });
