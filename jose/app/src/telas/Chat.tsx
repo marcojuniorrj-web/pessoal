@@ -64,9 +64,23 @@ export function Chat() {
   conversaRef.current = conversa.id;
   const semRede = !online || (estado.situacao === 'logado' && estado.offline);
 
-  // O rascunho da conversa aberta volta para o campo (ex.: depois de um 401 e novo login).
+  // O rascunho da conversa aberta volta para o campo (ex.: depois de um 401 e novo login), mas nunca por cima
+  // do que o Marco digitou enquanto a conversa carregava: nesse caso o texto fica e passa a ser o rascunho dela.
+  const textoRef = useRef('');
+  textoRef.current = texto;
+  const editouNaCargaRef = useRef(false);
   useEffect(() => {
-    if (carga === 'ok') setTexto(lerRascunho(conversaRef.current));
+    if (carga === 'carregando') {
+      editouNaCargaRef.current = false;
+      return;
+    }
+    if (carga !== 'ok') return;
+    if (editouNaCargaRef.current && textoRef.current) {
+      salvarRascunho(conversaRef.current, textoRef.current);
+      editouNaCargaRef.current = false;
+      return;
+    }
+    setTexto(lerRascunho(conversaRef.current));
   }, [carga, geracao]);
 
   // Sempre mostra o fim da conversa quando chega texto novo.
@@ -84,6 +98,7 @@ export function Chat() {
   }, [toastAtual]);
 
   const aoDigitar = (v: string) => {
+    if (carga === 'carregando') editouNaCargaRef.current = true;
     setTexto(v);
     salvarRascunho(conversa.id, v);
   };

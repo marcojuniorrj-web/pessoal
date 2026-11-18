@@ -35,6 +35,8 @@ export interface ChatFalso {
   planos: Plano[];
   /** Atraso (ms) antes de responder a um POST de mensagem. */
   atrasoMs: number;
+  /** Atraso (ms) antes de responder a GET /api/conversas/hoje. */
+  atrasoHojeMs: number;
   /** Atraso (ms) antes de responder a GET /api/conversas (lista do histórico). */
   atrasoListaMs: number;
   /** Faz GET /api/conversas falhar (500). */
@@ -67,7 +69,7 @@ const resumo = (c: ConversaFalsa) => ({ id: c.id, titulo: c.titulo, tipo: c.tipo
 const completa = (c: ConversaFalsa) => ({ conversa: { id: c.id, titulo: c.titulo, tipo: c.tipo, modo: c.modo, criada_em: c.criada_em, atualizada_em: c.atualizada_em }, mensagens: c.mensagens, sugestoes: c.sugestoes ?? [] });
 
 export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}): Promise<ChatFalso> {
-  const f: ChatFalso = { conversas: [], hoje: null, planos: [], atrasoMs: 0, atrasoListaMs: 0, listaFalha: false, postsMensagem: [], postsConversa: [], deletes: [], sugerir: [], salvarFalhas: 0, atrasoSalvarMs: 0, salvos: [], descartados: [], ...inicial };
+  const f: ChatFalso = { conversas: [], hoje: null, planos: [], atrasoMs: 0, atrasoHojeMs: 0, atrasoListaMs: 0, listaFalha: false, postsMensagem: [], postsConversa: [], deletes: [], sugerir: [], salvarFalhas: 0, atrasoSalvarMs: 0, salvos: [], descartados: [], ...inicial };
   let proximo = 1;
   const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -120,6 +122,7 @@ export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}):
       return json(201, { id: c.id });
     }
     if (partes[2] === 'hoje') {
+      if (f.atrasoHojeMs) await espera(f.atrasoHojeMs);
       const c = f.conversas.find((x) => x.id === f.hoje);
       return json(200, c ? completa(c) : null);
     }

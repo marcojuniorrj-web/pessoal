@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { novaConversa, simularApi, simularChat } from './apoio';
 
 test.describe('Chat (2.7)', () => {
@@ -107,4 +107,53 @@ test.describe('Chat (2.7)', () => {
     const enviar = await page.getByRole('button', { name: 'Enviar' }).boundingBox();
     expect(enviar!.height).toBeGreaterThanOrEqual(48);
   });
+});
+
+// Onda 5, ajuste 5: o que o Marco digita enquanto a conversa de hoje ainda carrega nunca é apagado pelo rascunho lido.
+test.describe('Digitar enquanto a conversa de hoje carrega', () => {
+  const campo = (page: Page) => page.getByLabel('Mensagem para o José');
+
+  test('com conversa de hoje: o texto digitado continua no campo (e o rascunho vazio da conversa não o apaga)', async ({ page }) => {
+    await simularApi(page);
+    await simularChat(page, { conversas: [novaConversa('h1', 'Plano do dia', 10, 'padrao', [['marco', 'oi'], ['jose', 'Bom dia, Marco.']])], hoje: 'h1', atrasoHojeMs: 1500 });
+    await page.goto('/');
+    await expect(campo(page)).toBeVisible();
+    await campo(page).fill('estou digitando antes de carregar');
+    await expect(page.getByRole('heading', { name: 'Plano do dia' })).toBeVisible({ timeout: 5000 }); // a carga terminou
+    await expect(page.locator('.balao--jose')).toHaveText('Bom dia, Marco.');
+    await expect(campo(page)).toHaveValue('estou digitando antes de carregar');
+    // e o rascunho passa a valer para a conversa carregada: sobrevive a um reload
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Plano do dia' })).toBeVisible({ timeout: 5000 });
+    await expect(campo(page)).toHaveValue('estou digitando antes de carregar');
+  });
+
+  test('sem conversa de hoje: o texto digitado continua no campo', async ({ page }) => {
+    await simularApi(page);
+    await simularChat(page, { atrasoHojeMs: 1500 });
+    await page.goto('/');
+    await campo(page).fill('só um começo de ideia');
+    await expect(page.getByRole('button', { name: /Travei/ })).toBeVisible({ timeout: 5000 });
+    await expect(campo(page)).toHaveValue('só um começo de ideia');
+  });
+
+  test('sem digitar nada: o rascunho salvo da conversa ainda preenche o campo', async ({ page }) => {
+    await simularApi(page);
+    await simularChat(page, { conversas: [novaConversa('h1', 'Plano do dia', 10, 'padrao', [['marco', 'oi'], ['jose', 'Bom dia, Marco.']])], hoje: 'h1', atrasoHojeMs: 800 });
+    await page.addInitScript(() => localStorage.setItem('jose:rascunho:h1', 'rascunho guardado'));
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Plano do dia' })).toBeVisible({ timeout: 5000 });
+    await expect(campo(page)).toHaveValue('rascunho guardado');
+  });
+});
+
+test('"+ Nova" continua limpando o campo (o texto digitado depois da carga não é tratado como digitado durante a carga)', async ({ page }) => {
+  await simularApi(page);
+  await simularChat(page, { conversas: [novaConversa('h1', 'Plano do dia', 10, 'padrao', [['marco', 'oi'], ['jose', 'Bom dia, Marco.']])], hoje: 'h1' });
+  await page.goto('/');
+  await expect(page.locator('.balao--marco')).toBeVisible();
+  await page.getByLabel('Mensagem para o José').fill('texto da conversa antiga');
+  await page.getByRole('button', { name: '+ Nova' }).click();
+  await expect(page.getByRole('heading', { name: 'Nova conversa' })).toBeVisible();
+  await expect(page.getByLabel('Mensagem para o José')).toHaveValue('');
 });
