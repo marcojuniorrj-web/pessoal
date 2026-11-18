@@ -5,7 +5,9 @@
 .casca:has(.chat) .casca__conteudo { padding-bottom: 0; min-height: 0; display: flex; flex-direction: column; }
 /* Teclado aberto: a casca fica fixa na área realmente visível (o iPhone empurra a página; --topo-visivel compensa). */
 html[data-teclado='aberto'] .casca:has(.chat) { position: fixed; left: 0; right: 0; top: var(--topo-visivel, 0px); height: var(--altura-visivel, 100dvh); padding-bottom: 0; }
-.chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.chat { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+/* No Chat só a lista de mensagens rola: arrastar o cabeçalho ou o campo não pode puxar a página (nem o "elástico" do iOS). */
+html:has(.chat) { overscroll-behavior: none; }
 html[data-teclado='aberto'] .barra-abas { display: none; }
 
 .chat__topo { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-bottom: 1px solid var(--borda); min-height: 56px; }
@@ -136,7 +138,7 @@ html[data-teclado='aberto'] .barra-abas { display: none; }
 .form-memoria__acoes .botao { flex: 1 1 auto; min-width: 0; }
 
 /* Mensagem = balão + hora (+ ⋯ do mouse). O balão não tem botões ao lado: nada o empurra para fora da tela. */
-.mensagem { display: flex; flex-direction: column; min-width: 0; max-width: 85%; }
+.mensagem { position: relative; display: flex; flex-direction: column; min-width: 0; max-width: 85%; }
 .mensagem--marco { align-self: flex-end; align-items: flex-end; }
 .mensagem--jose { align-self: flex-start; align-items: flex-start; }
 .mensagem .balao { max-width: 100%; min-width: 0; }

@@ -88,7 +88,9 @@ html[data-teclado='aberto'] .toast {
 .etiqueta-area--casa { background: var(--area-casa-fundo); color: var(--area-casa-texto); }
 .etiqueta-area--sobre_mim { background: var(--area-sobre_mim-fundo); color: var(--area-sobre_mim-texto); }
 
-.so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Texto só para leitores de tela. `top/left: 0` + o contêiner posicionado: sem isso o elemento absoluto fica no lugar onde estaria
+   no fluxo (dentro de uma lista rolável) e estica o scrollHeight do documento (a página passava a rolar no Chat). */
+.so-leitor { position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 
 /* Reduzir movimento */
 @media (prefers-reduced-motion: reduce) {
