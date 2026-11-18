@@ -59,7 +59,7 @@ test.describe('Aba José sabe (4.6)', () => {
     await novo.getByRole('button', { name: 'Salvar' }).click();
     expect(f.posts).toEqual([{ texto: 'Trabalha de casa às sextas.', area: 'trabalho' }]);
     await expect(grupo(page, 'Trabalho').getByText('Trabalha de casa às sextas.')).toBeVisible();
-    await expect(page.locator('.toast')).toContainText('Memória adicionada.');
+    await expect(page.locator('.toast')).toContainText('Memória atualizada.');
     await expect(novo).toHaveCount(0);
 
     // editar: tocar na memória abre texto e área; mudar a área move o grupo

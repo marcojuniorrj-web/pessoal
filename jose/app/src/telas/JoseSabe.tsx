@@ -98,7 +98,7 @@ export function JoseSabe() {
           aoSalvar={async (conteudo) => {
             adicionar(await criarMemoria(conteudo));
             setAdicionando(false);
-            toast('Memória adicionada.');
+            toast('Memória atualizada.');
           }}
         />
       )}
