@@ -7,7 +7,7 @@ import { Botao } from '../componentes/Botao';
 import { CartaoSugestao } from '../componentes/CartaoSugestao';
 import { EsqueletoLista } from '../componentes/Esqueleto';
 import { GavetaHistorico } from '../componentes/GavetaHistorico';
-import { useToast } from '../componentes/Toast';
+import { useToast, useToastAtual } from '../componentes/Toast';
 import { useChat } from '../estado/chat';
 import { useOnline } from '../estado/online';
 import { lerRascunho, salvarRascunho } from '../estado/rascunho';
@@ -25,6 +25,7 @@ export function Chat() {
   const { estado } = useSessao();
   const online = useOnline();
   const toast = useToast();
+  const toastAtual = useToastAtual();
   const ir = useNavigate();
   const [params] = useSearchParams();
   const idUrl = params.get('c');
@@ -58,6 +59,7 @@ export function Chat() {
     };
   }, []);
   const fimRef = useRef<HTMLDivElement>(null);
+  const listaRef = useRef<HTMLDivElement>(null);
   const conversaRef = useRef<string | null>(null);
   conversaRef.current = conversa.id;
   const semRede = !online || (estado.situacao === 'logado' && estado.offline);
@@ -71,6 +73,15 @@ export function Chat() {
   useLayoutEffect(() => {
     fimRef.current?.scrollIntoView({ block: 'end' });
   }, [bolhas]);
+
+  // O aviso abre espaço no fim da lista (--reserva-toast): quem estava no fim continua no fim, acima do aviso.
+  useEffect(() => {
+    const lista = listaRef.current;
+    if (toastAtual === null || !lista) return;
+    const reserva = parseFloat(document.documentElement.style.getPropertyValue('--reserva-toast')) || 0;
+    // "No fim" = até ~120 px do fim (o último item pode ter folga embaixo): então o fim continua à vista, acima do aviso.
+    if (lista.scrollHeight - lista.scrollTop - lista.clientHeight - reserva <= 120) lista.scrollTop = lista.scrollHeight;
+  }, [toastAtual]);
 
   const aoDigitar = (v: string) => {
     setTexto(v);
@@ -118,7 +129,7 @@ export function Chat() {
         </Botao>
       </header>
 
-      <div className="chat__mensagens" aria-live="polite">
+      <div ref={listaRef} className="chat__mensagens" aria-live="polite">
         {carga === 'carregando' && <EsqueletoLista linhas={3} />}
         {carga === 'erro' && (
           <div className="estado-vazio">

@@ -6,7 +6,7 @@
 html, body, #raiz { height: 100%; margin: 0; }
 html, body { max-width: 100%; overflow-x: clip; }
 /* Foco por teclado/rolagem nunca deixa o item atrás da barra de abas fixa (barra + área segura + folga). */
-html { scroll-padding-bottom: calc(var(--altura-barra) + env(safe-area-inset-bottom) + 16px); }
+html { scroll-padding-bottom: calc(var(--altura-barra) + env(safe-area-inset-bottom) + 16px + var(--reserva-toast, 0px)); }
 body {
   background: var(--fundo);
   color: var(--texto);
@@ -92,7 +92,7 @@ html[data-teclado='aberto'] .toast { bottom: calc(16px + var(--altura-rodape-cha
 /* Casca do app */
 /* Com a barra de status translúcida do iPhone (viewport-fit=cover) o conteúdo vai até as bordas: reserva o notch e as laterais. */
 .casca { min-height: 100%; display: flex; flex-direction: column; padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }
-.casca__conteudo { flex: 1; padding-bottom: calc(var(--altura-barra) + env(safe-area-inset-bottom) + 16px); }
+.casca__conteudo { flex: 1; padding-bottom: calc(var(--altura-barra) + env(safe-area-inset-bottom) + 16px + var(--reserva-toast, 0px)); }
 .barra-abas {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
   background: var(--superficie); border-top: 1px solid var(--borda);

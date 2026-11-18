@@ -292,3 +292,35 @@ for (const largura of [320, 390]) {
     expect(await page.evaluate(() => document.documentElement.dataset.teclado ?? null)).not.toBe('aberto');
   });
 }
+
+// Onda 5, ajuste 1: o aviso (5 s com "Desfazer") nunca cobre os controles do conteúdo, nem o do último cartão da conversa.
+for (const tamanho of [{ width: 320, height: 640 }, { width: 390, height: 844 }, { width: 1280, height: 800 }]) {
+  test(`${tamanho.width}x${tamanho.height}: "Descartado. Desfazer" não cobre Salvar/Editar/Descartar do cartão que sobra no fim`, async ({ page }) => {
+    await page.setViewportSize(tamanho);
+    const f = await abrir(page);
+    // Conversa já longa: o fim da lista fica colado no campo de digitação, onde o aviso aparece.
+    for (const t of ['oi', 'tudo bem?', 'hoje foi corrido']) {
+      await enviar(page, t);
+      await expect(page.getByRole('button', { name: 'Enviar' })).toBeDisabled();
+      await expect(page.getByText('Próximo passo: abrir o arquivo.')).toHaveCount(['oi', 'tudo bem?', 'hoje foi corrido'].indexOf(t) + 1);
+    }
+    f.sugerir.push(
+      { tipo: 'tarefa', titulo: 'Ligar para o banco', area: 'casa', prazo: '2026-11-20' },
+      { tipo: 'meta', titulo: 'Correr 10 km sem parar', area: 'saude', prazo: '2026-11-27' },
+      { tipo: 'meta', titulo: 'Ler 12 livros', area: 'casa' },
+    );
+    await enviar(page, 'planos para os próximos meses');
+    await expect(metas(page)).toHaveCount(2);
+    await expect(tarefas(page)).toHaveCount(1);
+    await tarefas(page).getByRole('button', { name: 'Descartar' }).click();
+    await expect(page.locator('.toast')).toContainText('Descartado.');
+    await page.waitForTimeout(600); // fim da animação e da rolagem
+    const [toast] = await medir(page, '.toast');
+    for (const botao of ['Salvar', 'Editar', 'Descartar']) {
+      const alvo = metas(page).last().getByRole('button', { name: botao });
+      await expect(alvo).toBeVisible();
+      const caixa = await alvo.boundingBox();
+      expect(sobrepoe(toast!, { rotulo: botao, ...caixa! }), `o aviso cobre ${botao}`).toBe(false);
+    }
+  });
+}
