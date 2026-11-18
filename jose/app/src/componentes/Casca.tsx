@@ -6,6 +6,8 @@ import { FaixaOffline } from './FaixaOffline';
 export function Casca() {
   return (
     <div className="casca">
+      {/* Tampa opaca sob a barra de status translúcida do iPhone: o conteúdo rolado não passa por baixo do relógio e da bateria. */}
+      <div className="tampa-status" aria-hidden="true" />
       <FaixaOffline />
       <main className="coluna casca__conteudo">
         <Outlet />

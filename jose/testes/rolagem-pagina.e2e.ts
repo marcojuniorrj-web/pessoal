@@ -76,3 +76,42 @@ for (const [largura, altura] of TAMANHOS) {
     });
   });
 }
+
+test.describe('Tampa sob a barra de status (iPhone, --safe-top: 47px)', () => {
+  const SIMULAR = ':root { --safe-top: 47px; --safe-bottom: 34px; }';
+
+  test('conteúdo rolado não aparece nos 47px do topo (Tarefas e José sabe) e a faixa Offline não fica escondida', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await simularApi(page);
+    await simularTarefas(page, { tarefas: Array.from({ length: 30 }, (_, i) => tarefaFalsa(`Tarefa número ${i}`)) });
+    await simularMemorias(page, { memorias: Array.from({ length: 30 }, (_, i) => memoriaFalsa(`m${i}`, `Memória número ${i}`, 'trabalho')) });
+    await simularChat(page);
+    for (const rota of ['/tarefas', '/jose-sabe']) {
+      await page.goto(rota);
+      await page.addStyleTag({ content: SIMULAR });
+      await expect(page.locator('.item, .memoria').first()).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, 500));
+      const cobertos = await page.evaluate(() => {
+        const alvos: string[] = [];
+        for (const x of [10, 100, 195, 290, 380]) for (const y of [2, 20, 46]) {
+          const el = document.elementFromPoint(x, y);
+          if (!el?.closest('.tampa-status')) alvos.push(`${x},${y}:${el?.className}`);
+        }
+        return alvos;
+      });
+      expect(cobertos, `conteúdo rolado visível sob a barra de status em ${rota}`).toEqual([]);
+      // logo abaixo da tampa o conteúdo aparece normalmente
+      expect(await page.evaluate(() => !!document.elementFromPoint(195, 60)?.closest('.tampa-status'))).toBe(false);
+    }
+    // faixa Offline: fica logo abaixo da tampa (nem escondida nem com espaço duplicado)
+    await page.context().setOffline(true);
+    const faixa = page.locator('.faixa-offline');
+    await expect(faixa).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 500));
+    const c = (await faixa.boundingBox())!;
+    expect(c.y, 'faixa abaixo da tampa').toBeGreaterThanOrEqual(47 - 0.5);
+    expect(c.y, 'sem espaço duplicado acima da faixa').toBeLessThanOrEqual(47 + 0.5);
+    expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('.faixa-offline') !== null, { x: c.x + c.width / 2, y: c.y + c.height / 2 })).toBe(true);
+    await page.context().setOffline(false);
+  });
+});

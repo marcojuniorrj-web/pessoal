@@ -173,7 +173,7 @@ html[data-teclado='aberto'] .barra-abas { display: none; }
 /* Folha de ações (bottom sheet): fundo escurecido; a folha fica acima da barra de abas e acima do aviso (toast). */
 .folha-fundo { position: fixed; inset: 0; z-index: 90; background: rgba(0, 0, 0, 0.55); }
 .folha {
-  position: absolute; left: 0; right: 0; bottom: calc(var(--altura-barra) + 1px + var(--safe-bottom)); max-height: min(70dvh, calc(100dvh - var(--safe-top) - var(--altura-barra) - 24px)); overflow-y: auto;
+  position: absolute; left: 0; right: 0; bottom: calc(var(--altura-barra) + 1px + var(--safe-bottom)); max-height: min(70dvh, calc(100dvh - var(--safe-top) - var(--altura-barra) - var(--safe-bottom) - 24px)); overflow-y: auto;
   width: 100%; max-width: var(--coluna); margin: 0 auto; box-sizing: border-box; display: grid; gap: 2px; padding: 8px max(12px, var(--safe-right)) 12px max(12px, var(--safe-left));
   background: var(--superficie); border: 1px solid var(--borda); border-bottom: 0; border-radius: 18px 18px 0 0; animation: subir-folha 0.18s ease-out;
 }

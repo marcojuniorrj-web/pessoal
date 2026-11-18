@@ -72,6 +72,10 @@ html[data-teclado='aberto'] .toast {
 }
 @keyframes brilho { to { background-position: -200% 0; } }
 
+/* Tampa sob a barra de status (altura = área segura do topo): acima do conteúdo e da barra de abas, abaixo da faixa offline,
+   da gaveta, do aviso e da folha. Sem notch (--safe-top: 0) ela some. */
+.tampa-status { position: fixed; top: 0; left: 0; right: 0; height: var(--safe-top); background: var(--fundo); z-index: 35; }
+
 /* Faixa offline */
 .faixa-offline {
   position: sticky; top: var(--safe-top); z-index: 40; text-align: center; padding: 8px 16px;

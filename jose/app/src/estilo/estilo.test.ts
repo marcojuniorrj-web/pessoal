@@ -115,6 +115,15 @@ describe('áreas seguras do iPhone', () => {
     expect(css).toMatch(/--safe-top:\s*env\(safe-area-inset-top/);
     for (const arquivo of [chat, global, tarefas]) expect(arquivo).not.toMatch(/env\(safe-area-inset/);
   });
+  it('a folha desconta o rodapé seguro no max-height, e a tampa da barra de status fica entre o conteúdo e a faixa offline/gaveta', () => {
+    expect(chat).toMatch(/\.folha\s*\{[^}]*max-height:[^;]*var\(--safe-bottom\)/s);
+    const z = (re: RegExp, texto: string) => Number(texto.match(re)![1]);
+    const tampa = z(/\.tampa-status\s*\{[^}]*z-index:\s*(\d+)/s, global);
+    expect(tampa).toBeGreaterThan(z(/\.barra-abas\s*\{[^}]*z-index:\s*(\d+)/s, global));
+    expect(tampa).toBeLessThan(z(/\.faixa-offline\s*\{[^}]*z-index:\s*(\d+)/s, global));
+    expect(tampa).toBeLessThan(z(/\.gaveta-fundo\s*\{[^}]*z-index:\s*(\d+)/s, chat));
+    expect(global).toMatch(/\.tampa-status\s*\{[^}]*height:\s*var\(--safe-top\)/s);
+  });
   it('a gaveta reserva topo, esquerda e rodapé; a folha, as laterais; a barra de abas, as laterais e o rodapé', () => {
     expect(chat).toMatch(/\.gaveta\s*\{[^}]*padding:\s*var\(--safe-top\)[^}]*var\(--safe-bottom\)[^}]*var\(--safe-left\)/s);
     expect(chat).toMatch(/\.folha\s*\{[^}]*--safe-right[^}]*--safe-left/s);
