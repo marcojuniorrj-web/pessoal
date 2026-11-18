@@ -1,8 +1,8 @@
 # Execução (memória de construção)
 ## Onde paramos
-- Fase atual: BUILD onda 5 (em andamento); ondas 1, 2 e 4 concluídas; onda 3 (voz) adiada
+- Fase atual: BUILD onda 5 (em andamento); ondas 1, 2 e 4 concluídas
 - Última tarefa concluída: onda 4 inteira (cartão 🧠, aba José sabe), testada no iPhone
-- Próximo passo: terminar a onda 5; depois 6, 3 e 7
+- Próximo passo: terminar a onda 5; ordem combinada com o Marco: 5 → 3 (voz) → 6 (boas-vindas e modo decisão) → 7 (privacidade, métricas e fechamento)
 ## Aprovações
 - [x] SPEC aprovada (2026-11-17)
 - [x] PLAN aprovado (2026-11-17)
