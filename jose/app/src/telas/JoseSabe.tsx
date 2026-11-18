@@ -9,6 +9,7 @@ import { FormMemoria } from '../componentes/FormMemoria';
 import { useToast } from '../componentes/Toast';
 import { apagarComDesfazer } from '../estado/apagar-com-desfazer';
 import { agruparMemorias, formatarDataMemoria, useMemorias } from '../estado/memorias';
+import { posicionarMenu } from '../estado/menu-posicao';
 import { useOnline } from '../estado/online';
 import { useSessao, useUsuario } from '../estado/sessao';
 
@@ -155,7 +156,7 @@ export function JoseSabe() {
                       ⋯
                     </button>
                     {menuAbertoId === m.id && (
-                      <div className="memoria__menu" role="menu">
+                      <div className="memoria__menu" role="menu" ref={posicionarMenu}>
                         <button type="button" role="menuitem" className="memoria__menu-item" disabled={semRede} onClick={() => apagar(m)}>
                           Apagar
                         </button>

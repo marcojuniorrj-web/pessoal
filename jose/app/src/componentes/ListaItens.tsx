@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AreaItem } from '@compartilhado/areas';
 import type { ConteudoItem } from '../estado/item-edicao';
+import { posicionarMenu } from '../estado/menu-posicao';
 import { prazoDaTarefa, rotuloPrazo } from '../estado/prazo';
 import { Botao } from './Botao';
 import { EtiquetaArea } from './EtiquetaArea';
@@ -125,7 +126,7 @@ export function ListaItens<T extends ItemDaLista>({ tipo, pendentes, concluidas,
               ⋯
             </button>
             {menuAbertoId === item.id && (
-              <div className="item__menu" role="menu">
+              <div className="item__menu" role="menu" ref={posicionarMenu}>
                 <button type="button" role="menuitem" className="item__menu-item" disabled={semRede} onClick={() => { setMenuAbertoId(null); aoApagar(item); }}>
                   Apagar
                 </button>

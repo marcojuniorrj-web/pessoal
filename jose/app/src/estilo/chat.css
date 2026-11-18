@@ -123,6 +123,7 @@ html[data-teclado='aberto'] .barra-abas { display: none; }
 .memoria__data { font-size: var(--pequeno); }
 .memoria__mais { flex-shrink: 0; min-width: var(--alvo-minimo); min-height: var(--alvo-minimo); background: transparent; border: 0; font-size: 20px; cursor: pointer; }
 .memoria__menu { position: absolute; right: 8px; top: calc(100% - 4px); z-index: 2; background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 12px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); }
+.memoria__menu[data-para-cima] { top: auto; bottom: calc(100% - 4px); }
 .memoria__menu-item { min-height: var(--alvo-minimo); padding: 0 20px; background: transparent; border: 0; color: var(--erro); cursor: pointer; }
 .form-memoria { display: grid; gap: 8px; min-width: 0; padding: 12px; width: 100%; background: var(--superficie); border: 1px solid var(--destaque); border-radius: var(--raio); }
 .memoria .form-memoria { border: 0; }

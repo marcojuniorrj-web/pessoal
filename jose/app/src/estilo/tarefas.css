@@ -37,6 +37,7 @@
 .item[data-situacao='hoje'] .item__prazo { color: var(--destaque); font-weight: 600; }
 .item__mais { flex-shrink: 0; min-width: var(--alvo-minimo); min-height: 72px; background: transparent; border: 0; font-size: 20px; cursor: pointer; }
 .item__menu { position: absolute; right: 8px; top: calc(100% - 8px); z-index: 2; background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 12px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); }
+.item__menu[data-para-cima] { top: auto; bottom: calc(100% - 8px); }
 .item__menu-item { min-height: var(--alvo-minimo); padding: 0 20px; background: transparent; border: 0; color: var(--erro); cursor: pointer; }
 .item .form-item { flex: 1; width: 100%; }
 
