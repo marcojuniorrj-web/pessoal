@@ -53,6 +53,19 @@ export const mensagemEntradaSchema = z.object({
   origem: z.enum(['texto', 'voz']),
 });
 
+/** "Salvar selecionadas" das boas-vindas: salva as marcadas (com o texto/área editados) e descarta as desmarcadas. */
+export const LIMITE_LOTE = 20;
+export const loteSugestoesSchema = z
+  .object({
+    salvar: z.array(z.object({ id: z.string().min(1), conteudo: memoriaEntradaSchema.optional() })).max(LIMITE_LOTE),
+    descartar: z.array(z.string().min(1)).max(LIMITE_LOTE),
+  })
+  .refine((v) => {
+    const ids = [...v.salvar.map((s) => s.id), ...v.descartar];
+    return ids.length <= LIMITE_LOTE && new Set(ids).size === ids.length;
+  }, `Até ${LIMITE_LOTE} sugestões, sem repetir nenhuma`);
+export type LoteSugestoes = z.infer<typeof loteSugestoesSchema>;
+
 export const conversaEntradaSchema = z.object({
   tipo: z.enum(['normal', 'boas_vindas']),
   modo: z.enum(['padrao', 'decidir']).optional(),

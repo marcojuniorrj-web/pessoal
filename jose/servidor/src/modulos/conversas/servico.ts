@@ -1,9 +1,10 @@
 // Regra de negócio do chat: enviar mensagem, montar o contexto, chamar a IA e gravar a resposta.
 // Cada evento devolvido aqui vira um evento SSE (`texto`, `sugestao`, `fim`, `erro`) na rota.
 import type { MensagemDto } from '@compartilhado/schemas';
+import { MAX_SUGESTOES_BOAS_VINDAS, perguntaDe, proximoPasso, type ProximoPasso } from '@compartilhado/boasvindas';
 import { hoje } from '@compartilhado/datas';
 import { prompt } from '../../adaptadores/ia/prompt';
-import { ErroIA, type ClienteIA, type EventoIA, type PedidoIA } from '../../adaptadores/ia/tipos';
+import { ErroIA, type ClienteIA, type EventoIA, type PedidoIA, type TipoSugestao } from '../../adaptadores/ia/tipos';
 import type { Ambiente } from '../../ambiente';
 import type { Dependencias } from '../../compartilhado/dependencias';
 import { ErroApi } from '../../compartilhado/erros';
@@ -14,7 +15,7 @@ import { LIMITE_TAREFAS_CONTEXTO, montarContexto, type MensagemCtx } from './con
 import { avaliarSugestao, type Proposta } from './sugestoes-ia';
 import { gerarTitulo } from './titulo';
 import {
-  buscarMensagem, inserirMensagemMarco, inserirRespostaJose, inserirSugestao, definirTitulo, mensagensDaConversa, memoriasDoUsuario, metasAtivas,
+  buscarMensagem, inserirMensagemMarco, inserirPerguntaFixa, inserirRespostaJose, inserirSugestao, definirTitulo, mensagensDaConversa, memoriasDoUsuario, metasAtivas,
   respostasDoDia, sugestoesDaConversa, type ConversaLinha, type MensagemLinha,
 } from './repositorio';
 
@@ -58,18 +59,21 @@ function respostaExistente(m: MensagemLinha): MensagemDto {
  */
 export async function prepararEnvio(e: EntradaEnvio, repetiu = false): Promise<(sinal?: AbortSignal) => AsyncGenerator<EventoSaida>> {
   const { env, deps, usuario, conversa, mensagem } = e;
+  const boasVindas = conversa.tipo === 'boas_vindas';
   const ia = deps.ia(env);
-  if (!ia) throw new ErroApi(500, 'ia_indisponivel', 'O José ainda não está configurado neste ambiente.');
+  // Nas boas-vindas só a chamada final (5ª resposta) usa a IA; as 4 primeiras respostas recebem a próxima pergunta fixa.
+  if (!ia && !boasVindas) throw new ErroApi(500, 'ia_indisponivel', 'O José ainda não está configurado neste ambiente.');
 
   const agora = deps.agora();
   const fuso = usuario.fuso_horario;
   const existente = await buscarMensagem(env.DB, mensagem.id);
   let jaGravada = false;
+  // Só nas boas-vindas: a etapa vem das mensagens da conversa (retomada sem estado extra).
+  const todas = existente || boasVindas ? await mensagensDaConversa(env.DB, conversa.id) : [];
 
   if (existente) {
     // Regra 11: id repetido não duplica.
     if (existente.conversa_id !== conversa.id || existente.autor !== 'marco') throw new ErroApi(409, 'id_em_uso', 'Esse id de mensagem já foi usado.');
-    const todas = await mensagensDaConversa(env.DB, conversa.id);
     const seguinte = todas[todas.findIndex((m) => m.id === existente.id) + 1];
     if (seguinte?.autor === 'jose') {
       // A resposta já existe: devolve o que está gravado, sem chamar a IA nem gastar o limite diário.
@@ -83,10 +87,21 @@ export async function prepararEnvio(e: EntradaEnvio, repetiu = false): Promise<(
     jaGravada = true; // falta só a resposta
   }
 
-  // Limite diário (regra 9): conta as respostas do José no dia local, inclusive as de "Tentar de novo".
-  const limite = Number(env.LIMITE_MENSAGENS_DIA) || 200;
-  const usadas = await respostasDoDia(env.DB, usuario.id, hoje(agora, fuso));
-  if (usadas >= limite) throw new ErroApi(429, 'limite_diario', MENSAGEM_LIMITE);
+  let passo: ProximoPasso | null = null;
+  if (boasVindas) {
+    const respostas = todas.filter((m) => m.autor === 'marco').length + (jaGravada ? 0 : 1);
+    passo = proximoPasso(respostas);
+    if (passo.tipo === 'encerrada') throw new ErroApi(409, 'boas_vindas_completa', 'As perguntas das boas-vindas já terminaram.');
+  }
+  const usaIa = passo?.tipo !== 'pergunta';
+  if (usaIa && !ia) throw new ErroApi(500, 'ia_indisponivel', 'O José ainda não está configurado neste ambiente.');
+
+  // Limite diário (regra 9): conta as respostas do José no dia local, inclusive as de "Tentar de novo". A pergunta fixa das boas-vindas não conta.
+  if (usaIa) {
+    const limite = Number(env.LIMITE_MENSAGENS_DIA) || 200;
+    const usadas = await respostasDoDia(env.DB, usuario.id, hoje(agora, fuso));
+    if (usadas >= limite) throw new ErroApi(429, 'limite_diario', MENSAGEM_LIMITE);
+  }
 
   if (!jaGravada) {
     try {
@@ -98,7 +113,21 @@ export async function prepararEnvio(e: EntradaEnvio, repetiu = false): Promise<(
     }
   }
 
-  return (sinal) => responder(e, ia, sinal);
+  if (passo?.tipo === 'pergunta') {
+    const indice = passo.indice;
+    return () => perguntarBoasVindas(e, indice);
+  }
+  return (sinal) => responder(e, ia!, sinal);
+}
+
+/** Boas-vindas, respostas 1 a 4: a "resposta" do José é a próxima pergunta fixa (nada de IA). */
+async function* perguntarBoasVindas(e: EntradaEnvio, indice: number): AsyncGenerator<EventoSaida> {
+  const pergunta = perguntaDe(indice)!;
+  const id = uuidv7();
+  await inserirPerguntaFixa(e.env.DB, e.conversa.id, { id, texto: pergunta.texto }, e.deps.agora());
+  console.log('boas-vindas pergunta', { conversa: e.conversa.id, pergunta: indice + 1 });
+  yield { evento: 'texto', dados: { delta: pergunta.texto } };
+  yield { evento: 'fim', dados: { mensagem_id: id } };
 }
 
 async function* sugestoesGravadas(db: D1Database, conversaId: string, mensagemId: string): AsyncGenerator<EventoSaida> {
@@ -125,7 +154,11 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
     texto: m.texto,
     sugestoes: sugestoes.filter((s) => s.mensagem_id === m.id).map((s) => ({ tipo: s.tipo, conteudo: JSON.stringify(s.conteudo), status: s.status })),
   }));
-  const contexto = montarContexto({ prompt, sugestoes: deps.sugestoesAtivas, modo: conversa.modo, memorias, metas, tarefas, agora, fuso, mensagens: historico });
+  // Chamada final das boas-vindas: só a ferramenta de memória, com até 8 sugestões (nas outras conversas: 3).
+  const boasVindas = conversa.tipo === 'boas_vindas';
+  const ligadas: TipoSugestao[] = boasVindas ? ['memoria'] : deps.sugestoesAtivas;
+  const maximo = boasVindas ? MAX_SUGESTOES_BOAS_VINDAS : undefined;
+  const contexto = montarContexto({ prompt, sugestoes: ligadas, modo: conversa.modo, boasVindas, memorias, metas, tarefas, agora, fuso, mensagens: historico });
 
   // Modo decisão → modelo profundo; senão o econômico (dados.md, regra 10).
   const profundo = conversa.modo === 'decidir';
@@ -135,7 +168,7 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
     maxTokens: profundo ? 4000 : 1500,
     esforco: 'low',
     ...contexto,
-    ferramentas: deps.sugestoesAtivas,
+    ferramentas: ligadas,
     fallbackRecusa: profundo,
   };
 
@@ -152,7 +185,7 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
       } else if (ev.tipo === 'sugestao') {
         chamadas += 1;
         // Validada com Zod; o servidor ignora o que passar de 3 por resposta e a memória que já existe.
-        const r = avaliarSugestao(ev.nome, ev.entrada, { ligadas: deps.sugestoesAtivas, memorias, tarefas, metas, aceitas: propostas });
+        const r = avaliarSugestao(ev.nome, ev.entrada, { ligadas, memorias, tarefas, metas, aceitas: propostas, maximo });
         if (r.ok) propostas.push(r.proposta);
         // O log leva só ids, o nome da ferramenta e os campos inválidos (nunca o conteúdo).
         else console.warn('ia sugestão descartada', { conversa: conversa.id, ferramenta: ev.nome, motivo: r.motivo, campos: r.campos });

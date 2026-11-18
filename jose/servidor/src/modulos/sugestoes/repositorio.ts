@@ -38,3 +38,15 @@ export async function descartarSugestao(db: D1Database, id: string): Promise<boo
   const r = await db.prepare("UPDATE sugestoes SET status = 'descartada' WHERE id = ? AND status = 'pendente'").bind(id).run();
   return (r.meta?.changes ?? 0) > 0;
 }
+
+/** As sugestões `ids` que pertencem à conversa (pelo caminho sugestão → mensagem → conversa). */
+export async function sugestoesDaConversaPorIds(db: D1Database, conversaId: string, ids: string[]): Promise<SugestaoLinha[]> {
+  if (!ids.length) return [];
+  const { results } = await db
+    .prepare(
+      `SELECT s.* FROM sugestoes s JOIN mensagens m ON m.id = s.mensagem_id WHERE m.conversa_id = ? AND s.id IN (${ids.map(() => '?').join(',')})`,
+    )
+    .bind(conversaId, ...ids)
+    .all<SugestaoLinha>();
+  return results;
+}

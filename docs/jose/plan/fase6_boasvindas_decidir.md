@@ -10,7 +10,7 @@ Fase 4 (memórias e cartões). A Fase 5 ajuda (sugestão de tarefa na decisão),
 
 ## Tarefas (prompts pequenos)
 - [x] 6.1 Roteiro das 5 perguntas fixas (`compartilhado/boasvindas.ts`: texto, respostas rápidas, etapa calculada pelas mensagens) e a seção `BOASVINDAS` do prompt: a chamada final gera até 8 sugestões de memória (com as memórias atuais no contexto ao refazer). **Aceite:** o caso golden `boasvindas-memorias` (conferência automática testada sem rede) exige memórias coerentes com as respostas e sem repetir as existentes; `npm run golden` com chave real só pelo Marco.
-- [ ] 6.2 Backend das boas-vindas:
+- [x] 6.2 Backend das boas-vindas:
   - `POST /api/conversas {tipo: boas_vindas}` grava a 1ª pergunta (sem IA);
   - `POST .../mensagens` numa conversa de boas-vindas devolve a próxima pergunta fixa (4 primeiras respostas) ou chama a IA (5ª), 409 na 6ª;
   - `GET /api/eu` devolve a conversa em aberto; `POST /api/eu/boas-vindas`;

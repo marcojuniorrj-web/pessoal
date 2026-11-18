@@ -9,7 +9,7 @@ import { buscarDoUsuario, buscarMensagemDoUsuario } from '../../compartilhado/po
 import { prepararEnvio } from './servico';
 import type { AppEnv } from '../auth/sessao';
 import {
-  apagarConversa, apagarMensagens, conversaCompleta, criarConversa, listarConversas, mensagemSeguinte, ultimaConversaNormal, type ConversaLinha, type MensagemLinha,
+  apagarConversa, apagarMensagens, conversaCompleta, criarConversa, criarConversaBoasVindas, listarConversas, mensagemSeguinte, ultimaConversaNormal, type ConversaLinha, type MensagemLinha,
 } from './repositorio';
 
 export function rotasConversas(deps: Dependencias) {
@@ -18,7 +18,10 @@ export function rotasConversas(deps: Dependencias) {
   rotas.post('/conversas', async (c) => {
     const corpo = conversaEntradaSchema.safeParse(await c.req.json().catch(() => null));
     if (!corpo.success) throw requisicaoInvalida('Informe o tipo da conversa (normal ou boas_vindas).');
-    const id = await criarConversa(c.env.DB, c.var.usuario.id, corpo.data.tipo, corpo.data.modo ?? 'padrao', deps.agora());
+    const u = c.var.usuario;
+    const id = corpo.data.tipo === 'boas_vindas'
+      ? await criarConversaBoasVindas(c.env.DB, u.id, deps.agora())
+      : await criarConversa(c.env.DB, u.id, 'normal', corpo.data.modo ?? 'padrao', deps.agora());
     return c.json({ id }, 201);
   });
 

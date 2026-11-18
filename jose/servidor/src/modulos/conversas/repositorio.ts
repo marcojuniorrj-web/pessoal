@@ -1,4 +1,5 @@
 import type { ConversaCompleta, ConversaDto, ConversaResumo, MensagemDto, SugestaoDto } from '@compartilhado/schemas';
+import { perguntaDe, TITULO_BOAS_VINDAS } from '@compartilhado/boasvindas';
 import { uuidv7 } from '../../compartilhado/id';
 
 export interface ConversaLinha extends ConversaDto {
@@ -28,9 +29,37 @@ export async function criarConversa(db: D1Database, usuarioId: string, tipo: Con
   return id;
 }
 
+/**
+ * Conversa de boas-vindas: já nasce com a 1ª pergunta fixa como mensagem do José (sem IA, `modelo` nulo), na mesma transação.
+ * Sempre no modo padrão; o título é fixo e ela nunca é apagada por ficar vazia.
+ */
+export async function criarConversaBoasVindas(db: D1Database, usuarioId: string, agora: Date): Promise<string> {
+  const id = uuidv7(agora.getTime());
+  const iso = agora.toISOString();
+  await db.batch([
+    db
+      .prepare("INSERT INTO conversas (id, usuario_id, titulo, tipo, modo, criada_em, atualizada_em) VALUES (?, ?, ?, 'boas_vindas', 'padrao', ?, ?)")
+      .bind(id, usuarioId, TITULO_BOAS_VINDAS, iso, iso),
+    db
+      .prepare("INSERT INTO mensagens (id, conversa_id, autor, texto, origem, modelo, criada_em) VALUES (?, ?, 'jose', ?, 'texto', NULL, ?)")
+      .bind(uuidv7(agora.getTime()), id, perguntaDe(0)!.texto, iso),
+  ]);
+  return id;
+}
+
+/** Grava a próxima pergunta fixa das boas-vindas como resposta do José (sem IA: não conta no limite diário de respostas). */
+export async function inserirPerguntaFixa(db: D1Database, conversaId: string, p: { id: string; texto: string }, agora: Date): Promise<void> {
+  const iso = agora.toISOString();
+  await db.batch([
+    db.prepare("INSERT INTO mensagens (id, conversa_id, autor, texto, origem, modelo, criada_em) VALUES (?, ?, 'jose', ?, 'texto', NULL, ?)").bind(p.id, conversaId, p.texto, iso),
+    db.prepare('UPDATE conversas SET atualizada_em = ? WHERE id = ?').bind(iso, conversaId),
+  ]);
+}
+
+/** O Histórico lista só conversas normais: a de boas-vindas não aparece. */
 export async function listarConversas(db: D1Database, usuarioId: string): Promise<ConversaResumo[]> {
   const { results } = await db
-    .prepare('SELECT id, titulo, tipo, modo, atualizada_em FROM conversas WHERE usuario_id = ? ORDER BY atualizada_em DESC, rowid DESC')
+    .prepare("SELECT id, titulo, tipo, modo, atualizada_em FROM conversas WHERE usuario_id = ? AND tipo = 'normal' ORDER BY atualizada_em DESC, rowid DESC")
     .bind(usuarioId)
     .all<ConversaResumo>();
   return results;

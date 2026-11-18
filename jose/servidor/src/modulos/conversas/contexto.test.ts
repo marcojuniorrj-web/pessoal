@@ -3,7 +3,7 @@ import { lerPrompt } from '../../adaptadores/ia/prompt';
 import { prompt as promptReal } from '../../adaptadores/ia/prompt';
 import { LIMITE_MENSAGENS_CONTEXTO, LIMITE_TAREFAS_CONTEXTO, montarContexto, normalizarMensagens, secaoSugestoes, type EntradaContexto } from './contexto';
 
-const prompt = lerPrompt('=== BASE ===\nPROMPT-BASE\n=== SUGESTOES ===\nPROMPT-SUGESTOES\n=== DECIDIR ===\nPROMPT-DECIDIR\n=== TITULO ===\nPROMPT-TITULO');
+const prompt = lerPrompt('=== BASE ===\nPROMPT-BASE\n=== SUGESTOES ===\nPROMPT-SUGESTOES\n=== DECIDIR ===\nPROMPT-DECIDIR\n=== BOASVINDAS ===\nPROMPT-BOASVINDAS\n=== TITULO ===\nPROMPT-TITULO');
 const agora = new Date('2026-11-17T14:20:00-03:00');
 
 const entrada = (extra: Partial<EntradaContexto> = {}): EntradaContexto => ({
