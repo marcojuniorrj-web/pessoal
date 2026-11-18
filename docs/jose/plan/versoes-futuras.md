@@ -28,3 +28,5 @@ Nada pensado pode se perder.
 | Fora do escopo | App nativo em loja | — | — | G | se o PWA não bastar | visao |
 | Fora do escopo | Aconselhamento médico, jurídico ou financeiro profissional | O José apoia, não substitui | — | — | nunca | visao |
 | Descartado | Gemini como IA | A assinatura do Google One não inclui a API, e o plano grátis usa os dados | adaptador `ia/` | P | só se o custo ou a qualidade mudarem | conversa com o Marco |
+| V1.1 | Usar mais ferramentas do coaching do Marco (SWOT, alavancagem, necessidades e valores, escala de perguntas poderosas, planejamento estratégico semanal, feedback 360, avaliação mensal) | O José passa a conduzir revisões estruturadas com o método que o Marco já conhece | Ajuste de coaching feito | M | Depois de 2 semanas de uso real | pasta de coaching do Drive (SLAC) |
+| V1.1 | Questionários de valores, necessidades e as 12 áreas da vida respondidos no próprio app, virando memórias | Perfil mais completo e atualizado do que os relatórios de 2022/2023 | Onda 6 (boas-vindas) | M | MVP pronto | pasta de coaching do Drive |
