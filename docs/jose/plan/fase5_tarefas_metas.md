@@ -12,7 +12,7 @@ Fase 4 (ferramentas, cartões e rotas de sugestão).
 ## Tarefas (prompts pequenos)
 - [x] 5.1 Ligar `sugerir_tarefa` e `sugerir_meta` (conversão de "sexta" em data pelo contexto) e salvar sugestões desses tipos. **Aceite:** testes de salvar tarefa e meta a partir de uma sugestão, com `origem = chat`.
 - [x] 5.2 Ordenação da regra 5 e CRUD `/api/tarefas` (concluir grava `concluida_em`, desfazer limpa). **Aceite:** testes de todos os desempates com relógio fixo e de posse.
-- [ ] 5.3 CRUD `/api/metas` (status `ativa`/`concluida`). **Aceite:** testes de validação e de posse.
+- [x] 5.3 CRUD `/api/metas` (status `ativa`/`concluida`). **Aceite:** testes de validação e de posse.
 - [ ] 5.4 As tarefas pendentes (até 50) e as metas ativas entram no contexto. **Aceite:** caso golden — com 3 tarefas, uma delas atrasada, "o que faço hoje?" prioriza a atrasada.
 - [ ] 5.5 CartaoSugestao para tarefa e meta: edição com chips de área e seletor de prazo (opcional); "✓ Salvo em Tarefas". **Aceite:** testes de componente.
 - [ ] 5.6 Aba Tarefas:
