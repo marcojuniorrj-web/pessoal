@@ -704,3 +704,76 @@ test.describe('Conversa que fica vazia some junto (pedido do Marco)', () => {
     expect(f.conversas).toEqual([]);
   });
 });
+
+test.describe('Reconciliação com o servidor (rede de segurança)', () => {
+  test('o DELETE devolve sucesso mas o servidor ainda tem a mensagem: o app mostra o erro, a mensagem volta e "Tentar de novo" funciona', async ({ page }) => {
+    const f = await abrir(page, { deleteIgnorado: true });
+    await segurar(page, balaoJose(page));
+    await folha(page).getByRole('button', { name: 'Apagar mensagem', exact: true }).click();
+    await expect(balaoJose(page)).toHaveCount(0); // some na hora
+    await expect.poll(() => f.deletesMensagem.length, { timeout: 7000 }).toBe(1);
+    await expect(page.locator('.toast')).toContainText('Não foi possível apagar.');
+    await expect(balaoJose(page)).toHaveText('Bom dia, Marco.'); // não fica sumida
+    expect(f.lidas.length).toBeGreaterThan(0); // conferiu com o servidor
+    f.deleteIgnorado = false;
+    await page.locator('.toast').getByRole('button', { name: 'Tentar de novo' }).click();
+    await expect(balaoJose(page)).toHaveCount(0);
+    await expect.poll(() => f.deletesMensagem.length, { timeout: 7000 }).toBe(2);
+    await page.waitForTimeout(500);
+    await expect(balaoJose(page)).toHaveCount(0);
+    await expect(balaoMarco(page)).toHaveText('Oi José');
+  });
+
+  test('depois de um DELETE confirmado a lista passa a ser a do servidor: o que sumiu em outro aparelho some, sem perder o rascunho', async ({ page }) => {
+    const c = conversaA([['marco', 'Segunda pergunta', 10], ['jose', 'Segunda resposta', 9]]);
+    const f = await abrir(page, {}, [c]);
+    await page.getByLabel('Mensagem para o José').fill('rascunho que não pode sumir');
+    await segurar(page, balaoJose(page).last());
+    await folha(page).getByRole('button', { name: 'Apagar mensagem', exact: true }).click();
+    // outro aparelho apaga a "Segunda pergunta" enquanto isso
+    f.conversas[0]!.mensagens = f.conversas[0]!.mensagens.filter((m) => m.texto !== 'Segunda pergunta');
+    await expect.poll(() => f.deletesMensagem.length, { timeout: 7000 }).toBe(1);
+    await expect(balaoMarco(page)).toHaveText(['Oi José']);
+    await expect(page.getByLabel('Mensagem para o José')).toHaveValue('rascunho que não pode sumir');
+  });
+
+  test('ao voltar o app para a frente, a conversa aberta é conferida com o servidor, sem tocar no campo nem no foco', async ({ page }) => {
+    const f = await abrir(page);
+    const campo = page.getByLabel('Mensagem para o José');
+    await campo.fill('estou digitando');
+    await campo.focus();
+    const antes = f.lidas.length;
+    f.conversas[0]!.mensagens.push({ id: 'a-m9', autor: 'jose', texto: 'Mensagem que chegou em outro aparelho', origem: 'texto', modelo: null, criada_em: new Date().toISOString() });
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await expect(balaoJose(page).last()).toHaveText('Mensagem que chegou em outro aparelho');
+    expect(f.lidas.length).toBe(antes + 1);
+    await expect(campo).toHaveValue('estou digitando');
+    await expect(campo).toBeFocused();
+  });
+
+  test('com a resposta chegando (streaming) não confere nem derruba a mensagem recém-enviada', async ({ page }) => {
+    const f = await abrir(page, { atrasoMs: 1500 });
+    await page.getByLabel('Mensagem para o José').fill('mais uma');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByText('José está pensando')).toBeVisible();
+    const antes = f.lidas.length;
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.waitForTimeout(300);
+    expect(f.lidas.length).toBe(antes);
+    await expect(balaoMarco(page).last()).toHaveText('mais uma');
+    await expect(balaoJose(page).last()).toContainText('Próximo passo', { timeout: 5000 });
+    // terminada a resposta, voltar à frente confere e mantém as duas mensagens novas
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await expect.poll(() => f.lidas.length).toBe(antes + 1);
+    await expect(balaoMarco(page)).toHaveText(['Oi José', 'mais uma']);
+    await expect(balaoJose(page)).toHaveCount(2);
+  });
+
+  test('a conferência não faz a lista piscar: nada é recriado quando nada mudou', async ({ page }) => {
+    await abrir(page);
+    await balaoMarco(page).evaluate((el) => el.setAttribute('data-marca', 'mesmo-no'));
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.waitForTimeout(500);
+    await expect(balaoMarco(page)).toHaveAttribute('data-marca', 'mesmo-no');
+  });
+});

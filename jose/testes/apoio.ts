@@ -46,6 +46,10 @@ export interface ChatFalso {
   deletes: string[];
   /** Mensagens apagadas (DELETE /api/mensagens/:id), na ordem. */
   deletesMensagem: Array<{ id: string; comResposta: boolean }>;
+  /** O DELETE de mensagem responde sucesso mas NÃO apaga nada (cliente e servidor divergem). */
+  deleteIgnorado: boolean;
+  /** Leituras de GET /api/conversas/:id (id), na ordem. */
+  lidas: string[];
   /** Cartões que a próxima resposta do José sugere (🧠 memória, 📌 tarefa, 🎯 meta). */
   sugerir: CartaoFalso[];
   /** Quantas chamadas de salvar devem falhar (500) antes de funcionar. */
@@ -72,7 +76,7 @@ const resumo = (c: ConversaFalsa) => ({ id: c.id, titulo: c.titulo, tipo: c.tipo
 const completa = (c: ConversaFalsa) => ({ conversa: { id: c.id, titulo: c.titulo, tipo: c.tipo, modo: c.modo, criada_em: c.criada_em, atualizada_em: c.atualizada_em }, mensagens: c.mensagens, sugestoes: c.sugestoes ?? [] });
 
 export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}): Promise<ChatFalso> {
-  const f: ChatFalso = { conversas: [], hoje: null, planos: [], atrasoMs: 0, atrasoHojeMs: 0, atrasoListaMs: 0, listaFalha: false, postsMensagem: [], postsConversa: [], deletes: [], deletesMensagem: [], sugerir: [], salvarFalhas: 0, atrasoSalvarMs: 0, salvos: [], descartados: [], ...inicial };
+  const f: ChatFalso = { conversas: [], hoje: null, planos: [], atrasoMs: 0, atrasoHojeMs: 0, atrasoListaMs: 0, listaFalha: false, postsMensagem: [], postsConversa: [], deletes: [], deletesMensagem: [], deleteIgnorado: false, lidas: [], sugerir: [], salvarFalhas: 0, atrasoSalvarMs: 0, salvos: [], descartados: [], ...inicial };
   let proximo = 1;
   const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -112,6 +116,7 @@ export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}):
     const conversa = f.conversas.find((c) => c.mensagens.some((m) => m.id === id));
     if (!conversa) return rota.fulfill({ status: 404, json: { erro: { codigo: 'nao_encontrado', mensagem: 'Não encontrado.' } } });
     f.deletesMensagem.push({ id, comResposta });
+    if (f.deleteIgnorado) return rota.fulfill({ status: 204 });
     const i = conversa.mensagens.findIndex((m) => m.id === id);
     const seguinte = conversa.mensagens[i + 1];
     const apagar = new Set([id, ...(comResposta && seguinte?.autor === 'jose' ? [seguinte.id] : [])]);
@@ -157,6 +162,7 @@ export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}):
         f.conversas = f.conversas.filter((x) => x.id !== partes[2]);
         return rota.fulfill({ status: 204 });
       }
+      if (conversa) f.lidas.push(conversa.id);
       return conversa ? json(200, completa(conversa)) : json(404, { erro: { codigo: 'nao_encontrado', mensagem: 'Não encontrado.' } });
     }
     // POST /api/conversas/:id/mensagens

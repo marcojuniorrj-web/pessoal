@@ -38,7 +38,7 @@ export function Chat() {
   const nova = params.get('nova') === '1';
   useTecladoVirtual();
 
-  const { geracao, carga, conversa, bolhas, ocupado, enviar, tentarDeNovo, iniciarDecisao, recarregar, atualizarSugestao, removerBolhas } = useChat({
+  const { geracao, carga, conversa, bolhas, ocupado, enviar, tentarDeNovo, iniciarDecisao, recarregar, atualizarSugestao, removerBolhas, reconciliar } = useChat({
     idUrl,
     nova,
     // A URL passa a apontar para a conversa criada: um 401 volta exatamente para ela.
@@ -85,6 +85,23 @@ export function Chat() {
       montadoRef.current = false;
     };
   }, []);
+  const ocupadoRef = useRef(false);
+  ocupadoRef.current = ocupado;
+  const cargaRef = useRef(carga);
+  cargaRef.current = carga;
+  // Ao voltar o app para a frente (o PWA do iPhone reabre sem recarregar), confere a conversa aberta com o servidor.
+  // Nunca durante o envio/streaming, e sem mexer no campo de digitação (só a lista de mensagens é trocada).
+  useEffect(() => {
+    let ultima = 0;
+    const aoVisivel = () => {
+      if (document.visibilityState !== 'visible' || !conversaRef.current || ocupadoRef.current || cargaRef.current !== 'ok') return;
+      if (Date.now() - ultima < 2000) return;
+      ultima = Date.now();
+      void reconciliar();
+    };
+    document.addEventListener('visibilitychange', aoVisivel);
+    return () => document.removeEventListener('visibilitychange', aoVisivel);
+  }, [reconciliar]);
   const semRede = !online || (estado.situacao === 'logado' && estado.offline);
 
   // O rascunho da conversa aberta volta para o campo (ex.: depois de um 401 e novo login), mas nunca por cima
@@ -180,6 +197,12 @@ export function Chat() {
       apagar: async () => {
         const conversaApagada = await apagarMensagem(b.id, !!resposta);
         removerBolhas(ids);
+        if (!conversaApagada) {
+          // Rede de segurança: confere com o servidor. Se a mensagem "apagada" ainda existe lá, não a deixa sumida:
+          // o erro cai em aoFalhar ("Não foi possível apagar." + Tentar de novo) e a mensagem volta à tela.
+          const noServidor = await reconciliar();
+          if (noServidor && ids.some((i) => noServidor.has(i))) throw new Error('A mensagem ainda existe no servidor.');
+        }
         if (conversaApagada) {
           // Era a última mensagem: o servidor apagou a conversa vazia junto. Se ela ainda está aberta, vai ao Chat vazio.
           toast('Conversa vazia apagada.');

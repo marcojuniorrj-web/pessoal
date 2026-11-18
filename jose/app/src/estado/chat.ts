@@ -7,6 +7,7 @@ import {
 } from '../api/conversas';
 import { estaPendente } from './apagar-com-desfazer';
 import { limparRascunho, salvarRascunho } from './rascunho';
+import { bolhaDe, ID_TEMPORARIO, mesclarComServidor } from './reconciliar';
 
 export type TipoErroBolha = 'ia' | 'rede' | 'interrompida' | 'limite' | 'sessao';
 /** Cartão de sugestão ligado a uma resposta do José. */
@@ -38,12 +39,6 @@ export interface ConversaAberta {
 export type Carga = 'carregando' | 'ok' | 'erro';
 
 export const MENSAGEM_LIMITE_DIARIO = 'Limite de hoje atingido, volta amanhã.';
-const ID_TEMPORARIO = 'resposta-em-andamento';
-
-const bolhaDe = (m: ConversaCompleta['mensagens'][number], sugestoes: ConversaCompleta['sugestoes'] = []): Bolha => {
-  const proprias = sugestoes.filter((s) => s.mensagem_id === m.id).map((s) => ({ id: s.id, tipo: s.tipo, conteudo: s.conteudo, status: s.status }));
-  return { id: m.id, autor: m.autor, texto: m.texto, origem: m.origem, estado: 'ok', criadaEm: m.criada_em, ...(proprias.length ? { sugestoes: proprias } : {}) };
-};
 
 function erroDeExcecao(e: unknown): NonNullable<Bolha['erro']> {
   if (e instanceof ErroHttp && e.status === 401) return { tipo: 'sessao', mensagem: 'Sua sessão expirou.' };
@@ -238,8 +233,25 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
     setBolhas((lista) => lista.map((b) => (b.sugestoes?.some((s) => s.id === id) ? { ...b, sugestoes: b.sugestoes.map((s) => (s.id === id ? { ...s, ...mudanca } : s)) } : b)));
   }, []);
 
+  /**
+   * Lê a conversa no servidor e troca as mensagens mostradas pelas dele (sem perder a resposta em andamento, a mensagem
+   * ainda não gravada nem o que acabou de chegar). Devolve os ids que o servidor tem, ou null se não deu para ler.
+   */
+  const reconciliar = useCallback(async (): Promise<Set<string> | null> => {
+    const id = conversaRef.current.id;
+    if (!id) return null;
+    try {
+      const dados = await abrirConversa(id);
+      if (conversaRef.current.id !== id) return null; // o Marco já abriu outra conversa
+      setBolhas((atual) => mesclarComServidor(atual, dados, { pendenteId: pendenteRef.current?.id }));
+      return new Set(dados.mensagens.map((m) => m.id));
+    } catch {
+      return null;
+    }
+  }, []);
+
   /** Tira da lista as mensagens que a API já apagou. */
   const removerBolhas = useCallback((ids: string[]) => setBolhas((l) => l.filter((b) => !ids.includes(b.id))), []);
 
-  return { geracao, carga, conversa, bolhas, ocupado, enviar, tentarDeNovo, iniciarDecisao, recarregar, atualizarSugestao, removerBolhas };
+  return { geracao, carga, conversa, bolhas, ocupado, enviar, tentarDeNovo, iniciarDecisao, recarregar, atualizarSugestao, removerBolhas, reconciliar };
 }
