@@ -98,3 +98,36 @@ describe('migração 0002_uso_diario', () => {
     ]);
   });
 });
+
+describe('migração 0003_transcricoes_diarias', () => {
+  const pasta = fileURLToPath(new URL('.', import.meta.url));
+  const sql = (nome: string) => readFileSync(join(pasta, nome), 'utf8');
+
+  it('aplicada do zero: a coluna existe, começa em 0 e convive com respostas', async () => {
+    const db = await semente();
+    await db.prepare('INSERT INTO uso_diario(usuario_id,dia,respostas) VALUES(?,?,?)').bind('u1', '2026-11-18', 3).run();
+    expect(await db.prepare('SELECT respostas, transcricoes FROM uso_diario').first()).toEqual({ respostas: 3, transcricoes: 0 });
+    await db.prepare('UPDATE uso_diario SET transcricoes = transcricoes + 1').run();
+    expect((await db.prepare('SELECT transcricoes AS n FROM uso_diario').first<{ n: number }>())?.n).toBe(1);
+    await expect(db.prepare('UPDATE uso_diario SET transcricoes = -1').run()).rejects.toThrow();
+    await expect(db.prepare('UPDATE uso_diario SET transcricoes = NULL').run()).rejects.toThrow();
+  });
+
+  it('sobre o banco existente (0001 + 0002 com dados): linhas antigas ficam com 0 e nada se perde', async () => {
+    const db = criarD1Simulado(false);
+    await db.exec(sql('0001_inicial.sql'));
+    await db.exec(sql('0002_uso_diario.sql'));
+    await db.prepare('INSERT INTO usuarios(id,email,nome,criado_em) VALUES(?,?,?,?)').bind('u1', 'a@x.com', 'A', agora).run();
+    await db.prepare('INSERT INTO uso_diario(usuario_id,dia,respostas) VALUES(?,?,?)').bind('u1', '2026-11-18', 11).run();
+    await db.prepare('INSERT INTO uso_diario(usuario_id,dia,respostas) VALUES(?,?,?)').bind('u1', '2026-11-17', 2).run();
+    await db.exec(sql('0003_transcricoes_diarias.sql'));
+    const linhas = (await db.prepare('SELECT dia, respostas, transcricoes FROM uso_diario ORDER BY dia').all()).results;
+    expect(linhas).toEqual([
+      { dia: '2026-11-17', respostas: 2, transcricoes: 0 },
+      { dia: '2026-11-18', respostas: 11, transcricoes: 0 },
+    ]);
+    // O UPSERT do limite funciona na linha que já existia e cria a do dia que ainda não tinha.
+    await db.prepare('INSERT INTO uso_diario (usuario_id, dia, respostas, transcricoes) VALUES (?, ?, 0, 1) ON CONFLICT (usuario_id, dia) DO UPDATE SET transcricoes = transcricoes + 1').bind('u1', '2026-11-18').run();
+    expect((await db.prepare("SELECT respostas, transcricoes FROM uso_diario WHERE dia = '2026-11-18'").first())).toEqual({ respostas: 11, transcricoes: 1 });
+  });
+});
