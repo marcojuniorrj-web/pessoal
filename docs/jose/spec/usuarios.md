@@ -63,7 +63,7 @@ cartão com os botões "Salvar", "Editar" e "Descartar".
 2. **Conversar por texto.** Como Marco, quero escrever para o José e receber resposta curta, para destravar rápido.
    - Aceite: a resposta começa a aparecer em até 3 segundos. O padrão é até ~5 linhas e 1 próximo passo, salvo se eu pedir mais.
 3. **Conversar por voz.** Como Marco, quero mandar áudio, para usar na rua ou sem paciência de digitar.
-   - Aceite: tocar no microfone grava e tocar de novo para e envia (✕ cancela). O áudio vira texto e é enviado, e o texto transcrito fica visível. Funciona no PWA do iPhone e do Android.
+   - Aceite: com o campo vazio, o botão da direita é o 🎤; tocar nele grava (contador regressivo a partir de 2:00, ✕ cancela) e tocar em ■ para e envia; aos 2:00 para sozinho e envia. O áudio vira texto, é enviado como mensagem de voz (balão com 🎤) e o José responde. Áudio com menos de 1 s é descartado. Com texto digitado, o botão é Enviar. Se a transcrição falhar, o microfone for negado ou o limite de 60 transcrições por dia acabar, aparece um aviso claro e nada se perde. Funciona no PWA do iPhone e do Android; o áudio nunca é guardado.
 4. **José me conhece.** Como Marco, quero que o José use o que sabe sobre mim, para as respostas não serem genéricas.
    - Aceite: as memórias salvas entram no contexto de toda conversa. A resposta cita minha rotina ou minhas metas quando for relevante.
 5. **Ver e controlar memórias.** Como Marco, quero ver, editar e apagar o que o José sabe sobre mim, para manter a privacidade.

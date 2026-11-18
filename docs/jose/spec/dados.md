@@ -82,9 +82,9 @@
    - Todas as consultas filtram pelo `usuario_id` da sessão. Item de outro usuário responde 404.
 9. **Limites** (assumido):
    - mensagem de até 4.000 caracteres;
-   - áudio de até 2 minutos e 10 MB, com até 60 transcrições por dia;
+   - áudio de até 2 minutos e 10 MB (o app para a gravação aos 2:00 e o servidor também confere a duração informada e o tamanho), com até **60 transcrições por dia** (no dia local do Marco, contadas em `UsoDiario.transcricoes`; o servidor soma 1 **antes** de chamar o Whisper e responde 429 `limite_voz` quando já são 60; uma transcrição que falha **não** devolve a contagem, para o limite de custo não ser burlado; aviso "Limite de voz de hoje atingido. Digite sua mensagem.");
    - até **200 respostas do José por dia** (no dia local), contando também as "Tentar de novo", com o aviso "Limite de hoje atingido, volta amanhã".
-    A contagem fica em `UsoDiario` e sobe a cada resposta gravada; **apagar mensagens não a diminui** (apagar não burla o limite de custo).
+    A contagem de respostas fica em `UsoDiario.respostas` e sobe a cada resposta gravada; **apagar mensagens não a diminui** (apagar não burla o limite de custo). `UsoDiario.transcricoes` (migração 0003) conta as transcrições do dia pelo mesmo mecanismo (chave usuário + dia, fuso do usuário).
 10. **Qual IA responde:** o modelo **econômico** (Haiku) por padrão. O modelo **profundo** (Sonnet) entra quando a conversa
     está no modo `decidir`, aberta pelo atalho "⚖️ Preciso decidir". *(V1.1: botão "Pensar melhor" em qualquer resposta.)*
 11. **Tentar de novo sem duplicar:** o app gera o `id` da mensagem do Marco. Se o mesmo `id` chegar de novo, o servidor não
@@ -127,7 +127,7 @@ Ficam para depois: Google Calendar, Gmail e WhatsApp.
   - Uso exclusivamente pessoal: a LGPD não se aplica a esse caso (art. 4º, I), mas as boas práticas são mantidas mesmo assim.
 - **Retenção:**
   - conversas, tarefas, metas e memórias ficam **para sempre, até o Marco apagar**;
-  - **o áudio nunca é guardado**, só o texto transcrito;
+  - **o áudio nunca é guardado**, só o texto transcrito; o servidor lê o áudio em memória, transcreve e descarta, e os logs de voz levam só tipo, tamanho e tempo (nunca o áudio nem o texto transcrito);
   - apagar uma conversa ou uma mensagem apaga também as sugestões dela, mas os itens já salvos a partir delas permanecem;
   - uma memória apagada pode ainda aparecer em mensagens antigas de conversas que não foram apagadas (risco aceito);
   - backup semanal do banco com **4 cópias (30 dias)**, mais a recuperação de 30 dias da própria Cloudflare (Time Travel do D1).

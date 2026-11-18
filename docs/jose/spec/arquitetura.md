@@ -46,7 +46,7 @@ jose/
 ├── app/                        # Interface (React PWA)
 │   ├── src/
 │   │   ├── telas/              # Login, BoasVindas, Chat, Historico, Tarefas, JoseSabe, Ajustes
-│   │   ├── componentes/        # Balao, CartaoSugestao, BotaoMicrofone, BarraAbas, Toast...
+│   │   ├── componentes/        # Balao, CartaoSugestao, BotaoAcaoChat (🎤/enviar/parar), BarraGravacao, BarraAbas, Toast...
 │   │   ├── api/                # cliente HTTP + leitura de streaming (SSE)
 │   │   ├── estado/             # hooks de dados (conversas, tarefas, memórias)
 │   │   └── estilo/             # tokens de cor/tipografia (tema escuro)
@@ -109,11 +109,13 @@ memorias(id PK, usuario_id NOT NULL FK ON DELETE CASCADE, texto NOT NULL CHECK(l
          area NOT NULL CHECK(area IN('sobre_mim','trabalho','financas','saude','casa')),
          origem NOT NULL CHECK(origem IN('boas_vindas','chat','manual')), criada_em NOT NULL, atualizada_em)
 uso_diario(usuario_id NOT NULL FK→usuarios ON DELETE CASCADE, dia NOT NULL /* AAAA-MM-DD no fuso do usuário */,
-           respostas INT NOT NULL DEFAULT 0, PRIMARY KEY (usuario_id, dia))      -- migração 0002
+           respostas INT NOT NULL DEFAULT 0, transcricoes INT NOT NULL DEFAULT 0,  -- transcricoes: migração 0003
+           PRIMARY KEY (usuario_id, dia))                                          -- migração 0002
 ```
 - **Apagar conversa:** a cascata apaga as mensagens e as sugestões. Os itens já salvos (tarefas, metas e memórias) permanecem.
 - **Apagar mensagem:** a cascata apaga as sugestões da mensagem; os itens salvos permanecem. Se a conversa `normal` ficar sem mensagens, ela é apagada na mesma transação (regra 13b de dados.md).
 - **Limite diário:** `uso_diario` guarda as respostas do José por dia local do usuário. É incrementada na mesma transação que grava a resposta e **nunca decrementa** (apagar mensagens não libera o limite). A migração 0002 preenche o dia de hoje com a contagem atual de respostas, para o limite não zerar.
+- **Limite de voz:** a migração 0003 acrescenta `transcricoes INT NOT NULL DEFAULT 0` (as linhas existentes ficam com 0; funciona do zero e sobre o banco existente). `POST /api/voz` faz, **antes** de chamar o Whisper, um UPSERT atômico `INSERT ... ON CONFLICT (usuario_id, dia) DO UPDATE SET transcricoes = transcricoes + 1 WHERE transcricoes < 60 RETURNING transcricoes` (dia no fuso do usuário); sem linha devolvida = limite atingido = 429 `limite_voz`. Falha do Whisper não devolve a contagem.
 - **Apagar usuário:** a cascata apaga tudo.
 - **V1.1:**
   - `tarefas.meta_id` (FK para metas, `ON DELETE SET NULL`);
@@ -166,7 +168,7 @@ Erros seguem o formato `{ erro: { codigo, mensagem } }`, com HTTP 400, 401, 404,
 | Apagar conversa | `DELETE /api/conversas/:id` | Histórico e ⋯ do topo do Chat (depois de 5 s sem desfazer) | — | 204 | cascata; os itens salvos ficam |
 | Apagar mensagem | `DELETE /api/mensagens/:id` | folha de ações do balão, aberta por pressão longa (depois de 5 s sem desfazer) | `?com_resposta=1` (opcional) | 204 | posse por mensagem → conversa → usuário (404 se não for do Marco); `com_resposta` só vale para mensagem do Marco (400 se for do José) e apaga também a resposta do José logo depois; cascata nas sugestões; itens salvos ficam; se não houver resposta logo depois, apaga só a mensagem e também devolve 204; **se a conversa ficou sem nenhuma mensagem e é do tipo `normal`, o servidor a apaga (e suas sugestões) na mesma transação e devolve 200 `{ "conversa_apagada": true }`** (conversa `boas_vindas` nunca é apagada por aqui: 204); mensagem inexistente responde 404 e o app trata esse 404 como "já apagada" |
 | Enviar mensagem | `POST /api/conversas/:id/mensagens` | Chat | `{id (uuid do app), texto (1–4000), origem}` | **SSE** com os eventos `texto` (delta), `sugestao` ({id, tipo, conteudo}), `fim` ({mensagem_id, titulo?}) e `erro` | monta o contexto (regra 1); grava a mensagem do Marco antes de chamar a IA; **id repetido não duplica, só gera a resposta que falta** (regra 11); grava a resposta e o `usage` ao fim; 429 no limite diário |
-| Transcrever áudio | `POST /api/voz` | Botão 🎤 | `multipart: audio` (≤ 2 min, 10 MB; webm/mp4/m4a) | `{texto}` | idioma `pt`; o áudio fica só em memória e é descartado; 413 se grande; 429 no limite |
+| Transcrever áudio | `POST /api/voz` | Botão 🎤 | `multipart: audio` (≤ 10 MB) e `duracao_ms` (opcional; ≤ ~2 min) | `{texto}` (pode ser vazio) | sessão e `Origin` como as demais; tipo pelo Content-Type real do arquivo, ignorando parâmetros (`audio/webm;codecs=opus` vale): aceita `audio/webm`, `audio/mp4`, `audio/m4a` (e `x-m4a`), `audio/ogg`, `audio/mpeg`, `audio/wav` (e `x-wav`), mais `video/mp4` e `video/webm` por defesa (alguns navegadores rotulam assim o áudio); **400** formato inválido, campo ausente, áudio vazio ou `duracao_ms` acima de ~2 min (125 s); **413** acima de 10 MB; **429 `limite_voz`** no 61º pedido do dia (conta antes do Whisper, só depois de validar o pedido); **500 `transcricao_falhou`** se o Whisper falhar; idioma `pt`; o áudio fica só em memória e é descartado; logs só com tipo, tamanho e tempo (nunca o áudio nem o texto) |
 | Salvar sugestão | `POST /api/sugestoes/:id/salvar` | Cartão | `{conteudo?}` (editado) | `{item}` | só se `pendente` (senão 409); cria o item; grava `item_id` |
 | Descartar sugestão | `POST /api/sugestoes/:id/descartar` | Cartão | — | 204 | só se `pendente` |
 | Salvar selecionadas | `POST /api/conversas/:id/sugestoes/lote` | Boas-vindas | `{salvar: [{id, conteudo?}], descartar: [id]}` | `{itens[]}` | transação única |
@@ -183,7 +185,7 @@ Erros seguem o formato `{ erro: { codigo, mensagem } }`, com HTTP 400, 401, 404,
 |------|--------|---------|
 | Escopo do MVP | completo · enxuto | **Enxuto** (decisão do Marco). Ficam para a V1.1: progresso e ligação de metas, meta pausada, filtros, busca no histórico, "Pensar melhor" e exportar. O modo Decidir fica no MVP |
 | Transcrição de voz | Web Speech API · Whisper no Workers AI · outro provedor | **Workers AI Whisper**. Risco: aceitar o formato mp4/AAC do Safari no iPhone. **Testar na onda 1** com um áudio gravado no iPhone real. Plano B: converter no cliente ou trocar de provedor atrás do adaptador |
-| Gravação de voz | segurar o botão · tocar para gravar e parar | **Tocar para gravar e tocar para parar** (decisão do Marco), mais confiável no PWA do iPhone |
+| Gravação de voz | segurar o botão · tocar para gravar e parar | **Tocar para gravar e tocar para parar** (decisão do Marco), mais confiável no PWA do iPhone. O formato vem do suporte do navegador (`MediaRecorder.isTypeSupported`): `audio/mp4` no iPhone (validado na onda 1) e `audio/webm;codecs=opus` no Android e no computador. A gravação é cancelada (e o microfone liberado) ao sair da tela |
 | Login no PWA do iPhone | — | Risco: o PWA instalado e o Safari podem não dividir cookies. **Validar na onda 1 no iPhone real**, antes do chat |
 | Autenticação | Cloudflare Access · OAuth próprio · senha | **OAuth Google próprio**, com allowlist estrita e "Sair de todos os aparelhos" |
 | Apagar não pode burlar o limite | contar as mensagens existentes · tabela de contagem | **Tabela `uso_diario`**, incrementada ao gravar cada resposta e nunca decrementada |

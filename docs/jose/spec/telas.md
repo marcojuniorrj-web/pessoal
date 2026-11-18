@@ -97,8 +97,12 @@ título, o topo mostra "Nova conversa".
 
     Para sair do modo decisão, toca-se em **✎ (nova conversa)**.
   - **Faixa "Instalar na tela inicial"**, mostrada uma única vez depois das boas-vindas. No iPhone, ela explica: Compartilhar → Adicionar à Tela de Início.
-  - **Rodapé:** campo "Fale com o José…", botão 🎤 e botão enviar.
-    - O 🎤 funciona com **um toque para gravar e outro para parar e enviar**, e ✕ cancela a gravação.
+  - **Rodapé:** campo "Fale com o José…" e **um único botão de ação à direita**, como no WhatsApp: com o campo **vazio** ele é o **🎤** (ícone SVG, `aria-label` "Gravar áudio"); com texto digitado vira **Enviar**. A voz nunca apaga o que o Marco digitou: se já há texto no campo, o botão é Enviar.
+    - **Gesto por toque, não por segurar:** tocar no 🎤 começa a gravar (a 1ª vez o aparelho pede a permissão do microfone). Durante a gravação o rodapé vira uma **barra de gravação**: **✕** (cancelar, descarta o áudio) à esquerda; no meio um ponto âmbar pulsante (parado com "reduzir movimento") e o **contador regressivo** a partir de 2:00 (`m:ss`); **■** (parar e enviar) à direita, no lugar do 🎤. Aos 2:00 a gravação para sozinha e é enviada. Esc cancela (não quando uma folha, o menu ⋯ ou a gaveta estão abertos: aí o Esc fecha só eles).
+    - Depois de parar, a barra mostra "Transcrevendo áudio…" e o texto transcrito é **enviado como mensagem** com `origem = voz`: balão do Marco com um ícone 🎤 pequeno (`aria-label` "Enviado por voz") e o texto; o José responde normalmente. A mensagem de voz segue as mesmas regras das de texto (pressão longa, Copiar, Apagar com Desfazer, conversa vazia some).
+    - **Offline, ou enquanto o José ainda responde:** o 🎤 fica desabilitado, como o Enviar. Se na hora de enviar o texto transcrito o José já estiver respondendo (ou a rede cair), o texto vai para o campo para o Marco enviar, sem perder nada.
+    - O microfone é liberado (`stream.getTracks().forEach(t => t.stop())`) ao cancelar, ao enviar, ao trocar de aba, conversa ou rota, ao desmontar o Chat e quando o app vai para o segundo plano (`visibilitychange` hidden): nesse caso a gravação é **cancelada** e, ao voltar, aparece "Gravação cancelada (o app saiu da tela)". Nenhum timer fica solto.
+    - O rascunho do campo (localStorage por conversa) não é perdido ao gravar.
 - **Ações:**
   - **Enviar mensagem:** a resposta do José aparece em streaming.
   - **Salvar no cartão:** o cartão vira "✓ Salvo em Tarefas" (ou "✓ Salvo em José sabe").
@@ -111,16 +115,19 @@ título, o topo mostra "Nova conversa".
 - **Estados:**
   - vazio: saudação conforme o horário ("Bom dia, Marco.") e os 4 atalhos;
   - carregando: "José está pensando…" com três pontinhos;
-  - gravando: o microfone fica âmbar, com um contador regressivo a partir de 2:00 que para sozinho ao chegar a zero;
+  - gravando: barra de gravação (✕, ponto âmbar pulsante, contador regressivo a partir de 2:00 e ■) que para sozinha e envia ao chegar a zero;
   - áudio com menos de 1 s: é descartado sem aviso;
   - transcrevendo: "Transcrevendo áudio…";
-  - erro de transcrição: "Não entendi o áudio. Tenta de novo ou digita.";
+  - erro de transcrição (falha do servidor ou da rede): "Não entendi o áudio. Tenta de novo ou digita."; nada do que o Marco digitou se perde;
+  - transcrição vazia (sem fala): "Não ouvi nada no áudio. Tenta de novo ou digita.";
+  - gravação cancelada porque o app saiu da tela: "Gravação cancelada (o app saiu da tela)";
+  - limite diário de voz (60 transcrições por dia): "Limite de voz de hoje atingido. Digite sua mensagem.";
   - erro na IA ou resposta interrompida no meio: balão de erro com **Tentar de novo**, sem perder o texto digitado;
   - erro ao salvar um cartão: "Não salvou. Tentar de novo";
   - sem internet: faixa "Offline" e envio desabilitado;
   - limite diário atingido: "Limite de hoje atingido, volta amanhã.";
-  - microfone negado: "Libere o microfone nas configurações para usar voz."
-- **Mobile:** o campo de digitação sobe junto com o teclado. Botões com pelo menos 48px. Nada passa da largura da tela (320px e 390px), mesmo com balão de texto longo ou palavra sem espaços; o balão não tem botões ao lado que o empurrem para fora; a folha de ações não é coberta pelo aviso (toast); a barra de abas nunca some; o aviso (toast) não cobre campo, formulário nem cartões.
+  - microfone negado: "Libere o microfone nas configurações para usar voz." No iPhone a mensagem acrescenta "Ajustes > Safari (ou José) > Microfone".
+- **Mobile:** o campo de digitação sobe junto com o teclado. Botões com pelo menos 48px. Nada passa da largura da tela (320px e 390px), mesmo com balão de texto longo ou palavra sem espaços; o balão não tem botões ao lado que o empurrem para fora; a folha de ações não é coberta pelo aviso (toast); a barra de abas nunca some; o aviso (toast) não cobre campo, barra de gravação, formulário nem cartões. O botão de ação e a barra de gravação (✕, ■) têm pelo menos 48px e o contador tem contraste de pelo menos 4,5:1. O documento do Chat não rola (só a lista de mensagens).
 
 ### 4. Histórico de conversas (gaveta lateral do Chat)
 - **Perfil:** Marco.
