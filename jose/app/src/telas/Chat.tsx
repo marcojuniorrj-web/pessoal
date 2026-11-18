@@ -301,6 +301,18 @@ export function Chat({ boasVindas }: { boasVindas?: ConfigBoasVindas } = {}) {
     salvarRascunho(conversa.id, novo);
   };
 
+  // Ao escolher uma resposta rápida os botões saem de cena: o foco nunca se perde no body (teclado). No mouse vai ao campo; no celular,
+  // ao Pular (focar o campo abriria o teclado do aparelho).
+  const temRapidas = !!perguntaAtual?.respostasRapidas.length && !vozAtiva;
+  const tinhaRapidasRef = useRef(false);
+  useEffect(() => {
+    if (bv && tinhaRapidasRef.current && !temRapidas && (!document.activeElement || document.activeElement === document.body)) {
+      const alvo = window.matchMedia('(pointer: coarse)').matches ? document.querySelector<HTMLElement>('.bv__pular') : campoRef.current;
+      alvo?.focus({ preventScroll: true });
+    }
+    tinhaRapidasRef.current = temRapidas;
+  }, [bv, temRapidas]);
+
   // Pular falhou (sem rede ou erro do servidor): o aviso fica acima do rodapé e o Pular continua à mão para tentar de novo.
   useEffect(() => {
     if (bem.erroPular) toast('Não foi possível pular. Tente de novo.');

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { PERGUNTAS_BOAS_VINDAS } from '../compartilhado/boasvindas';
 import { contraste } from '../app/src/estilo/contraste';
-import { simularApi, simularMemorias, simularChat } from './apoio';
+import { prepararMicrofone, simularApi, simularMemorias, simularChat, simularVoz } from './apoio';
 import { conversaBV, QUATRO_MEMORIAS, RESPOSTAS, simularBoasVindas, type BoasVindasFalsas } from './apoio-boasvindas';
 import { elementosForaDaTela, medir, menoresQue } from './medidas';
 
@@ -85,6 +85,7 @@ test.describe('Boas-vindas: o fluxo do 1º acesso', () => {
     // volta ao Chat (com a barra de abas) e a flag vale
     await expect(page).toHaveURL(/\/$/);
     await expect(barraAbas(page)).toBeVisible();
+    await expect(page.locator('html')).not.toHaveAttribute('data-sem-abas', /.*/); // o aviso volta a ficar acima da barra de abas
     await expect(page.getByRole('heading', { name: /Marco\./ })).toBeVisible();
     expect(f.lotes).toEqual([
       {
@@ -274,6 +275,27 @@ test.describe('Boas-vindas: erros sem perder o que já foi feito', () => {
   });
 });
 
+test.describe('Boas-vindas: voz (a mesma interface do Chat)', () => {
+  test('o 🎤 do rodapé grava, transcreve e envia a resposta como voz; a próxima pergunta aparece', async ({ page }) => {
+    await simularApi(page);
+    const voz = await simularVoz(page, { texto: 'Acordo às 6h e vou dormir às 22h.' });
+    await prepararMicrofone(page);
+    const memorias = await simularMemorias(page);
+    const f = await simularBoasVindas(page, {}, memorias);
+    await page.goto('/');
+    await expect(progresso(page)).toHaveText('Pergunta 1 de 5');
+    await page.getByRole('button', { name: 'Gravar áudio' }).click();
+    await expect(page.getByRole('button', { name: 'Parar e enviar áudio' })).toBeVisible();
+    await page.waitForTimeout(1300);
+    await page.getByRole('button', { name: 'Parar e enviar áudio' }).click();
+    await expect(page.locator('.balao--marco')).toContainText('Acordo às 6h e vou dormir às 22h.');
+    await expect(progresso(page)).toHaveText('Pergunta 2 de 5');
+    expect(voz.pedidos).toHaveLength(1);
+    expect(f.envios[0]).toMatchObject({ origem: 'voz', texto: 'Acordo às 6h e vou dormir às 22h.' });
+    await expect(page.getByRole('img', { name: 'Enviado por voz' })).toBeVisible();
+  });
+});
+
 test.describe('Refazer as boas-vindas', () => {
   test('Ajustes › Refazer boas-vindas abre uma nova conversa, mesmo com as boas-vindas concluídas, e termina no Chat', async ({ page }) => {
     const { f } = await abrir(page, { concluida: true }, '/ajustes');
@@ -417,6 +439,19 @@ test.describe('Boas-vindas: acessibilidade', () => {
       });
     });
     for (const c of cores) expect(contraste(c.texto, c.fundo), `${c.sel} ${c.texto} sobre ${c.fundo}`).toBeGreaterThanOrEqual(4.5);
+  });
+
+  test('teclado: depois de escolher uma resposta rápida o foco não se perde no body', async ({ page }) => {
+    await abrir(page);
+    await responder(page, RESPOSTAS[0]!);
+    await responder(page, RESPOSTAS[1]!);
+    await responder(page, RESPOSTAS[2]!);
+    await expect(progresso(page)).toHaveText('Pergunta 4 de 5');
+    const botao = page.getByRole('group', { name: 'Respostas rápidas' }).getByRole('button', { name: 'Decidir' });
+    await botao.focus();
+    await page.keyboard.press('Enter');
+    await expect(progresso(page)).toHaveText('Pergunta 5 de 5');
+    await expect.poll(() => page.evaluate(() => document.activeElement?.tagName ?? 'BODY')).not.toBe('BODY');
   });
 
   test('teclado: Tab chega ao Pular, às caixas e ao Salvar; Espaço marca e desmarca; o foco fica visível', async ({ page }) => {
