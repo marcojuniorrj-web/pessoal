@@ -1,5 +1,6 @@
 @import './tokens.css';
 @import './chat.css';
+@import './tarefas.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #raiz { height: 100%; margin: 0; }

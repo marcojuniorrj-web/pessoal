@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { FUSO_PADRAO } from '@compartilhado/datas';
 import type { Usuario } from '@compartilhado/schemas';
 import { api, ErroHttp, ErroRede, registrarAoNaoAutenticado } from '../api/cliente';
+import { limparCachesDeListas } from './cache-lista';
 
 type Estado =
   | { situacao: 'carregando' }
@@ -37,6 +38,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       if (e instanceof ErroHttp && e.status === 401) {
         localStorage.removeItem(CHAVE_CACHE);
+        limparCachesDeListas();
         setEstado({ situacao: 'deslogado' });
       } else if (e instanceof ErroRede) {
         // Offline: abre com o último usuário conhecido, só para leitura.
@@ -73,6 +75,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     registrarAoNaoAutenticado(() => {
       localStorage.removeItem(CHAVE_CACHE);
+      limparCachesDeListas();
       setEstado((atual) => (atual.situacao === 'deslogado' ? atual : { situacao: 'deslogado' }));
     });
     return () => registrarAoNaoAutenticado(null);
@@ -83,6 +86,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       estado,
       sessaoExpirou: () => {
         localStorage.removeItem(CHAVE_CACHE);
+        limparCachesDeListas();
         setEstado({ situacao: 'deslogado' });
       },
       recarregar: () => void carregar(),

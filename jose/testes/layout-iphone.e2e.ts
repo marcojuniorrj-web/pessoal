@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { memoriaFalsa, simularApi, simularMemorias } from './apoio';
+import { memoriaFalsa, simularApi, simularMemorias, simularTarefas } from './apoio';
 import { elementosComTransbordo } from './medidas';
 
 // Garante o que quebrou no iPhone: nada passa da largura da tela e a barra de abas nunca some sozinha.
@@ -8,6 +8,7 @@ for (const largura of [320, 390]) {
     await page.setViewportSize({ width: largura, height: 700 });
     await simularApi(page);
     await simularMemorias(page);
+    await simularTarefas(page);
     await page.goto('/');
     await expect(page.getByRole('heading', { name: /Marco\./ })).toBeVisible();
 
@@ -28,6 +29,7 @@ for (const largura of [320, 390]) {
 
 test('Chat: sair para outra aba funciona, e o foco no campo não deixa a barra de abas presa', async ({ page }) => {
   await simularApi(page);
+  await simularTarefas(page);
   await page.goto('/');
   const campo = page.getByRole('textbox');
   await campo.focus();

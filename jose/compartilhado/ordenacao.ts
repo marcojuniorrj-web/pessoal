@@ -37,3 +37,8 @@ export function ordenarPendentes<T extends { prazo: string | null; criada_em: st
 export function ordenarConcluidas<T extends { concluida_em: string | null; criada_em: string }>(itens: readonly T[]): T[] {
   return [...itens].sort((a, b) => instante(b.concluida_em ?? '') - instante(a.concluida_em ?? '') || instante(b.criada_em) - instante(a.criada_em));
 }
+
+/** Metas ativas: a mais nova primeiro (criada_em decrescente; estável). */
+export function ordenarMaisNovaPrimeiro<T extends { criada_em: string }>(itens: readonly T[]): T[] {
+  return [...itens].sort((a, b) => instante(b.criada_em) - instante(a.criada_em));
+}

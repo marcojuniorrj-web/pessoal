@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { novaConversa, simularApi, simularChat } from './apoio';
+import { novaConversa, simularApi, simularChat, simularTarefas } from './apoio';
 
 import type { Locator } from '@playwright/test';
 /** O botão que abre a conversa (o nome acessível leva também a hora/data; o ⋯ começa com "Mais opções"). */
@@ -186,6 +186,7 @@ test.describe('Gaveta de Histórico (2.9)', () => {
 
   test('o apagamento continua mesmo trocando de aba durante os 5 s', async ({ page }) => {
     await simularApi(page);
+    await simularTarefas(page);
     const f = await simularChat(page, { conversas: conversas(), hoje: 'a' });
     await page.goto('/');
     await page.getByRole('button', { name: 'Histórico' }).click();

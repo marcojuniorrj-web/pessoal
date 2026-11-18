@@ -1,5 +1,5 @@
 // Metas (dados.md, entidade Meta). Toda consulta filtra por usuario_id.
-import { ordenarConcluidas } from '@compartilhado/ordenacao';
+import { ordenarConcluidas, ordenarMaisNovaPrimeiro } from '@compartilhado/ordenacao';
 import type { MetaAtualizacao, MetaEntrada } from '@compartilhado/schemas';
 import { uuidv7 } from '../../compartilhado/id';
 import type { OrigemItem } from './repositorio';
@@ -42,7 +42,7 @@ export const LIMITE_METAS_CONCLUIDAS = 100;
  */
 export async function listarMetas(db: D1Database, usuarioId: string): Promise<MetaLinha[]> {
   const { results } = await db.prepare('SELECT * FROM metas WHERE usuario_id = ? ORDER BY rowid DESC').bind(usuarioId).all<MetaLinha>();
-  const ativas = results.filter((m) => m.status === 'ativa').sort((a, b) => Date.parse(b.criada_em) - Date.parse(a.criada_em));
+  const ativas = ordenarMaisNovaPrimeiro(results.filter((m) => m.status === 'ativa'));
   const concluidas = ordenarConcluidas(results.filter((m) => m.status === 'concluida')).slice(0, LIMITE_METAS_CONCLUIDAS);
   return [...ativas, ...concluidas];
 }

@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { simularApi, simularMemorias } from './apoio';
+import { simularApi, simularMemorias, simularTarefas } from './apoio';
 
 test('navega por todas as telas e volta, sem beco sem saída', async ({ page }) => {
   await simularApi(page);
   await simularMemorias(page);
+  await simularTarefas(page);
   await page.goto('/');
   const abas = page.getByRole('navigation', { name: 'Navegação principal' });
   await expect(abas).toBeVisible();
@@ -38,6 +39,7 @@ test('sem sessão (401) leva ao Login guardando a rota de volta', async ({ page 
 test('no computador o conteúdo fica numa coluna de até 680px', async ({ page }, info) => {
   test.skip(info.project.name !== 'computador');
   await simularApi(page);
+  await simularTarefas(page);
   await page.goto('/tarefas');
   const largura = await page.locator('main').evaluate((e) => e.getBoundingClientRect().width);
   expect(largura).toBeLessThanOrEqual(680);

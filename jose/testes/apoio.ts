@@ -224,3 +224,82 @@ export async function simularMemorias(page: Page, inicial: Partial<MemoriasFalsa
   });
   return f;
 }
+
+// ---- API de tarefas e metas simulada (aba Tarefas) ----
+export interface TarefaFalsa {
+  id: string; titulo: string; area: string; prazo: string | null; concluida: boolean; concluida_em: string | null; origem: 'chat' | 'manual' | 'boas_vindas'; criada_em: string;
+}
+export interface MetaFalsa {
+  id: string; titulo: string; area: string; prazo: string | null; status: 'ativa' | 'concluida'; concluida_em: string | null; origem: 'chat' | 'manual' | 'boas_vindas'; criada_em: string;
+}
+
+export interface TarefasFalsas {
+  tarefas: TarefaFalsa[];
+  metas: MetaFalsa[];
+  /** GET de tarefas/metas responde 500. */
+  listaFalha: boolean;
+  /** Atraso (ms) antes de responder ao GET (para ver o esqueleto). */
+  atrasoMs: number;
+  /** Quantas escritas (POST/PATCH) devem falhar com 500 antes de funcionar. */
+  escritaFalhas: number;
+  /** Chamadas recebidas, na ordem: { rota: 'tarefas' | 'metas', metodo, id?, corpo? }. */
+  chamadas: Array<{ rota: 'tarefas' | 'metas'; metodo: string; id?: string; corpo?: Record<string, unknown> }>;
+}
+
+let sequenciaFalsa = 0;
+/** Prazo = hoje (no fuso de São Paulo) + `dias`. Com `page.clock.setFixedTime` o "hoje" do app e o daqui são o mesmo dia. */
+export function diaRelativo(dias: number, base: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(base.getTime() + dias * 86_400_000));
+}
+export const tarefaFalsa = (titulo: string, extra: Partial<TarefaFalsa> = {}): TarefaFalsa => {
+  const n = ++sequenciaFalsa;
+  return { id: `t${n}`, titulo, area: 'trabalho', prazo: null, concluida: false, concluida_em: null, origem: 'manual', criada_em: new Date(Date.UTC(2026, 10, 1, 0, 0, n)).toISOString(), ...extra };
+};
+export const metaFalsa = (titulo: string, extra: Partial<MetaFalsa> = {}): MetaFalsa => {
+  const n = ++sequenciaFalsa;
+  return { id: `m${n}`, titulo, area: 'saude', prazo: null, status: 'ativa', concluida_em: null, origem: 'manual', criada_em: new Date(Date.UTC(2026, 10, 1, 0, 0, n)).toISOString(), ...extra };
+};
+
+export async function simularTarefas(page: Page, inicial: Partial<TarefasFalsas> = {}): Promise<TarefasFalsas> {
+  const f: TarefasFalsas = { tarefas: [], metas: [], listaFalha: false, atrasoMs: 0, escritaFalhas: 0, chamadas: [], ...inicial };
+  let proximo = 1000;
+  for (const rotaNome of ['tarefas', 'metas'] as const) {
+    await page.route((url) => url.pathname === `/api/${rotaNome}` || url.pathname.startsWith(`/api/${rotaNome}/`), async (rota) => {
+      const req = rota.request();
+      const partes = new URL(req.url()).pathname.split('/').filter(Boolean); // api, tarefas, [id]
+      const json = (status: number, corpo: unknown) => rota.fulfill({ status, json: corpo });
+      const erro500 = () => json(500, { erro: { codigo: 'erro_interno', mensagem: 'x' } });
+      const metodo = req.method();
+      const lista = (rotaNome === 'tarefas' ? f.tarefas : f.metas) as Array<TarefaFalsa & MetaFalsa>;
+      if (metodo === 'GET') {
+        f.chamadas.push({ rota: rotaNome, metodo });
+        if (f.atrasoMs) await new Promise((r) => setTimeout(r, f.atrasoMs));
+        if (f.listaFalha) return erro500();
+        return json(200, lista);
+      }
+      const corpo = (req.postDataJSON() ?? undefined) as Record<string, unknown> | undefined;
+      f.chamadas.push({ rota: rotaNome, metodo, id: partes[2], corpo });
+      if (metodo !== 'DELETE' && f.escritaFalhas > 0) { f.escritaFalhas--; return erro500(); }
+      if (metodo === 'POST') {
+        const base = { id: `novo${proximo++}`, titulo: String(corpo!.titulo).trim(), area: String(corpo!.area), prazo: (corpo!.prazo as string | null | undefined) ?? null, origem: 'manual' as const, criada_em: new Date().toISOString() };
+        const novo = rotaNome === 'tarefas' ? { ...base, concluida: false, concluida_em: null } : { ...base, status: 'ativa' as const, concluida_em: null };
+        lista.push(novo as never);
+        return json(201, novo);
+      }
+      const item = lista.find((x) => x.id === partes[2]);
+      if (!item) return json(404, { erro: { codigo: 'nao_encontrado', mensagem: 'Não encontrado.' } });
+      if (metodo === 'PATCH') {
+        const c = corpo as { titulo?: string; area?: string; prazo?: string | null; concluida?: boolean; status?: 'ativa' | 'concluida' };
+        if (c.titulo !== undefined) item.titulo = c.titulo.trim();
+        if (c.area !== undefined) item.area = c.area;
+        if (c.prazo !== undefined) item.prazo = c.prazo;
+        if (c.concluida !== undefined) { item.concluida = c.concluida; item.concluida_em = c.concluida ? new Date().toISOString() : null; }
+        if (c.status !== undefined) { item.status = c.status; item.concluida_em = c.status === 'concluida' ? new Date().toISOString() : null; }
+        return json(200, item);
+      }
+      lista.splice(lista.indexOf(item), 1);
+      return rota.fulfill({ status: 204 });
+    });
+  }
+  return f;
+}

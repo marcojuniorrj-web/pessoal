@@ -15,7 +15,7 @@ Fase 4 (ferramentas, cartões e rotas de sugestão).
 - [x] 5.3 CRUD `/api/metas` (status `ativa`/`concluida`). **Aceite:** testes de validação e de posse.
 - [x] 5.4 As tarefas pendentes (até 50) e as metas ativas entram no contexto. **Aceite:** caso golden — com 3 tarefas, uma delas atrasada, "o que faço hoje?" prioriza a atrasada.
 - [x] 5.5 CartaoSugestao para tarefa e meta: edição com chips de área e seletor de prazo (opcional); "✓ Salvo em Tarefas". **Aceite:** testes de componente.
-- [ ] 5.6 Aba Tarefas:
+- [x] 5.6 Aba Tarefas:
   - sub-abas Tarefas e Metas;
   - círculo de concluir com "Feito! Desfazer";
   - editar, apagar com "Desfazer" e "+ Adicionar";

@@ -1,0 +1,44 @@
+/* Aba Tarefas (telas.md, tela 5): sub-abas, lista de tarefas e metas. Nada passa da largura da tela: títulos longos e palavras de 80 caracteres quebram. */
+.tela--tarefas { padding-bottom: 96px; min-width: 0; }
+.tela__painel { display: flex; flex-direction: column; gap: 16px; min-width: 0; flex: 1; }
+
+.subabas { display: flex; gap: 4px; padding: 4px; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
+.subabas__item {
+  flex: 1; min-width: 0; min-height: var(--alvo-minimo); padding: 0 12px; background: transparent; border: 0; border-radius: 12px;
+  color: var(--texto-2); cursor: pointer;
+}
+.subabas__item[aria-selected='true'] { background: var(--superficie-2); color: var(--destaque); font-weight: 600; }
+
+.itens { display: flex; flex-direction: column; gap: 12px; min-width: 0; flex: 1; }
+.itens__adicionar { align-self: stretch; }
+.itens__tudo { padding: 8px 4px; }
+.itens__lista { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; min-width: 0; }
+
+/* Cada item tem no mínimo 72 px (círculo de 48 px, título e a linha da área/prazo): cabem poucos por tela, para reduzir estímulo. */
+.item { position: relative; display: flex; align-items: stretch; min-width: 0; min-height: 72px; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
+.item .form-memoria { border: 0; }
+.item__circulo { flex-shrink: 0; width: var(--alvo-minimo); min-height: 72px; padding: 0; display: grid; place-items: center; background: transparent; border: 0; cursor: pointer; }
+.item__circulo:disabled { cursor: default; }
+.item__marca {
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--texto-2); display: grid; place-items: center;
+  color: var(--texto-sobre-destaque); font-size: 16px; font-weight: 700; line-height: 1;
+}
+.item[data-feita] .item__marca { background: var(--sucesso); border-color: var(--sucesso); }
+.item__abrir {
+  flex: 1; min-width: 0; min-height: 72px; display: grid; align-content: center; gap: 4px; padding: 8px 4px; background: transparent; border: 0;
+  text-align: left; cursor: pointer; color: inherit; overflow-wrap: anywhere; word-break: break-word;
+}
+.item__abrir:disabled { cursor: default; }
+.item__titulo { min-width: 0; line-height: 1.35; overflow-wrap: anywhere; }
+.item[data-feita] .item__titulo { color: var(--texto-2); text-decoration: line-through; }
+.item__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; }
+.item__prazo { font-size: var(--pequeno); overflow-wrap: anywhere; }
+.item[data-situacao='atrasada'] .item__prazo { color: var(--erro); font-weight: 600; }
+.item[data-situacao='hoje'] .item__prazo { color: var(--destaque); font-weight: 600; }
+.item__mais { flex-shrink: 0; min-width: var(--alvo-minimo); min-height: 72px; background: transparent; border: 0; font-size: 20px; cursor: pointer; }
+.item__menu { position: absolute; right: 8px; top: calc(100% - 8px); z-index: 2; background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 12px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); }
+.item__menu-item { min-height: var(--alvo-minimo); padding: 0 20px; background: transparent; border: 0; color: var(--erro); cursor: pointer; }
+.item .form-item { flex: 1; width: 100%; }
+
+.itens__concluidas { display: grid; gap: 6px; min-width: 0; }
+.itens__alternar { min-height: var(--alvo-minimo); display: flex; align-items: center; gap: 8px; padding: 0 4px; background: transparent; border: 0; color: var(--texto-2); text-align: left; cursor: pointer; }
