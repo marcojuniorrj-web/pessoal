@@ -22,6 +22,9 @@ export const tarefaEntradaSchema = z.object({ titulo, area: areaItemSchema, praz
 export const metaEntradaSchema = z.object({ titulo, area: areaItemSchema, prazo: prazoSchema.nullish() });
 export const memoriaEntradaSchema = z.object({ texto: textoMemoria, area: areaMemoriaSchema });
 
+/** Edição parcial de memória (PATCH): ao menos um campo. */
+export const memoriaAtualizacaoSchema = memoriaEntradaSchema.partial().refine((v) => v.texto !== undefined || v.area !== undefined, 'Informe texto ou área');
+
 export const conteudoSugestaoSchema = {
   tarefa: tarefaEntradaSchema,
   meta: metaEntradaSchema,
