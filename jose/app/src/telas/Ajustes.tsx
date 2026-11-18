@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/cliente';
 import { Botao } from '../componentes/Botao';
 import { useToast } from '../componentes/Toast';
@@ -14,8 +14,6 @@ export function Ajustes() {
   const toast = useToast();
   const [confirmar, setConfirmar] = useState<Pergunta>(null);
   const [saindo, setSaindo] = useState(false);
-  const [params] = useSearchParams();
-  const mostrarTesteVoz = import.meta.env.DEV || params.get('teste') === '1';
 
   // Esc fecha a confirmação, como o Cancelar.
   useEffect(() => {
@@ -74,12 +72,6 @@ export function Ajustes() {
           <Botao onClick={() => setConfirmar('sair')}>Sair</Botao>
           <Botao onClick={() => setConfirmar('sair-todos')}>Sair de todos os aparelhos</Botao>
         </div>
-      )}
-
-      {mostrarTesteVoz && (
-        <Link to="/teste-voz" className="botao botao--link">
-          Teste de voz (temporário)
-        </Link>
       )}
 
       <p className="texto-2 versao">José versão {__VERSAO__}</p>

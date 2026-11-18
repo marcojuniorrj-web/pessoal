@@ -37,6 +37,11 @@ CHROME_PATH=/caminho/do/chrome npm run test:e2e   # Playwright (sem CHROME_PATH:
   Os testes automáticos (`npm test`) usam uma IA simulada e não precisam de chave.
 - Cada resposta grava `modelo` e tokens; os logs do Worker mostram `tokensCache` (se ficar 0 em conversas seguidas, o prefixo ainda está abaixo do mínimo de cache).
 
+## Voz no Chat
+- Com o campo vazio o botão da direita é o 🎤 (toque para gravar, ■ para parar e enviar, ✕ para cancelar; para sozinho aos 2:00). O áudio vai para `POST /api/voz`, é transcrito pelo Whisper (Workers AI) só em memória e descartado; o texto é enviado como mensagem de voz.
+- **Limite de 60 transcrições por dia** (fuso do Marco): a coluna `uso_diario.transcricoes` vem da migração `servidor/migracoes/0003_transcricoes_diarias.sql`. Depois de publicar uma versão com voz, aplique-a no banco real: `npm run db:migrar:remoto` (funciona sobre o banco existente; as linhas antigas ficam com 0).
+- Nos testes (`npm test` e Playwright) o Whisper é simulado e o navegador usa o microfone falso do Chromium (`--use-fake-device-for-media-stream`). O áudio real do iPhone/Android só se confirma no aparelho.
+
 ## Configurar o login com Google (uma vez)
 1. Em https://console.cloud.google.com crie um projeto e abra **APIs e serviços > Tela de permissão OAuth**: tipo *Externo*, em modo *Teste*, adicione seu Gmail como **usuário de teste**.
 2. **Credenciais > Criar credenciais > ID do cliente OAuth > Aplicativo da Web**. Em **URIs de redirecionamento autorizados** coloque:
@@ -74,7 +79,7 @@ Agende uma vez por semana (cron/launchd ou um lembrete). O Time Travel do D1 gua
 4. Peça a alguém para tentar entrar com outro Gmail: deve aparecer "Acesso negado".
 5. Toque nas 3 abas e em Ajustes > ←.
 6. Modo avião: o app abre e mostra "Offline".
-7. **Voz:** o link *Teste de voz (temporário)* só aparece em desenvolvimento; em produção abra `/ajustes?teste=1` (ou vá direto a `/teste-voz`) e toque no link. Grave "amanhã preciso ligar para o cliente às dez" e confira o texto. Anote o "Formato gravado" mostrado (esperado `audio/mp4` no iPhone). Repita no Android (webm). Se o iPhone falhar, registre em `docs/jose/plan/execucao.md` e acione o plano B (converter no cliente ou trocar o provedor atrás de `servidor/src/adaptadores/voz/`).
+7. **Voz:** no Chat, com o campo vazio, toque no 🎤 e fale (o contador desce de 2:00); toque em ■ para parar e enviar, ou em ✕ para cancelar. O texto transcrito vira uma mensagem com o 🎤 pequeno e o José responde. O formato gravado é `audio/mp4` no iPhone e `audio/webm` no Android. O roteiro completo da voz (permissão, 30 s, 2 min, segundo plano, microfone negado) está em `docs/jose/plan/fase3_voz.md`. Se o iPhone falhar, registre em `docs/jose/plan/execucao.md` e acione o plano B (converter no cliente ou trocar o provedor atrás de `servidor/src/adaptadores/voz/`).
 8. Ajustes > **Sair de todos os aparelhos**: volta ao Login.
 
 ## Emergência (celular perdido)
