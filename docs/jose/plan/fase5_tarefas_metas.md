@@ -23,7 +23,7 @@ Fase 4 (ferramentas, cartões e rotas de sugestão).
   - estados esqueleto, vazios e erro.
 
   **Aceite:** teste Playwright do fluxo completo; no máximo 7 itens visíveis sem rolar numa tela de 390px.
-- [ ] 5.7 Jornada "À noite": o prompt orienta que ideias e preocupações fiquem no texto e que só ações virem cartões (no máximo 3). **Aceite:** caso golden de "descarregar a cabeça" com no máximo 3 cartões de tarefa.
+- [x] 5.7 Jornada "À noite": o prompt orienta que ideias e preocupações fiquem no texto e que só ações virem cartões (no máximo 3). **Aceite:** caso golden de "descarregar a cabeça" com no máximo 3 cartões de tarefa.
 
 ## Como testar (roteiro para o Marco)
 1. No Chat, toque em "🌙 Descarregar a cabeça" e despeje: "ligar pro banco, revisar proposta do cliente até sexta, quero correr uma meia-maratona ano que vem, tô preocupado com o caixa".

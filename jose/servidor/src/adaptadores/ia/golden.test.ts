@@ -184,7 +184,14 @@ describe('avaliarCaso (casos de tarefas e metas, tarefas 5.1, 5.4 e 5.7)', () =>
 
   it('o prompt cobre a jornada "À noite": só ação vira cartão', () => {
     const t = secaoSugestoes(prompt.sugestoes, ['memoria', 'tarefa', 'meta']);
-    expect(`${prompt.base}\n${t}`).toMatch(/descarregar/i);
-    expect(t).toMatch(/Ideias e preocupações ficam só no texto|ideias soltas, desabafos e preocupações ficam só no texto/);
+    expect(t).toMatch(/Quando o Marco descarregar a cabeça \(à noite ou a qualquer hora\)/);
+    expect(t).toMatch(/Ideias e preocupações ficam só no texto: acolha em uma frase, sem cartão/);
+    expect(t).toMatch(/Só as ações viram cartão de tarefa, no máximo 3 por resposta/);
+    expect(t).toMatch(/sugira as mais importantes para amanhã/);
+    expect(t).toMatch(/objetivo maior.*meta, que conta nos 3 cartões/);
+    // sem a ferramenta de tarefa ligada, a orientação de cartões da noite não aparece
+    expect(secaoSugestoes(prompt.sugestoes, ['memoria'])).not.toMatch(/descarregar a cabeça/);
+    // o texto da jornada (acolher, 1 passo para amanhã) continua no prompt base
+    expect(prompt.base).toMatch(/descarregando a cabeça, acolha em 1 ou 2 frases/);
   });
 });
