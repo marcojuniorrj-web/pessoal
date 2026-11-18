@@ -54,7 +54,8 @@ export function rotasConversas(deps: Dependencias) {
       const seguinte = await mensagemSeguinte(c.env.DB, mensagem);
       if (seguinte?.autor === 'jose') ids.push(seguinte.id);
     }
-    await apagarMensagens(c.env.DB, ids);
+    // Conversa que ficou sem mensagens (e não é de boas-vindas) também é apagada: 200 com { conversa_apagada: true }.
+    if (await apagarMensagens(c.env.DB, mensagem.conversa_id, ids)) return c.json({ conversa_apagada: true });
     return c.body(null, 204);
   });
 

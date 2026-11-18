@@ -82,9 +82,20 @@ export async function mensagemSeguinte(db: D1Database, m: MensagemLinha): Promis
   return todas[todas.findIndex((x) => x.id === m.id) + 1] ?? null;
 }
 
-/** Apaga as mensagens (a cascata leva as sugestões; tarefas, metas e memórias salvas permanecem). */
-export async function apagarMensagens(db: D1Database, ids: string[]): Promise<void> {
-  await db.batch(ids.map((id) => db.prepare('DELETE FROM mensagens WHERE id = ?').bind(id)));
+/**
+ * Apaga as mensagens (a cascata leva as sugestões; tarefas, metas e memórias salvas permanecem) e, na MESMA transação,
+ * a conversa quando ela ficou sem nenhuma mensagem e é `normal` (a de boas-vindas nunca é apagada por aqui).
+ * Devolve se a conversa foi apagada.
+ */
+export async function apagarMensagens(db: D1Database, conversaId: string, ids: string[]): Promise<boolean> {
+  await db.batch([
+    ...ids.map((id) => db.prepare('DELETE FROM mensagens WHERE id = ?').bind(id)),
+    db
+      .prepare("DELETE FROM conversas WHERE id = ? AND tipo = 'normal' AND NOT EXISTS (SELECT 1 FROM mensagens WHERE conversa_id = ?)")
+      .bind(conversaId, conversaId),
+  ]);
+  const resta = await db.prepare('SELECT 1 AS n FROM conversas WHERE id = ?').bind(conversaId).first();
+  return !resta;
 }
 
 // ---- leitura para montar o contexto da IA (regra 1) ----

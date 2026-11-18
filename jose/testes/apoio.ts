@@ -117,6 +117,11 @@ export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}):
     const apagar = new Set([id, ...(comResposta && seguinte?.autor === 'jose' ? [seguinte.id] : [])]);
     conversa.mensagens = conversa.mensagens.filter((m) => !apagar.has(m.id));
     conversa.sugestoes = (conversa.sugestoes ?? []).filter((s) => !apagar.has(s.mensagem_id));
+    // Como o servidor: conversa `normal` que ficou sem mensagens também é apagada (200 com conversa_apagada).
+    if (conversa.mensagens.length === 0 && conversa.tipo === 'normal') {
+      f.conversas = f.conversas.filter((c) => c !== conversa);
+      return rota.fulfill({ status: 200, json: { conversa_apagada: true } });
+    }
     return rota.fulfill({ status: 204 });
   });
 

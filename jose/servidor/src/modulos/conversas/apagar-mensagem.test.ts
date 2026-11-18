@@ -102,3 +102,60 @@ describe('DELETE /api/mensagens/:id', () => {
     expect(j.sugestoes).toEqual([]);
   });
 });
+
+describe('conversa que fica sem mensagens', () => {
+  it('apagar a última mensagem apaga a conversa: 200 com { conversa_apagada: true }, cascata nas sugestões, itens salvos ficam', async () => {
+    const { t, cookie } = await cenario();
+    for (const id of ['m1', 'm3']) await t.env.DB.prepare('DELETE FROM mensagens WHERE id = ?').bind(id).run(); // sobram m2 e m4
+    expect((await apagar(t, cookie, '/api/mensagens/m2')).status).toBe(204); // ainda há m4: a conversa fica
+    expect(await n(t, "SELECT COUNT(*) AS n FROM conversas WHERE id='c1'")).toBe(1);
+    const r = await apagar(t, cookie, '/api/mensagens/m4');
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ conversa_apagada: true });
+    expect(await n(t, "SELECT COUNT(*) AS n FROM conversas WHERE id='c1'")).toBe(0);
+    expect(await n(t, 'SELECT COUNT(*) AS n FROM sugestoes')).toBe(0);
+    expect(await n(t, 'SELECT COUNT(*) AS n FROM tarefas')).toBe(1);
+    // a conversa e a mensagem do outro usuário continuam
+    expect(await n(t, "SELECT COUNT(*) AS n FROM conversas WHERE id='ca'")).toBe(1);
+    expect((await t.chamar('/api/conversas/c1', { headers: { cookie } })).status).toBe(404);
+  });
+
+  it('com_resposta que leva as duas últimas mensagens também apaga a conversa', async () => {
+    const { t, cookie } = await cenario();
+    await t.env.DB.prepare("DELETE FROM mensagens WHERE id IN ('m3','m4')").run();
+    const r = await apagar(t, cookie, '/api/mensagens/m1?com_resposta=1');
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ conversa_apagada: true });
+    expect(await n(t, "SELECT COUNT(*) AS n FROM conversas WHERE id='c1'")).toBe(0);
+    expect(await n(t, 'SELECT COUNT(*) AS n FROM mensagens')).toBe(1); // só a do outro usuário
+  });
+
+  it('conversa de boas-vindas NUNCA é apagada, mesmo vazia: 204', async () => {
+    const { t, cookie } = await cenario();
+    await t.env.DB.prepare("UPDATE conversas SET tipo = 'boas_vindas' WHERE id = 'c1'").run();
+    await t.env.DB.prepare("DELETE FROM mensagens WHERE id IN ('m2','m3','m4')").run();
+    const r = await apagar(t, cookie, '/api/mensagens/m1');
+    expect(r.status).toBe(204);
+    expect(await n(t, "SELECT COUNT(*) AS n FROM conversas WHERE id='c1'")).toBe(1);
+  });
+
+  it('mensagem de outra pessoa: 404 e a conversa dela não é tocada', async () => {
+    const { t, cookie } = await cenario();
+    expect((await apagar(t, cookie, '/api/mensagens/ma')).status).toBe(404);
+    expect(await n(t, "SELECT COUNT(*) AS n FROM conversas WHERE id='ca'")).toBe(1);
+    expect(await n(t, "SELECT COUNT(*) AS n FROM mensagens WHERE id='ma'")).toBe(1);
+  });
+
+  it('a conversa e a mensagem saem na mesma transação (um batch só)', async () => {
+    const { t, cookie } = await cenario();
+    await t.env.DB.prepare("DELETE FROM mensagens WHERE id IN ('m2','m3','m4')").run();
+    const batch = t.env.DB.batch.bind(t.env.DB);
+    let lotes = 0;
+    (t.env.DB as unknown as { batch: unknown }).batch = (c: Parameters<typeof batch>[0]) => {
+      lotes += 1;
+      return batch(c);
+    };
+    expect((await apagar(t, cookie, '/api/mensagens/m1')).status).toBe(200);
+    expect(lotes).toBe(1);
+  });
+});

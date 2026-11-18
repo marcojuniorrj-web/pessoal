@@ -78,6 +78,13 @@ export function Chat() {
   const listaRef = useRef<HTMLDivElement>(null);
   const conversaRef = useRef<string | null>(null);
   conversaRef.current = conversa.id;
+  const montadoRef = useRef(true);
+  useEffect(() => {
+    montadoRef.current = true;
+    return () => {
+      montadoRef.current = false;
+    };
+  }, []);
   const semRede = !online || (estado.situacao === 'logado' && estado.offline);
 
   // O rascunho da conversa aberta volta para o campo (ex.: depois de um 401 e novo login), mas nunca por cima
@@ -160,6 +167,7 @@ export function Chat() {
   const apagarMensagens = (b: Bolha, comResposta: boolean) => {
     const resposta = comResposta ? respostaDe(b) : null;
     const ids = resposta ? [b.id, resposta.id] : [b.id];
+    const conversaId = conversa.id; // a conversa de onde a mensagem saiu (o Marco pode trocar de conversa nos 5 s)
     // O foco não pode se perder no body: vai para o balão vizinho que fica (o seguinte, senão o anterior).
     const restantes = visiveis.filter((x) => !ids.includes(x.id) && x.estado === 'ok');
     const posicao = visiveis.findIndex((x) => x.id === b.id);
@@ -170,8 +178,13 @@ export function Chat() {
       id: b.id,
       mostrar: toast,
       apagar: async () => {
-        await apagarMensagem(b.id, !!resposta);
+        const conversaApagada = await apagarMensagem(b.id, !!resposta);
         removerBolhas(ids);
+        if (conversaApagada) {
+          // Era a última mensagem: o servidor apagou a conversa vazia junto. Se ela ainda está aberta, vai ao Chat vazio.
+          toast('Conversa vazia apagada.');
+          if (montadoRef.current && conversaRef.current === conversaId) ir('/?nova=1');
+        }
       },
       aoDesfazer: () => mostrarMensagens(ids),
       aoFalhar: () => {

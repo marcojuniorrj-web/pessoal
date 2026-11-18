@@ -80,12 +80,16 @@ export async function enviarMensagem(conversaId: string, msg: MensagemParaEnviar
   if (!terminou) throw new ErroInterrompido();
 }
 
-/** Apaga uma mensagem; `comResposta` leva também a resposta do José logo depois. Um 404 (já apagada) conta como feito. */
-export async function apagarMensagem(id: string, comResposta = false): Promise<void> {
+/**
+ * Apaga uma mensagem; `comResposta` leva também a resposta do José logo depois. Um 404 (já apagada) conta como feito.
+ * Devolve `true` quando a conversa ficou sem mensagens e o servidor a apagou junto (200 `{ conversa_apagada: true }`).
+ */
+export async function apagarMensagem(id: string, comResposta = false): Promise<boolean> {
   try {
-    await api.delete(`/api/mensagens/${encodeURIComponent(id)}${comResposta ? '?com_resposta=1' : ''}`);
+    const r = await api.delete<{ conversa_apagada?: boolean } | undefined>(`/api/mensagens/${encodeURIComponent(id)}${comResposta ? '?com_resposta=1' : ''}`);
+    return r?.conversa_apagada === true;
   } catch (e) {
-    if (e instanceof ErroHttp && e.status === 404) return;
+    if (e instanceof ErroHttp && e.status === 404) return false;
     throw e;
   }
 }

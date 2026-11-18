@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { horaMensagem, rotuloDia } from '../compartilhado/datas';
-import { novaConversa, simularApi, simularChat, type ChatFalso, type ConversaFalsa } from './apoio';
+import { novaConversa, simularApi, simularChat, simularTarefas, type ChatFalso, type ConversaFalsa } from './apoio';
 import { JANELA_ABERTURA_MS } from '../app/src/estado/pressao-longa';
 import { elementosForaDaTela, medir, menoresQue, sobrepoe } from './medidas';
 
@@ -15,6 +15,7 @@ const conversaA = (extra: Array<[string, string, number?]> = []): ConversaFalsa 
 
 async function abrir(page: Page, inicial: Partial<ChatFalso> = {}, conversas: ConversaFalsa[] = [conversaA()]) {
   await simularApi(page);
+  await simularTarefas(page);
   const f = await simularChat(page, { conversas, hoje: conversas[0]!.id, ...inicial });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: conversas[0]!.titulo ?? '' })).toBeVisible();
@@ -645,5 +646,61 @@ test.describe('Foco nos menus e depois de apagar (revisão)', () => {
     await page.getByRole('button', { name: 'Mais opções da conversa' }).click();
     await page.getByRole('menuitem', { name: 'Apagar conversa' }).click();
     await expect.poll(() => page.evaluate(() => document.activeElement?.className ?? '')).toContain('chat__nova');
+  });
+});
+
+test.describe('Conversa que fica vazia some junto (pedido do Marco)', () => {
+  test('apagar todas as mensagens: Chat vazio na hora; passados os 5 s a conversa some do Histórico, com o aviso "Conversa vazia apagada."', async ({ page }) => {
+    const outra = novaConversa('b', 'Outra conversa', 60 * 5, 'padrao', [['marco', 'oi', 300]]);
+    const f = await abrir(page, {}, [conversaA(), outra]);
+    await segurar(page, balaoMarco(page));
+    await folha(page).getByRole('button', { name: 'Apagar mensagem e resposta' }).click();
+    // durante os 5 s: estado vazio do Chat (saudação e atalhos), a conversa ainda existe no servidor
+    await expect(page.locator('.chat-vazio')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Travei/ })).toBeVisible();
+    expect(f.conversas.map((c) => c.id)).toContain('a');
+    await expect.poll(() => f.deletesMensagem.length, { timeout: 7000 }).toBe(1);
+    await expect(page.locator('.toast')).toContainText('Conversa vazia apagada.');
+    await expect(page).toHaveURL(/\/\?nova=1$/);
+    expect(f.conversas.map((c) => c.id)).toEqual(['b']);
+    await page.getByRole('button', { name: 'Histórico' }).click();
+    const gaveta = page.getByRole('dialog', { name: 'Histórico de conversas' });
+    await expect(gaveta.getByRole('button', { name: /^Outra conversa/ })).toBeVisible();
+    await expect(gaveta.getByRole('button', { name: /^Plano do dia/ })).toHaveCount(0);
+  });
+
+  test('Desfazer antes dos 5 s traz tudo de volta e a conversa continua', async ({ page }) => {
+    const f = await abrir(page);
+    await segurar(page, balaoMarco(page));
+    await folha(page).getByRole('button', { name: 'Apagar mensagem e resposta' }).click();
+    await expect(page.locator('.chat-vazio')).toBeVisible();
+    await page.locator('.toast').getByRole('button', { name: 'Desfazer' }).click();
+    await expect(page.locator('.chat-vazio')).toHaveCount(0);
+    await expect(balaoMarco(page)).toHaveText('Oi José');
+    await expect(balaoJose(page)).toHaveText('Bom dia, Marco.');
+    await page.waitForTimeout(5600);
+    expect(f.deletesMensagem).toEqual([]);
+    expect(f.conversas.map((c) => c.id)).toEqual(['a']);
+  });
+
+  test('apagar só uma das mensagens não apaga a conversa', async ({ page }) => {
+    const f = await abrir(page);
+    await segurar(page, balaoJose(page));
+    await folha(page).getByRole('button', { name: 'Apagar mensagem', exact: true }).click();
+    await expect.poll(() => f.deletesMensagem.length, { timeout: 7000 }).toBe(1);
+    await page.waitForTimeout(300);
+    expect(f.conversas.map((c) => c.id)).toEqual(['a']);
+    await expect(page.locator('.toast')).toHaveCount(0);
+    await expect(balaoMarco(page)).toHaveText('Oi José');
+  });
+
+  test('se o Marco já foi para outra aba, a conversa vazia é apagada sem puxá-lo de volta ao Chat', async ({ page }) => {
+    const f = await abrir(page);
+    await segurar(page, balaoMarco(page));
+    await folha(page).getByRole('button', { name: 'Apagar mensagem e resposta' }).click();
+    await page.getByRole('navigation').getByText('Tarefas', { exact: true }).click();
+    await expect.poll(() => f.deletesMensagem.length, { timeout: 7000 }).toBe(1);
+    await expect(page).toHaveURL(/\/tarefas/);
+    expect(f.conversas).toEqual([]);
   });
 });

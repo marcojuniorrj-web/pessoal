@@ -98,6 +98,7 @@
     - A mensagem apagada deixa de entrar no contexto da IA (regra 1).
     - A contagem do limite diário (regra 9) não muda.
     - Mensagem de outro usuário responde 404.
+    - **Conversa vazia some:** se, depois de apagar, a conversa `normal` ficou sem nenhuma mensagem, ela também é apagada (na mesma transação, com as sugestões que restarem); a conversa de boas-vindas nunca. Os itens já salvos permanecem.
 14. **Apagar todos os meus dados:** apaga todas as linhas do usuário em todas as tabelas, inclusive sessões e o próprio
     usuário, numa transação só.
 

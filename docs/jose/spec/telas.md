@@ -102,6 +102,7 @@ título, o topo mostra "Nova conversa".
   - **Editar:** abre os campos dentro do próprio cartão.
   - **Descartar:** recolhe o cartão, com o aviso "Descartado. Desfazer".
   - **Apagar mensagem (folha de ações do balão):** a mensagem (ou a pergunta com a resposta) some na hora, com o aviso "Apagado. Desfazer". Os cartões da resposta apagada somem junto, mas o que já foi salvo a partir deles (tarefas, metas, memórias) **permanece**. A mensagem apagada deixa de entrar no contexto da IA.
+  - **Última mensagem apagada:** se o Marco apagar todas as mensagens, o Chat mostra o estado vazio (saudação e atalhos) na hora e "Desfazer" traz tudo de volta; quando a exclusão é confirmada (após os 5 s) a conversa vazia também é apagada, o app vai ao Chat vazio com o aviso "Conversa vazia apagada." e o Histórico deixa de listá-la.
   - **Apagar conversa (⋯ do topo):** apaga a conversa aberta com "Apagado. Desfazer" e leva ao Chat vazio; a gaveta de Histórico reflete a mudança.
   - **Tentar de novo** (no balão de erro): refaz a resposta do José sem duplicar a mensagem do Marco.
 - **Estados:**
