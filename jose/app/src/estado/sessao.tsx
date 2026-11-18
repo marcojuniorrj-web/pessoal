@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { FUSO_PADRAO } from '@compartilhado/datas';
 import type { Usuario } from '@compartilhado/schemas';
 import { api, ErroHttp, ErroRede, registrarAoNaoAutenticado } from '../api/cliente';
 
@@ -102,4 +103,10 @@ export function useUsuario(): Usuario {
   const { estado } = useSessao();
   if (estado.situacao !== 'logado') throw new Error('sem usuário');
   return estado.usuario;
+}
+
+/** Fuso do Marco; fora de uma sessão logada (ex.: testes de componente) usa o padrão. */
+export function useFusoHorario(): string {
+  const c = useContext(Contexto);
+  return (c && c.estado.situacao === 'logado' && c.estado.usuario.fuso_horario) || FUSO_PADRAO;
 }

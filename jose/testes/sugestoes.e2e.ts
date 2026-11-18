@@ -183,3 +183,112 @@ for (const largura of [320, 390]) {
     });
   });
 }
+
+// ---- 📌 tarefa e 🎯 meta (tarefa 5.5) ----
+const LONGO_120 = `${'A'.repeat(80)} ${'b'.repeat(39)}`; // 120 caracteres, com uma "palavra" de 80
+const tarefas = (page: Page) => page.getByRole('article', { name: 'Tarefa sugerida' });
+const metas = (page: Page) => page.getByRole('article', { name: 'Meta sugerida' });
+
+test.describe('Cartões 📌 tarefa e 🎯 meta no Chat (5.5)', () => {
+  test('aparecem depois da resposta; Editar muda título, área e prazo; Salvar vira "✓ Salvo em Tarefas" / "✓ Salvo em Metas"', async ({ page }) => {
+    const f = await abrir(page, { sugerir: [
+      { tipo: 'tarefa', titulo: 'Revisar a proposta do cliente', area: 'trabalho', prazo: '2026-11-20' },
+      { tipo: 'meta', titulo: 'Correr uma meia-maratona', area: 'saude' },
+    ] });
+    await enviar(page, 'revisar a proposta até sexta e quero correr uma meia');
+    const t = tarefas(page);
+    await expect(t).toContainText('📌');
+    await expect(t).toContainText('Revisar a proposta do cliente');
+    await expect(t).toContainText('Trabalho');
+    await expect(t.locator('.cartao-sugestao__prazo')).toContainText('Prazo:');
+    await expect(metas(page)).toContainText('🎯');
+    await expect(metas(page)).toContainText('Correr uma meia-maratona');
+    await page.waitForTimeout(600);
+    expect(f.salvos).toEqual([]); // nada é salvo sem toque
+
+    await t.getByRole('button', { name: 'Editar' }).click();
+    await expect(t.getByLabel('Título da tarefa')).toBeFocused();
+    await t.getByLabel('Título da tarefa').fill('Revisar e enviar a proposta');
+    await t.getByRole('radio', { name: 'Finanças' }).click();
+    await t.getByLabel('Prazo (opcional)').fill('2026-11-24');
+    expect(f.salvos).toEqual([]);
+    await t.getByRole('button', { name: 'Salvar' }).click();
+    await expect(page.getByRole('link', { name: '✓ Salvo em Tarefas' })).toBeVisible();
+    expect(f.salvos[0]).toEqual({ id: expect.any(String), conteudo: { titulo: 'Revisar e enviar a proposta', area: 'financas', prazo: '2026-11-24' } });
+
+    await metas(page).getByRole('button', { name: 'Salvar' }).click();
+    await expect(page.getByRole('link', { name: '✓ Salvo em Metas' })).toBeVisible();
+    expect(f.salvos[1]).toEqual({ id: expect.any(String) });
+    await page.getByRole('link', { name: '✓ Salvo em Metas' }).click();
+    await expect(page).toHaveURL(/\/tarefas\?aba=metas$/);
+  });
+
+  test('"Sem prazo" remove o prazo; Esc sai da edição e devolve o foco ao Editar; Descartar tem "Desfazer"', async ({ page }) => {
+    const f = await abrir(page, { sugerir: [{ tipo: 'tarefa', titulo: 'Ligar para o banco', area: 'financas', prazo: '2026-11-20' }] });
+    await enviar(page);
+    const t = tarefas(page);
+    await t.getByRole('button', { name: 'Editar' }).click();
+    await t.getByRole('button', { name: 'Sem prazo' }).click();
+    await expect(t.getByLabel('Prazo (opcional)')).toHaveValue('');
+    await page.keyboard.press('Escape');
+    await expect(t.getByLabel('Título da tarefa')).toHaveCount(0);
+    await expect(t.getByRole('button', { name: 'Editar' })).toBeFocused();
+    expect(f.salvos).toEqual([]);
+    await t.getByRole('button', { name: 'Descartar' }).click();
+    await expect(tarefas(page)).toHaveCount(0);
+    await page.locator('.toast').getByRole('button', { name: 'Desfazer' }).click();
+    await expect(tarefas(page)).toHaveCount(1);
+    await page.waitForTimeout(5500);
+    expect(f.descartados).toEqual([]);
+  });
+
+  test('reenviar a mensagem não traz de volta o cartão salvo nem o descartado', async ({ page }) => {
+    const f = await abrir(page, { sugerir: [
+      { tipo: 'tarefa', titulo: 'Ligar para o banco', area: 'financas' },
+      { tipo: 'meta', titulo: 'Correr uma meia-maratona', area: 'saude' },
+      { tipo: 'tarefa', titulo: 'Pagar o condomínio', area: 'casa' },
+    ] });
+    await enviar(page);
+    await tarefas(page).first().getByRole('button', { name: 'Salvar' }).click();
+    await expect(page.getByRole('link', { name: '✓ Salvo em Tarefas' })).toBeVisible();
+    await metas(page).getByRole('button', { name: 'Descartar' }).click();
+    await page.waitForTimeout(5500);
+    expect(f.descartados).toHaveLength(1);
+    await page.reload();
+    await expect(page.getByText('Próximo passo: abrir o arquivo.')).toBeVisible();
+    await expect(page.getByRole('link', { name: '✓ Salvo em Tarefas' })).toBeVisible();
+    await expect(metas(page)).toHaveCount(0);
+    await expect(tarefas(page)).toHaveCount(1); // a pendente continua como cartão
+  });
+});
+
+for (const largura of [320, 390]) {
+  test(`Layout dos cartões 📌/🎯 em ${largura}px: título de 120 caracteres e palavra de 80, nada passa da largura, alvos >= 48px, barra de abas visível`, async ({ page }) => {
+    await page.setViewportSize({ width: largura, height: 700 });
+    await abrir(page, { sugerir: [
+      { tipo: 'tarefa', titulo: LONGO_120, area: 'trabalho', prazo: '2027-11-14' },
+      { tipo: 'meta', titulo: LONGO_120.toUpperCase(), area: 'casa', prazo: '2026-12-31' },
+      { tipo: 'tarefa', titulo: 'Curta', area: 'saude' },
+    ] });
+    await enviar(page, `${'Z'.repeat(80)} mensagem longa`);
+    await expect(tarefas(page)).toHaveCount(2);
+    let m = await elementosForaDaTela(page);
+    expect(m.rolagem, 'rolagem lateral').toBeLessThanOrEqual(m.largura);
+    expect(m.fora, JSON.stringify(m.fora)).toEqual([]);
+    expect(m.transbordo, JSON.stringify(m.transbordo)).toEqual([]);
+    expect(menoresQue(await medir(page, '.cartao-sugestao .botao'))).toEqual([]);
+    await expect(page.getByRole('navigation')).toBeVisible();
+
+    // edição: título, 4 chips, campo de data e botões dentro da largura (o campo de data do iPhone tem largura própria)
+    const primeiro = tarefas(page).first();
+    await primeiro.getByRole('button', { name: 'Editar' }).click();
+    await expect(primeiro.getByLabel('Título da tarefa')).toHaveValue(LONGO_120);
+    m = await elementosForaDaTela(page);
+    expect(m.rolagem, 'rolagem lateral na edição').toBeLessThanOrEqual(m.largura);
+    expect(m.fora, JSON.stringify(m.fora)).toEqual([]);
+    expect(m.transbordo, JSON.stringify(m.transbordo)).toEqual([]);
+    expect(menoresQue(await medir(page, '.cartao-sugestao .botao, .cartao-sugestao .chip-area, .cartao-sugestao input'))).toEqual([]);
+    await expect(page.getByRole('navigation')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.dataset.teclado ?? null)).not.toBe('aberto');
+  });
+}

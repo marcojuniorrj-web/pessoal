@@ -17,8 +17,10 @@ export async function simularApi(page: Page, logado = true) {
 export type Plano = 'ok' | 'erro-ia' | 'cortada' | 'limite' | '401';
 
 interface MsgFalsa { id: string; autor: 'marco' | 'jose'; texto: string; origem: 'texto' | 'voz'; modelo: string | null; criada_em: string }
+/** Conteúdo de um cartão: memória ({texto, area}) ou tarefa/meta ({titulo, area, prazo?}, com `tipo`). */
+export type CartaoFalso = { texto: string; area: string } | { tipo: 'tarefa' | 'meta'; titulo: string; area: string; prazo?: string | null };
 export interface SugestaoFalsa {
-  id: string; mensagem_id: string; tipo: 'memoria'; conteudo: { texto: string; area: string }; status: 'pendente' | 'salva' | 'descartada'; item_id: string | null;
+  id: string; mensagem_id: string; tipo: 'memoria' | 'tarefa' | 'meta'; conteudo: Record<string, unknown>; status: 'pendente' | 'salva' | 'descartada'; item_id: string | null;
 }
 export interface ConversaFalsa {
   id: string; titulo: string | null; tipo: 'normal'; modo: 'padrao' | 'decidir'; criada_em: string; atualizada_em: string; mensagens: MsgFalsa[];
@@ -40,14 +42,14 @@ export interface ChatFalso {
   postsMensagem: Array<{ conversa: string; id: string; texto: string }>;
   postsConversa: Array<Record<string, unknown>>;
   deletes: string[];
-  /** Memórias que a próxima resposta do José sugere (cartões 🧠). */
-  sugerir: Array<{ texto: string; area: string }>;
+  /** Cartões que a próxima resposta do José sugere (🧠 memória, 📌 tarefa, 🎯 meta). */
+  sugerir: CartaoFalso[];
   /** Quantas chamadas de salvar devem falhar (500) antes de funcionar. */
   salvarFalhas: number;
   /** Atraso (ms) antes de responder salvar. */
   atrasoSalvarMs: number;
   /** Chamadas de salvar/descartar recebidas, na ordem. */
-  salvos: Array<{ id: string; conteudo?: { texto: string; area: string } }>;
+  salvos: Array<{ id: string; conteudo?: Record<string, unknown> }>;
   descartados: string[];
 }
 
@@ -81,7 +83,7 @@ export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}):
       sug.status = 'descartada';
       return rota.fulfill({ status: 204 });
     }
-    const corpo = (rota.request().postDataJSON() as { conteudo?: { texto: string; area: string } } | null) ?? {};
+    const corpo = (rota.request().postDataJSON() as { conteudo?: Record<string, unknown> } | null) ?? {};
     f.salvos.push({ id: sug.id, conteudo: corpo.conteudo });
     if (f.atrasoSalvarMs) await espera(f.atrasoSalvarMs);
     if (f.salvarFalhas > 0) {
@@ -92,7 +94,9 @@ export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}):
     sug.status = 'salva';
     if (corpo.conteudo) sug.conteudo = corpo.conteudo;
     sug.item_id = `mem${proximaMemoria++}`;
-    return rota.fulfill({ status: 200, json: { item: { id: sug.item_id, texto: sug.conteudo.texto, area: sug.conteudo.area, origem: 'chat', criada_em: new Date().toISOString(), atualizada_em: null } } });
+    const base = { id: sug.item_id, area: sug.conteudo.area, origem: 'chat', criada_em: new Date().toISOString() };
+    const item = sug.tipo === 'memoria' ? { ...base, texto: sug.conteudo.texto, atualizada_em: null } : { ...base, titulo: sug.conteudo.titulo, prazo: sug.conteudo.prazo ?? null };
+    return rota.fulfill({ status: 200, json: { item } });
   });
 
   // (predicado, e não glob: '**/api/conversas**' também casaria o módulo app/src/api/conversas.ts do Vite)
@@ -147,7 +151,10 @@ export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}):
     conversa.atualizada_em = iso(0);
     const titulo = conversa.titulo ? undefined : 'Título de teste';
     if (titulo) conversa.titulo = titulo;
-    const novas = f.sugerir.splice(0).map((c, i): SugestaoFalsa => ({ id: `sg-${resposta.id}-${i}`, mensagem_id: resposta.id, tipo: 'memoria', conteudo: c, status: 'pendente', item_id: null }));
+    const novas = f.sugerir.splice(0).map((c, i): SugestaoFalsa => {
+      const { tipo, ...conteudo } = 'tipo' in c ? c : { tipo: 'memoria' as const, ...c };
+      return { id: `sg-${resposta.id}-${i}`, mensagem_id: resposta.id, tipo, conteudo, status: 'pendente', item_id: null };
+    });
     conversa.sugestoes = [...(conversa.sugestoes ?? []), ...novas];
     // Reenvio de mensagem já respondida: o servidor real repete as sugestões gravadas, com o status atual.
     const enviadas = jaTinha ? (conversa.sugestoes ?? []).filter((x) => x.mensagem_id === resposta.id) : novas;

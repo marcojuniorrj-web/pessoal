@@ -64,6 +64,20 @@ html[data-teclado='aberto'] .barra-abas { display: none; }
 .cartao-sugestao__acoes { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .cartao-sugestao__acoes .botao { flex: 1 1 auto; min-width: 0; padding: 0 14px; white-space: normal; text-align: center; }
 .cartao-sugestao__salvo { display: inline-flex; align-items: center; min-height: var(--alvo-minimo); color: var(--sucesso); text-decoration: none; font-weight: 600; }
+.cartao-sugestao__prazo { font-size: var(--pequeno); overflow-wrap: anywhere; }
+/* Título + chips + prazo (cartão 📌/🎯 e abas Tarefas/Metas): tudo dentro da largura da tela, inclusive o campo de data do iPhone */
+.campos-item { display: grid; gap: 8px; min-width: 0; max-width: 100%; }
+.campos-item__titulo { min-height: 72px; }
+.campo-prazo { display: grid; gap: 4px; min-width: 0; max-width: 100%; }
+.campo-prazo__rotulo { font-size: var(--pequeno); }
+.campo-prazo__linha { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+.campo-prazo__input {
+  flex: 1 1 160px; min-width: 0; max-width: 100%; min-height: var(--alvo-minimo); padding: 0 12px;
+  background: var(--fundo); color: var(--texto); border: 1px solid var(--borda); border-radius: 12px; font: inherit; color-scheme: dark;
+  -webkit-appearance: none; appearance: none;
+}
+/* iOS: o campo de data vazio perde a altura e o valor ignora o alinhamento sem isto */
+.campo-prazo__input::-webkit-date-and-time-value { text-align: left; min-height: 1.4em; }
 /* Chips de área (cartão e José sabe): quebram de linha, alvo de 48px */
 .chips-area { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .chip-area {
