@@ -8,6 +8,7 @@ import { rotasConta } from './modulos/conta/rotas';
 import { rotasConversas } from './modulos/conversas/rotas';
 import { rotasMemorias } from './modulos/memorias/rotas';
 import { rotasSugestoes } from './modulos/sugestoes/rotas';
+import { rotasTarefas } from './modulos/tarefas/rotas';
 import { checarOrigem, exigirSessao, type AppEnv } from './modulos/auth/sessao';
 
 export function criarApp(deps: Dependencias = dependenciasPadrao) {
@@ -28,6 +29,7 @@ export function criarApp(deps: Dependencias = dependenciasPadrao) {
   app.route('/api', rotasConversas(deps));
   app.route('/api', rotasMemorias(deps));
   app.route('/api', rotasSugestoes(deps));
+  app.route('/api', rotasTarefas(deps));
   app.notFound((c) => (c.req.path.startsWith('/api/') ? tratarErro(naoEncontrado(), c) : c.env.ASSETS.fetch(c.req.raw)));
   return app;
 }

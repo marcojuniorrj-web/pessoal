@@ -94,21 +94,6 @@ export async function metasAtivas(db: D1Database, usuarioId: string) {
   return results;
 }
 
-/** Tarefas pendentes na ordem da regra 5: atrasadas, de hoje, futuras (mais próximas primeiro) e sem prazo; empate: mais nova primeiro. */
-export async function tarefasPendentes(db: D1Database, usuarioId: string, diaHoje: string, limite: number) {
-  const { results } = await db
-    .prepare(
-      `SELECT titulo, area, prazo FROM tarefas WHERE usuario_id = ? AND concluida = 0
-       ORDER BY CASE WHEN prazo IS NULL THEN 3 WHEN prazo < ?2 THEN 0 WHEN prazo = ?2 THEN 1 ELSE 2 END,
-                CASE WHEN prazo > ?2 THEN prazo END ASC,
-                criada_em DESC, rowid DESC
-       LIMIT ?3`,
-    )
-    .bind(usuarioId, diaHoje, limite)
-    .all<{ titulo: string; area: 'trabalho' | 'financas' | 'saude' | 'casa'; prazo: string | null }>();
-  return results;
-}
-
 /** Quantas respostas do José o usuário já recebeu no dia local `diaHoje` (regra 9). */
 export async function respostasDoDia(db: D1Database, usuarioId: string, desdeIso: string, diaDe: (iso: string) => string, diaHoje: string): Promise<number> {
   const { results } = await db

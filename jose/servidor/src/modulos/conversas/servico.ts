@@ -9,12 +9,13 @@ import type { Dependencias } from '../../compartilhado/dependencias';
 import { ErroApi } from '../../compartilhado/erros';
 import { uuidv7 } from '../../compartilhado/id';
 import type { UsuarioLinha } from '../auth/repositorio';
+import { listarPendentes } from '../tarefas/repositorio';
 import { LIMITE_TAREFAS_CONTEXTO, montarContexto, type MensagemCtx } from './contexto';
 import { avaliarSugestao, type Proposta } from './sugestoes-ia';
 import { gerarTitulo } from './titulo';
 import {
   buscarMensagem, inserirMensagemMarco, inserirRespostaJose, inserirSugestao, definirTitulo, mensagensDaConversa, memoriasDoUsuario, metasAtivas,
-  respostasDoDia, sugestoesDaConversa, tarefasPendentes, type ConversaLinha, type MensagemLinha,
+  respostasDoDia, sugestoesDaConversa, type ConversaLinha, type MensagemLinha,
 } from './repositorio';
 
 const MS_36H = 36 * 60 * 60 * 1000;
@@ -117,7 +118,7 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
   const [memorias, metas, tarefas, mensagens, sugestoes] = await Promise.all([
     memoriasDoUsuario(env.DB, usuario.id),
     metasAtivas(env.DB, usuario.id),
-    tarefasPendentes(env.DB, usuario.id, hoje(agora, fuso), LIMITE_TAREFAS_CONTEXTO),
+    listarPendentes(env.DB, usuario.id, agora, fuso).then((l) => l.slice(0, LIMITE_TAREFAS_CONTEXTO)),
     mensagensDaConversa(env.DB, conversa.id),
     sugestoesDaConversa(env.DB, conversa.id),
   ]);

@@ -25,6 +25,16 @@ export const memoriaEntradaSchema = z.object({ texto: textoMemoria, area: areaMe
 /** Edição parcial de memória (PATCH): ao menos um campo. */
 export const memoriaAtualizacaoSchema = memoriaEntradaSchema.partial().refine((v) => v.texto !== undefined || v.area !== undefined, 'Informe texto ou área');
 
+/** Edição parcial de tarefa (PATCH): ao menos um campo. `prazo: null` remove o prazo; `concluida` conclui ou reabre. */
+export const tarefaAtualizacaoSchema = z
+  .object({ titulo: titulo.optional(), area: areaItemSchema.optional(), prazo: prazoSchema.nullable().optional(), concluida: z.boolean().optional() })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), 'Informe ao menos um campo');
+
+/** Edição parcial de meta (PATCH): ao menos um campo. `status` conclui (`concluida`) ou reativa (`ativa`). */
+export const metaAtualizacaoSchema = z
+  .object({ titulo: titulo.optional(), area: areaItemSchema.optional(), prazo: prazoSchema.nullable().optional(), status: z.enum(['ativa', 'concluida']).optional() })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), 'Informe ao menos um campo');
+
 export const conteudoSugestaoSchema = {
   tarefa: tarefaEntradaSchema,
   meta: metaEntradaSchema,
@@ -85,6 +95,10 @@ export const memoriaSchema = memoriaEntradaSchema.extend({
 export type TarefaEntrada = z.infer<typeof tarefaEntradaSchema>;
 export type MetaEntrada = z.infer<typeof metaEntradaSchema>;
 export type MemoriaEntrada = z.infer<typeof memoriaEntradaSchema>;
+export type TarefaAtualizacao = z.infer<typeof tarefaAtualizacaoSchema>;
+export type MetaAtualizacao = z.infer<typeof metaAtualizacaoSchema>;
+export type Tarefa = z.infer<typeof tarefaSchema>;
+export type Meta = z.infer<typeof metaSchema>;
 export type Sugestao = z.infer<typeof sugestaoSchema>;
 export type Usuario = z.infer<typeof usuarioSchema>;
 
