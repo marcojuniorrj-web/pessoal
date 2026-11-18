@@ -17,7 +17,7 @@ Fase 2.
   - linha-resumo no histórico.
 
   **Aceite:** testes com a API simulada; a 4ª sugestão é ignorada; um conteúdo inválido é descartado e registrado no log.
-- [ ] 4.2 `POST /api/sugestoes/:id/salvar` (com `conteudo` editado) e `/descartar`: só funcionam se a sugestão estiver `pendente` (senão 409), gravam `item_id` e definem `origem` pela conversa. **Aceite:** testes de salvar, salvar duas vezes (409), descartar e posse.
+- [x] 4.2 `POST /api/sugestoes/:id/salvar` (com `conteudo` editado) e `/descartar`: só funcionam se a sugestão estiver `pendente` (senão 409), gravam `item_id` e definem `origem` pela conversa. **Aceite:** testes de salvar, salvar duas vezes (409), descartar e posse.
 - [x] 4.3 CRUD `/api/memorias`. **Aceite:** testes de validação (texto de até 300) e de posse.
 - [ ] 4.4 As memórias entram no contexto (montador da Fase 2) e o prompt orienta a não sugerir memória que já existe. **Aceite:** caso golden — com a memória "acorda às 6h" salva, o José a usa no "O que faço hoje?" e não a sugere de novo.
 - [ ] 4.5 Componente CartaoSugestao: Salvar, Editar (texto, chips de área), Descartar com "Desfazer", erro ao salvar e "✓ Salvo em José sabe". **Aceite:** testes de componente; nada é salvo sem toque.
