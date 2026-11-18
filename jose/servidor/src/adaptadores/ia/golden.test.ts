@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { avaliarCaso, avaliarResposta, CASOS_GOLDEN } from './golden';
+import { secaoSugestoes } from '../../modulos/conversas/contexto';
 import { lerPrompt, prompt } from './prompt';
 
 describe('prompt-jose.md', () => {
@@ -14,6 +15,23 @@ describe('prompt-jose.md', () => {
     expect(prompt.decidir).toMatch(/prós e contras/);
     expect(prompt.decidir).toMatch(/recomendação/);
     expect(prompt.titulo).toContain('6 palavras');
+  });
+  it('SUGESTOES: com tarefa e meta ligadas descreve ação concreta, objetivo maior, prazo AAAA-MM-DD a partir de hoje e "nem tudo vira cartão"', () => {
+    const t = secaoSugestoes(prompt.sugestoes, ['memoria', 'tarefa', 'meta']);
+    expect(t).toMatch(/Tarefa é uma ação concreta/);
+    expect(t).toMatch(/Meta é um objetivo maior/);
+    expect(t).toMatch(/ação vira tarefa, não meta/);
+    expect(t).toMatch(/AAAA-MM-DD/);
+    expect(t).toMatch(/data de hoje que vem no contexto/);
+    expect(t).toMatch(/Nunca invente prazo/);
+    expect(t).toMatch(/Nem tudo vira cartão/);
+    expect(t).toMatch(/preocupações ficam só no texto/);
+    expect(t).toMatch(/No máximo 3 sugestões por resposta, somando todos os tipos/);
+  });
+  it('SUGESTOES: com só a memória ligada, nada de tarefa nem meta', () => {
+    const t = secaoSugestoes(prompt.sugestoes, ['memoria']);
+    expect(t).not.toMatch(/Tarefa é|Meta é|prazo|sugerir_tarefa/);
+    expect(t).toMatch(/Memória é um fato duradouro/);
   });
   it('falha se uma seção sumir', () => {
     expect(() => lerPrompt('=== BASE ===\nx')).toThrow(/SUGESTOES/);

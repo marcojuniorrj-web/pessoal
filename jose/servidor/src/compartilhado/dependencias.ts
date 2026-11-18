@@ -12,7 +12,7 @@ export interface Dependencias {
   transcritor: (env: Ambiente) => Transcritor | undefined;
   /** undefined quando não há ANTHROPIC_API_KEY (os testes injetam uma IA simulada). */
   ia: (env: Ambiente) => ClienteIA | undefined;
-  /** Ferramentas de sugestão ligadas no chat. Onda 4: só `memoria`; tarefa e meta ligam na onda 5. */
+  /** Ferramentas de sugestão ligadas no chat (onda 5: memória, tarefa e meta). */
   sugestoesAtivas: TipoSugestao[];
 }
 
@@ -20,7 +20,7 @@ export const dependenciasPadrao: Dependencias = {
   agora: () => new Date(),
   provedorOAuth: (env, urlRetorno) => criarProvedorGoogle(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET, urlRetorno),
   transcritor: (env) => (env.AI ? criarTranscritorWhisper(env.AI) : undefined),
-  sugestoesAtivas: ['memoria'],
+  sugestoesAtivas: ['memoria', 'tarefa', 'meta'],
   ia: (env) => (env.ANTHROPIC_API_KEY ? criarClienteClaude({ apiKey: env.ANTHROPIC_API_KEY }) : undefined),
 };
 

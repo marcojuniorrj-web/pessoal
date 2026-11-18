@@ -153,7 +153,7 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
       } else if (ev.tipo === 'sugestao') {
         chamadas += 1;
         // Validada com Zod; o servidor ignora o que passar de 3 por resposta e a memória que já existe.
-        const r = avaliarSugestao(ev.nome, ev.entrada, { ligadas: deps.sugestoesAtivas, memorias, aceitas: propostas });
+        const r = avaliarSugestao(ev.nome, ev.entrada, { ligadas: deps.sugestoesAtivas, memorias, tarefas, metas, aceitas: propostas });
         if (r.ok) propostas.push(r.proposta);
         // O log leva só ids, o nome da ferramenta e os campos inválidos (nunca o conteúdo).
         else console.warn('ia sugestão descartada', { conversa: conversa.id, ferramenta: ev.nome, motivo: r.motivo, campos: r.campos });

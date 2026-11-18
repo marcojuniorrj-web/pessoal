@@ -93,12 +93,62 @@ describe('POST /api/sugestoes/:id/salvar (4.2)', () => {
     expect(await x.memorias()).toEqual([]);
   });
 
-  it('tarefa e meta ainda não são salvas (onda 5): 400 e continuam pendentes', async () => {
-    const x = await preparar({ tipo: 'tarefa', conteudo: { titulo: 'Ligar para o João', area: 'trabalho' } });
-    expect((await chamar(x.t, x.cookie, '/api/sugestoes/s1/salvar')).status).toBe(400);
-    expect((await x.sugestao())!.status).toBe('pendente');
+  it('tarefa: cria a tarefa (pendente, com prazo) com origem chat, grava o item_id e aparece em tarefas', async () => {
+    const x = await preparar({ tipo: 'tarefa', conteudo: { titulo: 'Revisar a proposta', area: 'trabalho', prazo: '2026-11-20' } });
+    const r = await chamar(x.t, x.cookie, '/api/sugestoes/s1/salvar');
+    expect(r.status).toBe(200);
+    const { item } = (await r.json()) as { item: Record<string, unknown> };
+    expect(item).toEqual({ id: expect.any(String), titulo: 'Revisar a proposta', area: 'trabalho', prazo: '2026-11-20', concluida: false, concluida_em: null, origem: 'chat', criada_em: '2026-11-18T10:00:00.000Z' });
+    expect(await x.sugestao()).toMatchObject({ status: 'salva', item_id: item.id });
+    expect(await x.t.env.DB.prepare('SELECT * FROM tarefas').all()).toMatchObject({ results: [{ id: item.id, usuario_id: x.dono, titulo: 'Revisar a proposta', prazo: '2026-11-20', concluida: 0, origem: 'chat' }] });
+    expect(await x.memorias()).toEqual([]);
   });
-
+  it('meta: cria a meta (ativa, sem prazo) com origem chat e grava o item_id', async () => {
+    const x = await preparar({ tipo: 'meta', conteudo: { titulo: 'Correr uma meia-maratona', area: 'saude' } });
+    const r = await chamar(x.t, x.cookie, '/api/sugestoes/s1/salvar');
+    expect(r.status).toBe(200);
+    const { item } = (await r.json()) as { item: Record<string, unknown> };
+    expect(item).toEqual({ id: expect.any(String), titulo: 'Correr uma meia-maratona', area: 'saude', prazo: null, status: 'ativa', concluida_em: null, origem: 'chat', criada_em: '2026-11-18T10:00:00.000Z' });
+    expect(await x.sugestao()).toMatchObject({ status: 'salva', item_id: item.id });
+    expect(await x.t.env.DB.prepare('SELECT * FROM metas').all()).toMatchObject({ results: [{ id: item.id, usuario_id: x.dono, titulo: 'Correr uma meia-maratona', status: 'ativa', origem: 'chat' }] });
+  });
+  it('tarefa e meta de conversa de boas-vindas → origem boas_vindas', async () => {
+    for (const [tipo, tabela] of [['tarefa', 'tarefas'], ['meta', 'metas']] as const) {
+      const x = await preparar({ conversaTipo: 'boas_vindas', tipo, conteudo: { titulo: 'Algo', area: 'casa' } });
+      expect((await chamar(x.t, x.cookie, '/api/sugestoes/s1/salvar')).status).toBe(200);
+      expect((await x.t.env.DB.prepare(`SELECT origem FROM ${tabela}`).first<{ origem: string }>())!.origem).toBe('boas_vindas');
+    }
+  });
+  it('tarefa e meta com conteúdo editado: salva o editado (prazo trocado ou removido) e guarda a edição', async () => {
+    const x = await preparar({ tipo: 'tarefa', conteudo: { titulo: 'Revisar a proposta', area: 'trabalho', prazo: '2026-11-20' } });
+    const r = await chamar(x.t, x.cookie, '/api/sugestoes/s1/salvar', 'POST', { conteudo: { titulo: '  Revisar e enviar a proposta  ', area: 'casa', prazo: null } });
+    expect(await r.json()).toMatchObject({ item: { titulo: 'Revisar e enviar a proposta', area: 'casa', prazo: null } });
+    expect(JSON.parse((await x.sugestao())!.conteudo)).toEqual({ titulo: 'Revisar e enviar a proposta', area: 'casa', prazo: null });
+  });
+  it('tarefa e meta com conteúdo editado inválido → 400, nada é criado e a sugestão continua pendente', async () => {
+    for (const tipo of ['tarefa', 'meta'] as const) {
+      const x = await preparar({ tipo, conteudo: { titulo: 'Algo', area: 'casa' } });
+      for (const conteudo of [{ titulo: '', area: 'casa' }, { titulo: 'x'.repeat(121), area: 'casa' }, { titulo: 'ok', area: 'sobre_mim' }, { titulo: 'ok', area: 'casa', prazo: 'sexta' }, { titulo: 'ok', area: 'casa', prazo: '2026-02-31' }, { texto: 'ok', area: 'casa' }]) {
+        expect((await chamar(x.t, x.cookie, '/api/sugestoes/s1/salvar', 'POST', { conteudo })).status, JSON.stringify(conteudo)).toBe(400);
+      }
+      expect((await x.sugestao())!.status).toBe('pendente');
+      expect((await x.t.env.DB.prepare('SELECT COUNT(*) AS n FROM tarefas').first<{ n: number }>())!.n + (await x.t.env.DB.prepare('SELECT COUNT(*) AS n FROM metas').first<{ n: number }>())!.n).toBe(0);
+    }
+  });
+  it('tarefa e meta: dois toques ao mesmo tempo criam um único item (um 200, um 409)', async () => {
+    for (const [tipo, tabela] of [['tarefa', 'tarefas'], ['meta', 'metas']] as const) {
+      const x = await preparar({ tipo, conteudo: { titulo: 'Algo', area: 'casa' } });
+      const respostas = await Promise.all([chamar(x.t, x.cookie, '/api/sugestoes/s1/salvar'), chamar(x.t, x.cookie, '/api/sugestoes/s1/salvar'), chamar(x.t, x.cookie, '/api/sugestoes/s1/salvar')]);
+      expect(respostas.map((r) => r.status).sort()).toEqual([200, 409, 409]);
+      expect((await x.t.env.DB.prepare(`SELECT COUNT(*) AS n FROM ${tabela}`).first<{ n: number }>())!.n).toBe(1);
+    }
+  });
+  it('tarefa descartada não salva (409) e nada é criado', async () => {
+    const x = await preparar({ tipo: 'tarefa', conteudo: { titulo: 'Algo', area: 'casa' } });
+    await chamar(x.t, x.cookie, '/api/sugestoes/s1/descartar');
+    expect((await chamar(x.t, x.cookie, '/api/sugestoes/s1/salvar')).status).toBe(409);
+    expect((await x.t.env.DB.prepare('SELECT COUNT(*) AS n FROM tarefas').first<{ n: number }>())!.n).toBe(0);
+  });
   it('posse: sugestão de outro usuário ou inexistente → 404 igual, e nada muda', async () => {
     const x = await preparar();
     await x.t.env.DB.prepare("INSERT INTO usuarios(id,email,nome,criado_em) VALUES('outro','outro@x.com','Outro','2026-01-01T00:00:00Z')").run();

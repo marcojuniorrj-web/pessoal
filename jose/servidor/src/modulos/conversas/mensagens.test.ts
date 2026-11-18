@@ -248,7 +248,7 @@ describe('POST /api/conversas/:id/mensagens (SSE)', () => {
       log.mockRestore();
     });
 
-    it('ignora ferramenta que não está ligada (tarefa e meta ficam para a onda 5) e ferramenta desconhecida', async () => {
+    it('ignora ferramenta que não está ligada e ferramenta desconhecida', async () => {
       const log = aviso();
       const x = await preparar([{ sugestoes: [{ nome: 'sugerir_tarefa', entrada: { titulo: 'T', area: 'casa' } }, { nome: 'sugerir_meta', entrada: { titulo: 'M', area: 'casa' } }, { nome: 'apagar_tudo', entrada: {} }, memoria('Corre às terças.')] }], { sugestoesAtivas: ['memoria'] });
       const eventos = await lerEventos(await x.enviar({ id: UUID(32), texto: 'oi' }));
@@ -295,8 +295,8 @@ describe('POST /api/conversas/:id/mensagens (SSE)', () => {
       expect(eventos.map((e) => e.evento)).toEqual(['erro']);
     });
 
-    it('a configuração padrão do app liga só a memória', () => {
-      expect(dependenciasPadrao.sugestoesAtivas).toEqual(['memoria']);
+    it('a configuração padrão do app liga memória, tarefa e meta (onda 5)', () => {
+      expect(dependenciasPadrao.sugestoesAtivas).toEqual(['memoria', 'tarefa', 'meta']);
     });
 
     it('as memórias salvas entram no contexto de toda resposta, e o prompt orienta a não repetir', async () => {
@@ -308,6 +308,70 @@ describe('POST /api/conversas/:id/mensagens (SSE)', () => {
       expect(estavel).toContain('- [Saúde e rotina] Acorda às 6h.');
       expect(estavel).toMatch(/Não sugira uma memória que já está na lista de memórias/);
       expect(estavel.indexOf('Acorda às 6h.')).toBeGreaterThan(estavel.indexOf('Sugestões (ferramentas)')); // memórias depois do prompt, antes das tarefas (cache)
+    });
+  });
+
+  describe('sugerir_tarefa e sugerir_meta (tarefa 5.1)', () => {
+    const tarefa = (titulo: string, extra: Record<string, unknown> = {}) => ({ nome: 'sugerir_tarefa', entrada: { titulo, area: 'trabalho', ...extra } });
+    const meta = (titulo: string, extra: Record<string, unknown> = {}) => ({ nome: 'sugerir_meta', entrada: { titulo, area: 'saude', ...extra } });
+    const ligadas = { sugestoesAtivas: ['memoria', 'tarefa', 'meta'] as Array<'memoria' | 'tarefa' | 'meta'> };
+    const conteudos = (eventos: Awaited<ReturnType<typeof lerEventos>>) => eventos.filter((e) => e.evento === 'sugestao').map((e) => [e.dados.tipo, e.dados.conteudo]);
+
+    it('cartões de tarefa (com prazo) e de meta saem como pendentes; o prompt descreve tarefa e meta e as ferramentas vão ligadas', async () => {
+      const x = await preparar([{ partes: ['Anotei.'], sugestoes: [tarefa('Revisar a proposta do cliente', { prazo: '2026-11-20' }), meta('Correr uma meia-maratona', { prazo: '2027-11-14' })] }], ligadas);
+      const eventos = await lerEventos(await x.enviar({ id: UUID(60), texto: 'revisar a proposta até sexta e quero correr uma meia' }));
+      expect(conteudos(eventos)).toEqual([
+        ['tarefa', { titulo: 'Revisar a proposta do cliente', area: 'trabalho', prazo: '2026-11-20' }],
+        ['meta', { titulo: 'Correr uma meia-maratona', area: 'saude', prazo: '2027-11-14' }],
+      ]);
+      expect(eventos.filter((e) => e.evento === 'sugestao').every((e) => e.dados.status === 'pendente' && e.dados.item_id === null)).toBe(true);
+      expect(x.pedidos[0]!.ferramentas).toEqual(['memoria', 'tarefa', 'meta']);
+      expect(x.pedidos[0]!.sistemaEstavel).toMatch(/`sugerir_tarefa`, `sugerir_meta` ou `sugerir_memoria`/);
+      expect(x.pedidos[0]!.sistemaVolatil).toContain('Hoje é 2026-11-17.'); // base para converter "sexta"
+    });
+
+    it('prazo mal formado não derruba o cartão: ele vem sem prazo (e o log não leva o conteúdo)', async () => {
+      const x = await preparar([{ sugestoes: [tarefa('Ligar para o banco', { prazo: 'sexta' }), tarefa('Pagar o aluguel', { prazo: '2026-02-31' }), tarefa('Enviar relatório', { prazo: null })] }], ligadas);
+      const eventos = await lerEventos(await x.enviar({ id: UUID(61), texto: 'oi' }));
+      expect(conteudos(eventos)).toEqual([
+        ['tarefa', { titulo: 'Ligar para o banco', area: 'trabalho' }],
+        ['tarefa', { titulo: 'Pagar o aluguel', area: 'trabalho' }],
+        ['tarefa', { titulo: 'Enviar relatório', area: 'trabalho', prazo: null }],
+      ]);
+    });
+
+    it('título vazio ou de mais de 120 caracteres é descartado; no máximo 3 por resposta, contando os tipos juntos', async () => {
+      const log = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const x = await preparar([{ sugestoes: [tarefa('x'.repeat(121)), tarefa('A'), meta('B'), tarefa(''), { nome: 'sugerir_memoria', entrada: { texto: 'C', area: 'casa' } }, tarefa('D')] }], ligadas);
+      const eventos = await lerEventos(await x.enviar({ id: UUID(62), texto: 'oi' }));
+      expect(conteudos(eventos).map(([tipo, c]) => [tipo, (c as { titulo?: string; texto?: string }).titulo ?? (c as { texto?: string }).texto])).toEqual([['tarefa', 'A'], ['meta', 'B'], ['memoria', 'C']]);
+      expect(log.mock.calls.map((c) => (c[1] as { motivo: string }).motivo)).toEqual(['invalida', 'invalida', 'acima_do_limite']);
+      expect(JSON.stringify(log.mock.calls)).not.toContain('xxxxx');
+      log.mockRestore();
+    });
+
+    it('não repete tarefa pendente nem meta ativa que já existem (nem duas iguais na mesma resposta); concluída pode voltar', async () => {
+      const log = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const x = await preparar([{ sugestoes: [tarefa('ligar pro banco.'), tarefa('Enviar a proposta'), tarefa('enviar a PROPOSTA'), meta('Correr meia-maratona'), tarefa('Pagar o condomínio')] }], ligadas);
+      const dono = (await x.t.env.DB.prepare('SELECT id FROM usuarios').first<{ id: string }>())!.id;
+      await x.t.env.DB.prepare("INSERT INTO tarefas (id, usuario_id, titulo, area, prazo, concluida, origem, criada_em) VALUES ('t1', ?, 'Ligar pro banco', 'casa', NULL, 0, 'manual', '2026-11-01T00:00:00Z')").bind(dono).run();
+      await x.t.env.DB.prepare("INSERT INTO tarefas (id, usuario_id, titulo, area, prazo, concluida, concluida_em, origem, criada_em) VALUES ('t2', ?, 'Pagar o condomínio', 'casa', NULL, 1, '2026-11-02T00:00:00Z', 'manual', '2026-11-01T00:00:00Z')").bind(dono).run();
+      await x.t.env.DB.prepare("INSERT INTO metas (id, usuario_id, titulo, area, status, origem, criada_em) VALUES ('m1', ?, 'Correr meia maratona', 'saude', 'ativa', 'manual', '2026-11-01T00:00:00Z')").bind(dono).run();
+      const eventos = await lerEventos(await x.enviar({ id: UUID(63), texto: 'oi' }));
+      expect(conteudos(eventos).map(([tipo, c]) => [tipo, (c as { titulo: string }).titulo])).toEqual([['tarefa', 'Enviar a proposta'], ['tarefa', 'Pagar o condomínio']]);
+      expect(log.mock.calls.map((c) => (c[1] as { motivo: string }).motivo)).toEqual(['item_repetido', 'item_repetido', 'item_repetido']);
+      log.mockRestore();
+    });
+
+    it('um cartão salvo/descartado não reaparece como pendente ao reenviar a mensagem', async () => {
+      const x = await preparar([{ sugestoes: [tarefa('Ligar para o banco'), meta('Correr uma meia')] }], ligadas);
+      const primeira = await lerEventos(await x.enviar({ id: UUID(65), texto: 'oi' }));
+      const [t1, m1] = primeira.filter((e) => e.evento === 'sugestao').map((e) => e.dados.id as string);
+      expect((await x.t.chamar(`/api/sugestoes/${t1}/salvar`, { method: 'POST', headers: { cookie: x.cookie, origin: URL_TESTE } })).status).toBe(200);
+      expect((await x.t.chamar(`/api/sugestoes/${m1}/descartar`, { method: 'POST', headers: { cookie: x.cookie, origin: URL_TESTE } })).status).toBe(204);
+      const de = await lerEventos(await x.enviar({ id: UUID(65), texto: 'oi' }));
+      expect(de.filter((e) => e.evento === 'sugestao').map((e) => [e.dados.tipo, e.dados.status, e.dados.item_id !== null])).toEqual([['tarefa', 'salva', true], ['meta', 'descartada', false]]);
+      expect(x.pedidos).toHaveLength(1);
     });
   });
 

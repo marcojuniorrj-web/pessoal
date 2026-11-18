@@ -22,14 +22,14 @@ export const FERRAMENTAS: Array<{ name: string; tipo: TipoSugestao; description:
   {
     name: 'sugerir_tarefa',
     tipo: 'tarefa',
-    description: 'Propõe uma tarefa ao Marco. Ele decide se salva. Use só depois de escrever a resposta em texto.',
+    description: 'Propõe uma tarefa (uma ação concreta que ele pode fazer e marcar como feita). Ele decide se salva. Use só depois de escrever a resposta em texto. Não use para ideias, dúvidas ou preocupações.',
     strict: true,
     input_schema: {
       type: 'object',
       properties: {
-        titulo: { type: 'string', description: 'Título curto da tarefa (até 120 caracteres).' },
+        titulo: { type: 'string', description: 'Ação concreta em uma frase curta, começando com verbo (até 120 caracteres).' },
         area: { type: 'string', enum: AREAS_ITEM },
-        prazo: { type: 'string', description: 'Data AAAA-MM-DD, só se o Marco falou de prazo.' },
+        prazo: { type: 'string', description: 'Data AAAA-MM-DD (convertida a partir da data de hoje do contexto), só se o Marco falou de prazo.' },
       },
       required: ['titulo', 'area'],
       additionalProperties: false,
@@ -38,14 +38,14 @@ export const FERRAMENTAS: Array<{ name: string; tipo: TipoSugestao; description:
   {
     name: 'sugerir_meta',
     tipo: 'meta',
-    description: 'Propõe uma meta ao Marco. Ele decide se salva. Use só depois de escrever a resposta em texto.',
+    description: 'Propõe uma meta (um objetivo maior, de semanas ou meses, não uma ação do dia). Ele decide se salva. Use só depois de escrever a resposta em texto.',
     strict: true,
     input_schema: {
       type: 'object',
       properties: {
-        titulo: { type: 'string', description: 'Título curto da meta (até 120 caracteres).' },
+        titulo: { type: 'string', description: 'O objetivo em uma frase curta (até 120 caracteres).' },
         area: { type: 'string', enum: AREAS_ITEM },
-        prazo: { type: 'string', description: 'Data AAAA-MM-DD, só se o Marco falou de prazo.' },
+        prazo: { type: 'string', description: 'Data AAAA-MM-DD (convertida a partir da data de hoje do contexto), só se o Marco falou de prazo.' },
       },
       required: ['titulo', 'area'],
       additionalProperties: false,

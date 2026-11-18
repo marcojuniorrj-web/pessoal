@@ -1,5 +1,5 @@
 // Salvar e descartar sugestões (arquitetura.md §5). O José nunca salva nada sozinho: só estas rotas viram item, por toque do Marco.
-import { conteudoSugestaoSchema, type MemoriaEntrada } from '@compartilhado/schemas';
+import { conteudoSugestaoSchema, type MemoriaEntrada, type MetaEntrada, type TarefaEntrada } from '@compartilhado/schemas';
 import { Hono } from 'hono';
 import { ErroApi, requisicaoInvalida } from '../../compartilhado/erros';
 import type { Dependencias } from '../../compartilhado/dependencias';
@@ -7,6 +7,8 @@ import { uuidv7 } from '../../compartilhado/id';
 import { buscarSugestaoDoUsuario } from '../../compartilhado/posse';
 import type { AppEnv } from '../auth/sessao';
 import { inserirMemoria, paraDto as memoriaParaDto } from '../memorias/repositorio';
+import { inserirMeta, paraDto as metaParaDto } from '../tarefas/metas-repositorio';
+import { inserirTarefa, paraDto as tarefaParaDto } from '../tarefas/repositorio';
 import { descartarSugestao, liberarSugestao, reservarSugestao, tipoDaConversa, type SugestaoLinha } from './repositorio';
 
 const jaTratada = () => new ErroApi(409, 'sugestao_ja_tratada', 'Essa sugestão já foi salva ou descartada.');
@@ -34,17 +36,18 @@ export function rotasSugestoes(deps: Pick<Dependencias, 'agora'>) {
     const conteudo = conteudoSugestaoSchema[sugestao.tipo].safeParse(bruto);
     if (!conteudo.success) throw requisicaoInvalida(conteudo.error.issues[0]?.message ?? 'Conteúdo inválido.');
 
-    // Tarefas e metas viram item na onda 5; por ora só memórias podem ser salvas.
-    if (sugestao.tipo !== 'memoria') throw requisicaoInvalida('Esse tipo de sugestão ainda não pode ser salvo.');
-
     const origem = (await tipoDaConversa(c.env.DB, sugestao.mensagem_id)) === 'boas_vindas' ? 'boas_vindas' : 'chat';
     const agora = deps.agora();
     const itemId = uuidv7(agora.getTime());
     // Reserva primeiro (só uma chamada vence), depois cria o item: salvar duas vezes nunca duplica.
     if (!(await reservarSugestao(c.env.DB, sugestao.id, conteudo.data, itemId))) throw jaTratada();
     try {
-      const item = await inserirMemoria(c.env.DB, usuario.id, conteudo.data as MemoriaEntrada, origem, agora, itemId);
-      return c.json({ item: memoriaParaDto(item) });
+      const dados = conteudo.data;
+      const item =
+        sugestao.tipo === 'tarefa' ? tarefaParaDto(await inserirTarefa(c.env.DB, usuario.id, dados as TarefaEntrada, origem, agora, itemId))
+        : sugestao.tipo === 'meta' ? metaParaDto(await inserirMeta(c.env.DB, usuario.id, dados as MetaEntrada, origem, agora, itemId))
+        : memoriaParaDto(await inserirMemoria(c.env.DB, usuario.id, dados as MemoriaEntrada, origem, agora, itemId));
+      return c.json({ item });
     } catch (e) {
       await liberarSugestao(c.env.DB, sugestao.id, itemId).catch(() => {});
       throw e;
