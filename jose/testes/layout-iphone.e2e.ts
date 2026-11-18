@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { simularApi } from './apoio';
+import { simularApi, simularMemorias } from './apoio';
+import { elementosComTransbordo } from './medidas';
 
 // Garante o que quebrou no iPhone: nada passa da largura da tela e a barra de abas nunca some sozinha.
 for (const largura of [320, 390]) {
   test(`largura ${largura}px: sem rolagem lateral e a barra de abas sempre visível em todas as telas`, async ({ page }) => {
     await page.setViewportSize({ width: largura, height: 700 });
     await simularApi(page);
+    await simularMemorias(page);
     await page.goto('/');
     await expect(page.getByRole('heading', { name: /Marco\./ })).toBeVisible();
 
@@ -18,6 +20,7 @@ for (const largura of [320, 390]) {
       }));
       expect(medidas.rolagem, `rolagem lateral em ${aba}`).toBeLessThanOrEqual(medidas.largura);
       expect(medidas.teclado === 'aberto', `teclado preso em ${aba}`).toBe(false);
+      expect(await elementosComTransbordo(page), `conteúdo vazando da caixa em ${aba}`).toEqual([]);
       await expect(page.getByRole('navigation')).toBeVisible();
     }
   });

@@ -157,3 +157,61 @@ export async function simularChat(page: Page, inicial: Partial<ChatFalso> = {}):
   });
   return f;
 }
+
+// ---- API de memórias simulada (José sabe) ----
+export interface MemoriaFalsa { id: string; texto: string; area: string; origem: 'boas_vindas' | 'chat' | 'manual'; criada_em: string; atualizada_em: string | null }
+
+export interface MemoriasFalsas {
+  memorias: MemoriaFalsa[];
+  /** GET /api/memorias responde 500. */
+  listaFalha: boolean;
+  /** Atraso (ms) antes de responder ao GET (para ver o esqueleto). */
+  atrasoMs: number;
+  /** Quantas escritas (POST/PATCH) devem falhar com 500 antes de funcionar. */
+  escritaFalhas: number;
+  posts: Array<{ texto: string; area: string }>;
+  patches: Array<{ id: string; campos: Record<string, unknown> }>;
+  deletes: string[];
+}
+
+export const memoriaFalsa = (id: string, texto: string, area: string, diasAtras = 1): MemoriaFalsa => ({
+  id, texto, area, origem: 'manual', criada_em: new Date(Date.now() - diasAtras * 86_400_000).toISOString(), atualizada_em: null,
+});
+
+export async function simularMemorias(page: Page, inicial: Partial<MemoriasFalsas> = {}): Promise<MemoriasFalsas> {
+  const f: MemoriasFalsas = { memorias: [], listaFalha: false, atrasoMs: 0, escritaFalhas: 0, posts: [], patches: [], deletes: [], ...inicial };
+  let proximo = 1;
+  await page.route((url) => url.pathname.startsWith('/api/memorias'), async (rota) => {
+    const req = rota.request();
+    const partes = new URL(req.url()).pathname.split('/').filter(Boolean); // api, memorias, [id]
+    const json = (status: number, corpo: unknown) => rota.fulfill({ status, json: corpo });
+    const erro500 = () => json(500, { erro: { codigo: 'erro_interno', mensagem: 'x' } });
+    const metodo = req.method();
+    if (metodo === 'GET') {
+      if (f.atrasoMs) await new Promise((r) => setTimeout(r, f.atrasoMs));
+      if (f.listaFalha) return erro500();
+      return json(200, [...f.memorias].sort((a, b) => b.criada_em.localeCompare(a.criada_em)));
+    }
+    if (metodo === 'POST') {
+      const corpo = req.postDataJSON() as { texto: string; area: string };
+      f.posts.push(corpo);
+      if (f.escritaFalhas > 0) { f.escritaFalhas--; return erro500(); }
+      const m: MemoriaFalsa = { id: `novo${proximo++}`, texto: corpo.texto.trim(), area: corpo.area, origem: 'manual', criada_em: new Date().toISOString(), atualizada_em: null };
+      f.memorias.push(m);
+      return json(201, m);
+    }
+    const m = f.memorias.find((x) => x.id === partes[2]);
+    if (!m) return json(404, { erro: { codigo: 'nao_encontrado', mensagem: 'Não encontrado.' } });
+    if (metodo === 'PATCH') {
+      const campos = req.postDataJSON() as { texto?: string; area?: string };
+      f.patches.push({ id: m.id, campos });
+      if (f.escritaFalhas > 0) { f.escritaFalhas--; return erro500(); }
+      Object.assign(m, { ...(campos.texto !== undefined ? { texto: campos.texto.trim() } : {}), ...(campos.area ? { area: campos.area } : {}), atualizada_em: new Date().toISOString() });
+      return json(200, m);
+    }
+    f.deletes.push(m.id);
+    f.memorias = f.memorias.filter((x) => x.id !== m.id);
+    return rota.fulfill({ status: 204 });
+  });
+  return f;
+}

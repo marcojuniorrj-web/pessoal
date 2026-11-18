@@ -21,7 +21,7 @@ Fase 2.
 - [x] 4.3 CRUD `/api/memorias`. **Aceite:** testes de validação (texto de até 300) e de posse.
 - [x] 4.4 As memórias entram no contexto (montador da Fase 2) e o prompt orienta a não sugerir memória que já existe. **Aceite:** caso golden — com a memória "acorda às 6h" salva, o José a usa no "O que faço hoje?" e não a sugere de novo.
 - [x] 4.5 Componente CartaoSugestao: Salvar, Editar (texto, chips de área), Descartar com "Desfazer", erro ao salvar e "✓ Salvo em José sabe". **Aceite:** testes de componente; nada é salvo sem toque.
-- [ ] 4.6 Aba José sabe: grupos por área, data, adicionar, editar, apagar com "Desfazer", estados esqueleto, vazio (botão "Fazer as boas-vindas" vai para a Fase 6, por enquanto desabilitado) e erro, e ⚙ para Ajustes. **Aceite:** teste Playwright de criar, editar e apagar → desfazer.
+- [x] 4.6 Aba José sabe: grupos por área, data, adicionar, editar, apagar com "Desfazer", estados esqueleto, vazio (botão "Fazer as boas-vindas" vai para a Fase 6, por enquanto desabilitado) e erro, e ⚙ para Ajustes. **Aceite:** teste Playwright de criar, editar e apagar → desfazer.
 
 ## Como testar (roteiro para o Marco)
 1. No Chat, escreva "eu trabalho melhor de manhã e odeio reunião depois das 17h".

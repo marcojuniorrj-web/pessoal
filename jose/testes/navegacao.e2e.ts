@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { simularApi } from './apoio';
+import { simularApi, simularMemorias } from './apoio';
 
 test('navega por todas as telas e volta, sem beco sem saída', async ({ page }) => {
   await simularApi(page);
+  await simularMemorias(page);
   await page.goto('/');
   const abas = page.getByRole('navigation', { name: 'Navegação principal' });
   await expect(abas).toBeVisible();

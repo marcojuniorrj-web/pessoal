@@ -92,3 +92,30 @@ html[data-teclado='aberto'] .barra-abas { display: none; }
 .gaveta__mais { flex-shrink: 0; min-width: var(--alvo-minimo); min-height: var(--alvo-minimo); background: transparent; border: 0; font-size: 20px; cursor: pointer; }
 .gaveta__menu { position: absolute; right: 8px; top: 100%; z-index: 2; background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 12px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); }
 .gaveta__menu-item { min-height: var(--alvo-minimo); padding: 0 20px; background: transparent; border: 0; color: var(--erro); cursor: pointer; }
+
+/* José sabe (memórias): lista agrupada por área; textos longos quebram e nada passa da largura da tela. */
+.tela--memorias { padding-bottom: 96px; min-width: 0; }
+.memorias__adicionar { align-self: stretch; }
+.memorias__grupo { display: grid; gap: 4px; min-width: 0; }
+.memorias__area { font-size: var(--pequeno); color: var(--texto-2); font-weight: 600; margin: 8px 4px 2px; overflow-wrap: anywhere; }
+.memorias__lista { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.memoria { position: relative; display: flex; align-items: stretch; min-width: 0; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
+.memoria__abrir {
+  flex: 1; min-width: 0; min-height: var(--alvo-minimo); display: grid; gap: 2px; padding: 10px 4px 10px 14px;
+  background: transparent; border: 0; text-align: left; cursor: pointer; color: inherit; overflow-wrap: anywhere; word-break: break-word;
+}
+.memoria__abrir:disabled { cursor: default; }
+.memoria__texto { min-width: 0; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.memoria__data { font-size: var(--pequeno); }
+.memoria__mais { flex-shrink: 0; min-width: var(--alvo-minimo); min-height: var(--alvo-minimo); background: transparent; border: 0; font-size: 20px; cursor: pointer; }
+.memoria__menu { position: absolute; right: 8px; top: calc(100% - 4px); z-index: 2; background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 12px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); }
+.memoria__menu-item { min-height: var(--alvo-minimo); padding: 0 20px; background: transparent; border: 0; color: var(--erro); cursor: pointer; }
+.form-memoria { display: grid; gap: 8px; min-width: 0; padding: 12px; width: 100%; background: var(--superficie); border: 1px solid var(--destaque); border-radius: var(--raio); }
+.memoria .form-memoria { border: 0; }
+.form-memoria__campo {
+  width: 100%; min-width: 0; max-width: 100%; min-height: 96px; resize: vertical; padding: 12px;
+  background: var(--fundo); color: var(--texto); border: 1px solid var(--borda); border-radius: 12px; font: inherit; line-height: 1.35; overflow-wrap: anywhere;
+}
+.form-memoria__erro { font-size: var(--pequeno); }
+.form-memoria__acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.form-memoria__acoes .botao { flex: 1 1 auto; min-width: 0; }
