@@ -80,7 +80,8 @@ título, o topo mostra "Nova conversa".
     - selo **"Modo decisão"**, quando a conversa está nesse modo.
   - **Área de mensagens:** balões. As mensagens do Marco ficam à direita e as do José à esquerda. Um áudio enviado aparece como balão de texto com o ícone 🎤.
     - **Horário:** cada balão mostra a hora (`HH:mm`, 24 h, cor secundária) e, entre mensagens de dias diferentes, há um **separador de dia**: "Hoje", "Ontem" ou a data curta ("seg., 17 de nov."; sem o ano quando é o ano corrente). A mensagem que acabou de chegar mostra a hora quando termina. A hora é um `<time datetime>` com rótulo acessível ("enviada às 14:32").
-    - **⋯ do balão** (alvo de 48px, alternativa visível a qualquer gesto): menu com **"Apagar mensagem"** e, nas mensagens do Marco que têm resposta do José logo depois, **"Apagar mensagem e resposta"**. O menu abre para cima quando não cabe embaixo, fecha com Esc e ao tocar fora, e devolve o foco ao botão. Uma resposta do José ainda em andamento (streaming) ou com erro não tem ⋯.
+    - **Apagar e copiar por pressão longa (como no WhatsApp):** segurar o balão por ~450 ms abre uma **folha de ações** na parte de baixo da tela (acima da barra de abas e do teclado, com fundo escurecido) com **"Copiar"**, **"Apagar mensagem"** e, nas mensagens do Marco que têm resposta do José logo depois, **"Apagar mensagem e resposta"**, mais **"Cancelar"**. A folha fecha com Esc, tocando fora ou em Cancelar; o foco fica preso nela e volta ao balão ao fechar; alvos de 48px. Não há botão ⋯ em cada balão (a tela fica limpa). Se o dedo se mover mais de ~10px (é rolagem) ou soltar antes do tempo, nada abre e a lista rola normalmente; enquanto segura, o balão fica levemente realçado (e vibra de leve, se o aparelho permitir). O balão tem `user-select: none` e `-webkit-touch-callout: none` para o iOS não abrir a própria lupa/menu; o texto continua copiável pela ação "Copiar".
+    - **Alternativas à pressão longa:** o balão é focável (Tab); Enter, a tecla de menu de contexto ou Shift+F10 abrem a mesma folha; o clique com o botão direito também; no computador (mouse) aparece um **⋯** discreto ao passar o mouse ou focar no balão. A resposta do José em andamento (streaming) ou com erro não abre a folha.
   - **Cartões de sugestão** dentro da conversa, com **no máximo 3 por resposta**:
     - 📌 Tarefa: título, área e prazo (opcional);
     - 🎯 Meta: título, área e prazo (opcional);
@@ -100,7 +101,7 @@ título, o topo mostra "Nova conversa".
   - **Salvar no cartão:** o cartão vira "✓ Salvo em Tarefas" (ou "✓ Salvo em José sabe").
   - **Editar:** abre os campos dentro do próprio cartão.
   - **Descartar:** recolhe o cartão, com o aviso "Descartado. Desfazer".
-  - **Apagar mensagem (⋯ do balão):** a mensagem (ou a pergunta com a resposta) some na hora, com o aviso "Apagado. Desfazer". Os cartões da resposta apagada somem junto, mas o que já foi salvo a partir deles (tarefas, metas, memórias) **permanece**. A mensagem apagada deixa de entrar no contexto da IA.
+  - **Apagar mensagem (folha de ações do balão):** a mensagem (ou a pergunta com a resposta) some na hora, com o aviso "Apagado. Desfazer". Os cartões da resposta apagada somem junto, mas o que já foi salvo a partir deles (tarefas, metas, memórias) **permanece**. A mensagem apagada deixa de entrar no contexto da IA.
   - **Apagar conversa (⋯ do topo):** apaga a conversa aberta com "Apagado. Desfazer" e leva ao Chat vazio; a gaveta de Histórico reflete a mudança.
   - **Tentar de novo** (no balão de erro): refaz a resposta do José sem duplicar a mensagem do Marco.
 - **Estados:**
@@ -115,7 +116,7 @@ título, o topo mostra "Nova conversa".
   - sem internet: faixa "Offline" e envio desabilitado;
   - limite diário atingido: "Limite de hoje atingido, volta amanhã.";
   - microfone negado: "Libere o microfone nas configurações para usar voz."
-- **Mobile:** o campo de digitação sobe junto com o teclado. Botões com pelo menos 48px. Nada passa da largura da tela (320px e 390px), mesmo com balão de texto longo ou palavra sem espaços; o ⋯ não empurra o balão para fora; a barra de abas nunca some; o aviso (toast) não cobre campo, formulário nem cartões.
+- **Mobile:** o campo de digitação sobe junto com o teclado. Botões com pelo menos 48px. Nada passa da largura da tela (320px e 390px), mesmo com balão de texto longo ou palavra sem espaços; o balão não tem botões ao lado que o empurrem para fora; a folha de ações não é coberta pelo aviso (toast); a barra de abas nunca some; o aviso (toast) não cobre campo, formulário nem cartões.
 
 ### 4. Histórico de conversas (gaveta lateral do Chat)
 - **Perfil:** Marco.
