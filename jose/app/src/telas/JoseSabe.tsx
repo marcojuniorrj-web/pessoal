@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FUSO_PADRAO } from '@compartilhado/datas';
 import { apagarMemoria, criarMemoria, editarMemoria, type MemoriaDto } from '../api/memorias';
@@ -24,6 +24,38 @@ export function JoseSabe() {
   const [adicionando, setAdicionando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [menuAbertoId, setMenuAbertoId] = useState<string | null>(null);
+
+  // Quem abriu o formulário ou o menu recebe o foco de volta quando ele fecha por Esc ou Cancelar.
+  const voltarFoco = useRef<string | null>(null);
+  useEffect(() => {
+    if (adicionando || editandoId || !voltarFoco.current) return;
+    const alvo = voltarFoco.current;
+    voltarFoco.current = null;
+    document.querySelector<HTMLElement>(alvo)?.focus();
+  }, [adicionando, editandoId]);
+  const fecharAdicionar = () => { voltarFoco.current = '.memorias__adicionar'; setAdicionando(false); };
+  const fecharEdicao = (id: string) => { voltarFoco.current = `[data-memoria-id="${id}"] .memoria__abrir`; setEditandoId(null); };
+
+  // Menu ⋯: Esc fecha (foco volta ao ⋯) e tocar fora dele também fecha.
+  useEffect(() => {
+    if (!menuAbertoId) return;
+    const id = menuAbertoId;
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setMenuAbertoId(null);
+      document.querySelector<HTMLElement>(`[data-memoria-id="${id}"] .memoria__mais`)?.focus();
+    };
+    const aoTocar = (e: PointerEvent) => {
+      const alvo = e.target as Element | null;
+      if (!alvo?.closest(`[data-memoria-id="${id}"] .memoria__menu, [data-memoria-id="${id}"] .memoria__mais`)) setMenuAbertoId(null);
+    };
+    document.addEventListener('keydown', aoTeclar);
+    document.addEventListener('pointerdown', aoTocar);
+    return () => {
+      document.removeEventListener('keydown', aoTeclar);
+      document.removeEventListener('pointerdown', aoTocar);
+    };
+  }, [menuAbertoId]);
 
   const apagar = (m: MemoriaDto) => {
     setMenuAbertoId(null);
@@ -62,7 +94,7 @@ export function JoseSabe() {
         <FormMemoria
           titulo="Adicionar memória"
           rotuloSalvar="Salvar"
-          aoCancelar={() => setAdicionando(false)}
+          aoCancelar={fecharAdicionar}
           aoSalvar={async (conteudo) => {
             adicionar(await criarMemoria(conteudo));
             setAdicionando(false);
@@ -92,13 +124,13 @@ export function JoseSabe() {
           <h2 className="memorias__area">{g.rotulo}</h2>
           <ul className="memorias__lista">
             {g.itens.map((m) => (
-              <li key={m.id} className="memoria" data-area={m.area}>
+              <li key={m.id} className="memoria" data-area={m.area} data-memoria-id={m.id}>
                 {editandoId === m.id ? (
                   <FormMemoria
                     titulo="Editar memória"
                     inicial={{ texto: m.texto, area: m.area }}
                     rotuloSalvar="Salvar"
-                    aoCancelar={() => setEditandoId(null)}
+                    aoCancelar={() => fecharEdicao(m.id)}
                     aoSalvar={async (conteudo) => {
                       const atualizada = await editarMemoria(m.id, conteudo);
                       substituir(atualizada);

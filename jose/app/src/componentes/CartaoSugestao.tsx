@@ -38,11 +38,19 @@ export function CartaoSugestao({ sugestao, aoMudar, salvar = salvarSugestao, des
   const [recolhido, setRecolhido] = useState(() => estaPendente(chaveDescarte(sugestao.id)));
   const campoRef = useRef<HTMLTextAreaElement>(null);
   const cartaoRef = useRef<HTMLElement>(null);
+  const editarRef = useRef<HTMLButtonElement>(null);
+  const jaEditou = useRef(false);
 
+  // Ao abrir a edição o foco vai para o texto; ao sair dela (Cancelar ou Esc) volta ao botão Editar que a abriu.
   useEffect(() => {
-    if (!editando) return;
-    campoRef.current?.focus();
-    cartaoRef.current?.scrollIntoView?.({ block: 'nearest' });
+    if (editando) {
+      jaEditou.current = true;
+      campoRef.current?.focus();
+      cartaoRef.current?.scrollIntoView?.({ block: 'nearest' });
+    } else if (jaEditou.current) {
+      jaEditou.current = false;
+      editarRef.current?.focus();
+    }
   }, [editando]);
 
   if (!conteudo || sugestao.tipo !== 'memoria') return null; // tarefas e metas chegam na onda 5
@@ -116,7 +124,19 @@ export function CartaoSugestao({ sugestao, aoMudar, salvar = salvarSugestao, des
   const contador = contadorTexto(texto);
 
   return (
-    <article ref={cartaoRef} className="cartao-sugestao" aria-label="Memória sugerida" aria-busy={salvando || undefined}>
+    <article
+      ref={cartaoRef}
+      className="cartao-sugestao"
+      aria-label="Memória sugerida"
+      aria-busy={salvando || undefined}
+      onKeyDown={(e) => {
+        // Esc sai da edição sem salvar (como o Cancelar).
+        if (e.key === 'Escape' && editando && !salvando) {
+          e.stopPropagation();
+          setEditando(false);
+        }
+      }}
+    >
       <header className="cartao-sugestao__topo">
         <span aria-hidden="true">🧠</span>
         <span className="cartao-sugestao__tipo">Memória</span>
@@ -167,7 +187,7 @@ export function CartaoSugestao({ sugestao, aoMudar, salvar = salvarSugestao, des
           </Botao>
         ) : (
           <>
-            <Botao disabled={salvando} onClick={comecarEdicao}>
+            <Botao ref={editarRef} disabled={salvando} onClick={comecarEdicao}>
               Editar
             </Botao>
             <Botao variante="link" disabled={salvando} onClick={aoDescartar}>

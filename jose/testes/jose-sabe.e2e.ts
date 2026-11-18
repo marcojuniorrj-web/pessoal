@@ -110,6 +110,36 @@ test.describe('Aba José sabe (4.6)', () => {
     expect(f.posts).toHaveLength(2);
   });
 
+  test('Esc fecha "Adicionar memória" e "Editar memória" devolvendo o foco a quem abriu; Esc e toque fora fecham o menu ⋯', async ({ page }) => {
+    await abrir(page, { memorias: [memoriaFalsa('m1', 'Acorda às 6h.', 'saude'), memoriaFalsa('m2', 'Tem um filho.', 'casa')] });
+
+    const adicionar = page.getByRole('button', { name: '+ Adicionar memória' });
+    await adicionar.click();
+    await expect(page.getByRole('form', { name: 'Adicionar memória' }).getByLabel('Texto da memória')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('form', { name: 'Adicionar memória' })).toHaveCount(0);
+    await expect(adicionar).toBeFocused();
+
+    const abrirEdicao = grupo(page, 'Saúde e rotina').getByRole('button', { name: /^Editar: Acorda/ });
+    await abrirEdicao.click();
+    await expect(page.getByRole('form', { name: 'Editar memória' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('form', { name: 'Editar memória' })).toHaveCount(0);
+    await expect(abrirEdicao).toBeFocused();
+
+    const mais = page.getByRole('button', { name: 'Mais opções de Acorda às 6h.' });
+    await mais.click();
+    await expect(page.getByRole('menu')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(mais).toBeFocused();
+
+    await mais.click();
+    await expect(page.getByRole('menu')).toBeVisible();
+    await page.getByRole('heading', { name: 'José sabe' }).click();
+    await expect(page.getByRole('menu')).toHaveCount(0);
+  });
+
   test('a aba José sabe fica marcada na barra e a barra continua visível', async ({ page }) => {
     await abrir(page);
     await expect(page.getByRole('navigation').getByRole('link', { name: /José sabe/ })).toHaveAttribute('aria-current', 'page');

@@ -50,6 +50,18 @@ test.describe('Cartão de sugestão no Chat (4.5)', () => {
     await expect(page.getByText('Acorda às 5h30 nos dias de treino.')).toBeVisible();
   });
 
+  test('Esc sai da edição do cartão sem salvar e devolve o foco ao botão Editar', async ({ page }) => {
+    const f = await abrir(page, { sugerir: [{ texto: 'Acorda às 6h.', area: 'saude' }] });
+    await enviar(page);
+    const cartao = cartoes(page);
+    await cartao.getByRole('button', { name: 'Editar' }).click();
+    await expect(cartao.getByLabel('Texto da memória')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(cartao.getByLabel('Texto da memória')).toHaveCount(0);
+    await expect(cartao.getByRole('button', { name: 'Editar' })).toBeFocused();
+    expect(f.salvos).toEqual([]);
+  });
+
   test('Descartar recolhe com "Descartado. Desfazer"; Desfazer devolve o cartão sem chamar a API', async ({ page }) => {
     const f = await abrir(page, { sugerir: [{ texto: 'Acorda às 6h.', area: 'saude' }] });
     await enviar(page);

@@ -48,7 +48,15 @@ export function FormMemoria({ titulo, inicial, rotuloSalvar, aoSalvar, aoCancela
   const contador = contadorTexto(texto);
 
   return (
-    <form ref={formRef} className="form-memoria" aria-label={titulo} onSubmit={(e) => void enviar(e)}>
+    <form ref={formRef} className="form-memoria" aria-label={titulo} onSubmit={(e) => void enviar(e)}
+      onKeyDown={(e) => {
+        // Esc sai da edição sem salvar (como o Cancelar).
+        if (e.key === 'Escape' && !salvando) {
+          e.stopPropagation();
+          aoCancelar();
+        }
+      }}
+    >
       <label className="so-leitor" htmlFor={id}>
         Texto da memória
       </label>
