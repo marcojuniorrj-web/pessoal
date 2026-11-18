@@ -4,6 +4,8 @@
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #raiz { height: 100%; margin: 0; }
 html, body { max-width: 100%; overflow-x: clip; }
+/* Foco por teclado/rolagem nunca deixa o item atrás da barra de abas fixa (barra + área segura + folga). */
+html { scroll-padding-bottom: calc(var(--altura-barra) + env(safe-area-inset-bottom) + 16px); }
 body {
   background: var(--fundo);
   color: var(--texto);

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { simularApi, simularMemorias } from './apoio';
+import { memoriaFalsa, simularApi, simularMemorias } from './apoio';
 import { elementosComTransbordo } from './medidas';
 
 // Garante o que quebrou no iPhone: nada passa da largura da tela e a barra de abas nunca some sozinha.
@@ -36,3 +36,24 @@ test('Chat: sair para outra aba funciona, e o foco no campo não deixa a barra d
   await page.getByRole('navigation').getByText('Tarefas', { exact: true }).click();
   await expect(page.getByText('Nada por aqui.')).toBeVisible();
 });
+
+// O foco (teclado/leitor de tela) rola a página só o mínimo: o último item não pode ficar atrás da barra de abas fixa.
+const MUITAS = Array.from({ length: 14 }, (_, i) => memoriaFalsa(`m${i}`, `Memória número ${i} com um texto de tamanho razoável.`, 'trabalho', i + 1));
+for (const tamanho of [{ width: 320, height: 640 }, { width: 1280, height: 800 }]) {
+  test(`${tamanho.width}x${tamanho.height}: focar o último item de José sabe o deixa acima da barra de abas`, async ({ page }) => {
+    await page.setViewportSize(tamanho);
+    await simularApi(page);
+    await simularMemorias(page, { memorias: MUITAS });
+    await page.goto('/jose-sabe');
+    const ultimo = page.getByRole('button', { name: /^Mais opções de Memória número 13/ });
+    await expect(ultimo).toBeVisible();
+    // Posição do bug: o item cabe na janela, mas a borda de baixo está escondida atrás da barra fixa.
+    await ultimo.evaluate((el) => window.scrollBy(0, el.getBoundingClientRect().bottom - window.innerHeight + 10));
+    await ultimo.focus();
+    const { fundo, barra } = await page.evaluate(() => ({
+      fundo: document.activeElement!.getBoundingClientRect().bottom,
+      barra: document.querySelector('nav')!.getBoundingClientRect().top,
+    }));
+    expect(fundo, 'borda de baixo do item focado vs. topo da barra').toBeLessThanOrEqual(barra);
+  });
+}
