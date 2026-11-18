@@ -1,5 +1,5 @@
 import type { ConversaCompleta, ConversaResumo, ModoConversa } from '@compartilhado/schemas';
-import { api, ErroRede, erroDaResposta } from './cliente';
+import { api, ErroHttp, ErroRede, erroDaResposta } from './cliente';
 import { criarParserSse } from './sse';
 
 export const listarConversas = () => api.get<ConversaResumo[]>('/api/conversas');
@@ -78,4 +78,14 @@ export async function enviarMensagem(conversaId: string, msg: MensagemParaEnviar
     if (!terminou) throw new ErroInterrompido();
   }
   if (!terminou) throw new ErroInterrompido();
+}
+
+/** Apaga uma mensagem; `comResposta` leva também a resposta do José logo depois. Um 404 (já apagada) conta como feito. */
+export async function apagarMensagem(id: string, comResposta = false): Promise<void> {
+  try {
+    await api.delete(`/api/mensagens/${encodeURIComponent(id)}${comResposta ? '?com_resposta=1' : ''}`);
+  } catch (e) {
+    if (e instanceof ErroHttp && e.status === 404) return;
+    throw e;
+  }
 }

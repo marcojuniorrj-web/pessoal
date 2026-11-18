@@ -1,14 +1,20 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { saudacao } from '@compartilhado/datas';
+import { FUSO_PADRAO, saudacao, separadoresDeDia } from '@compartilhado/datas';
 import { LIMITE_MENSAGEM } from '@compartilhado/schemas';
 import { Balao } from '../componentes/Balao';
 import { Botao } from '../componentes/Botao';
 import { CartaoSugestao } from '../componentes/CartaoSugestao';
 import { EsqueletoLista } from '../componentes/Esqueleto';
+import { FolhaAcoes } from '../componentes/FolhaAcoes';
 import { GavetaHistorico } from '../componentes/GavetaHistorico';
 import { useToast, useToastAtual } from '../componentes/Toast';
-import { useChat } from '../estado/chat';
+import { apagarConversa, apagarMensagem } from '../api/conversas';
+import { useAgora } from '../estado/agora';
+import { apagarComDesfazer } from '../estado/apagar-com-desfazer';
+import { useChat, type Bolha } from '../estado/chat';
+import { copiarTexto } from '../estado/copiar';
+import { assinarOcultas, mensagemOculta, mostrarMensagens, ocultarMensagens, versaoOcultas } from '../estado/mensagens-ocultas';
 import { useOnline } from '../estado/online';
 import { lerRascunho, salvarRascunho } from '../estado/rascunho';
 import { useSessao, useUsuario } from '../estado/sessao';
@@ -32,14 +38,23 @@ export function Chat() {
   const nova = params.get('nova') === '1';
   useTecladoVirtual();
 
-  const { geracao, carga, conversa, bolhas, ocupado, enviar, tentarDeNovo, iniciarDecisao, recarregar, atualizarSugestao } = useChat({
+  const { geracao, carga, conversa, bolhas, ocupado, enviar, tentarDeNovo, iniciarDecisao, recarregar, atualizarSugestao, removerBolhas } = useChat({
     idUrl,
     nova,
     // A URL passa a apontar para a conversa criada: um 401 volta exatamente para ela.
     aoCriar: (id) => ir(`/?c=${encodeURIComponent(id)}`, { replace: true }),
   });
 
+  const fuso = usuario.fuso_horario ?? FUSO_PADRAO;
+  const agora = useAgora(fuso);
+  // Mensagens mandadas apagar somem na hora (e seus cartões junto); a API só é chamada depois dos 5 s do Desfazer.
+  useSyncExternalStore(assinarOcultas, versaoOcultas);
+  const visiveis = bolhas.filter((b) => !mensagemOculta(b.id));
+  const separadores = separadoresDeDia(visiveis.map((b) => b.criadaEm), agora, fuso);
+
   const [texto, setTexto] = useState('');
+  const [menuTopo, setMenuTopo] = useState(false);
+  const [folha, setFolha] = useState<{ id: string; origem: HTMLElement } | null>(null);
   const [gavetaAberta, setGavetaAberta] = useState(false);
   const campoRef = useRef<HTMLTextAreaElement>(null);
   const rodapeRef = useRef<HTMLFormElement>(null);
@@ -128,7 +143,83 @@ export function Chat() {
     if (!(await iniciarDecisao())) toast('Não foi possível iniciar. Tente de novo.');
   };
 
-  const vazio = carga === 'ok' && bolhas.length === 0;
+  /** A resposta do José logo depois (visível e pronta), para "Apagar mensagem e resposta". */
+  const respostaDe = (b: Bolha): Bolha | null => {
+    const i = visiveis.findIndex((x) => x.id === b.id);
+    const prox = i >= 0 ? visiveis[i + 1] : undefined;
+    return b.autor === 'marco' && prox?.autor === 'jose' && prox.estado === 'ok' ? prox : null;
+  };
+  /** Só mensagens prontas abrem a folha; a do Marco que ainda espera resposta (ou "Tentar de novo") também não. */
+  const podeAbrirAcoes = (b: Bolha, i: number) => {
+    if (b.estado !== 'ok') return false;
+    const prox = visiveis[i + 1];
+    return !(b.autor === 'marco' && prox && prox.estado !== 'ok');
+  };
+
+  const apagarMensagens = (b: Bolha, comResposta: boolean) => {
+    const resposta = comResposta ? respostaDe(b) : null;
+    const ids = resposta ? [b.id, resposta.id] : [b.id];
+    ocultarMensagens(ids);
+    apagarComDesfazer({
+      id: b.id,
+      mostrar: toast,
+      apagar: async () => {
+        await apagarMensagem(b.id, !!resposta);
+        removerBolhas(ids);
+      },
+      aoDesfazer: () => mostrarMensagens(ids),
+      aoFalhar: () => {
+        mostrarMensagens(ids);
+        toast('Não foi possível apagar.', { rotulo: 'Tentar de novo', aoTocar: () => apagarMensagens(b, !!resposta) });
+      },
+    });
+  };
+
+  const apagarConversaPorId = (id: string) => {
+    ir('/?nova=1');
+    apagarComDesfazer({
+      id,
+      mostrar: toast,
+      apagar: () => apagarConversa(id),
+      aoDesfazer: () => ir(`/?c=${encodeURIComponent(id)}`),
+      aoFalhar: () => {
+        ir(`/?c=${encodeURIComponent(id)}`);
+        toast('Não foi possível apagar.', { rotulo: 'Tentar de novo', aoTocar: () => apagarConversaPorId(id) });
+      },
+    });
+  };
+
+  const bolhaDaFolha = folha ? visiveis.find((b) => b.id === folha.id) ?? null : null;
+  // A folha fecha sozinha se a mensagem sumiu (ex.: Desfazer de outra, ou a conversa mudou).
+  useEffect(() => {
+    if (folha && !bolhaDaFolha) setFolha(null);
+  }, [folha, bolhaDaFolha]);
+
+  const aoCopiar = async (b: Bolha) => {
+    setFolha(null);
+    toast((await copiarTexto(b.texto)) ? 'Copiado.' : 'Não foi possível copiar.');
+  };
+
+  // Menu ⋯ do topo: Esc fecha (o foco volta ao ⋯) e tocar fora também.
+  useEffect(() => {
+    if (!menuTopo) return;
+    const aoTeclar = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setMenuTopo(false);
+      document.querySelector<HTMLElement>('.chat__mais')?.focus();
+    };
+    const aoTocar = (e: PointerEvent) => {
+      if (!(e.target as Element | null)?.closest('.chat__menu, .chat__mais')) setMenuTopo(false);
+    };
+    document.addEventListener('keydown', aoTeclar);
+    document.addEventListener('pointerdown', aoTocar);
+    return () => {
+      document.removeEventListener('keydown', aoTeclar);
+      document.removeEventListener('pointerdown', aoTocar);
+    };
+  }, [menuTopo]);
+
+  const vazio = carga === 'ok' && visiveis.length === 0;
   const podeEnviar = !!texto.trim() && !ocupado && !semRede;
 
   return (
@@ -142,6 +233,29 @@ export function Chat() {
         <Botao variante="link" className="chat__nova" onClick={() => ir('/?nova=1')}>
           + Nova
         </Botao>
+        {conversa.id && carga === 'ok' && (
+          <>
+            <button type="button" className="chat__mais" aria-label="Mais opções da conversa" aria-haspopup="menu" aria-expanded={menuTopo} onClick={() => setMenuTopo((v) => !v)}>
+              ⋯
+            </button>
+            {menuTopo && (
+              <div className="chat__menu" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="chat__menu-item"
+                  disabled={semRede || ocupado}
+                  onClick={() => {
+                    setMenuTopo(false);
+                    apagarConversaPorId(conversa.id!);
+                  }}
+                >
+                  Apagar conversa
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </header>
 
       <div ref={listaRef} className="chat__mensagens" aria-live="polite">
@@ -173,8 +287,15 @@ export function Chat() {
             <p className="texto-2">Conte qual é a decisão. Vou fazer até 3 perguntas, mostrar prós e contras e dar uma recomendação.</p>
           </div>
         )}
-        {bolhas.flatMap((b) => [
-          <Balao key={b.id} bolha={b} aoTentarDeNovo={() => void tentarDeNovo()} />,
+        {visiveis.flatMap((b, i) => [
+          ...(separadores[i] ? [<div key={`dia-${b.id}`} className="separador-dia"><span>{separadores[i]}</span></div>] : []),
+          <Balao
+            key={b.id}
+            bolha={b}
+            fuso={fuso}
+            aoTentarDeNovo={() => void tentarDeNovo()}
+            aoAbrirAcoes={podeAbrirAcoes(b, i) ? (bolha, origem) => setFolha({ id: bolha.id, origem }) : undefined}
+          />,
           // Chave pelo id da sugestão: o cartão não é remontado quando a resposta ganha o id definitivo.
           ...(b.sugestoes ?? []).map((s) => <CartaoSugestao key={s.id} sugestao={s} aoMudar={atualizarSugestao} />),
         ])}
@@ -201,6 +322,24 @@ export function Chat() {
           ➤
         </Botao>
       </form>
+
+      {folha && bolhaDaFolha && (
+        <FolhaAcoes
+          origem={folha.origem}
+          comResposta={!!respostaDe(bolhaDaFolha)}
+          semRede={semRede}
+          aoFechar={() => setFolha(null)}
+          aoCopiar={() => void aoCopiar(bolhaDaFolha)}
+          aoApagar={() => {
+            setFolha(null);
+            apagarMensagens(bolhaDaFolha, false);
+          }}
+          aoApagarComResposta={() => {
+            setFolha(null);
+            apagarMensagens(bolhaDaFolha, true);
+          }}
+        />
+      )}
 
       <GavetaHistorico
         aberta={gavetaAberta}

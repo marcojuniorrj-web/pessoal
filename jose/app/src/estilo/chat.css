@@ -134,3 +134,59 @@ html[data-teclado='aberto'] .barra-abas { display: none; }
 .form-memoria__erro { font-size: var(--pequeno); }
 .form-memoria__acoes { display: flex; flex-wrap: wrap; gap: 8px; }
 .form-memoria__acoes .botao { flex: 1 1 auto; min-width: 0; }
+
+/* Mensagem = balão + hora (+ ⋯ do mouse). O balão não tem botões ao lado: nada o empurra para fora da tela. */
+.mensagem { display: flex; flex-direction: column; min-width: 0; max-width: 85%; }
+.mensagem--marco { align-self: flex-end; align-items: flex-end; }
+.mensagem--jose { align-self: flex-start; align-items: flex-start; }
+.mensagem .balao { max-width: 100%; min-width: 0; }
+.mensagem__meta { display: flex; align-items: center; gap: 4px; min-height: 18px; margin: 2px 6px 0; }
+.mensagem__hora { font-size: 13px; line-height: 18px; color: var(--texto-2); font-variant-numeric: tabular-nums; }
+.mensagem__mais { display: none; }
+
+/* Balão que abre as ações: pressão longa. O iOS não pode abrir a própria lupa/menu de seleção. */
+.balao[data-acoes] { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: default; }
+.balao[data-acoes]:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
+.balao[data-pressionando] { filter: brightness(1.18); transform: scale(0.985); transition: transform 0.15s, filter 0.15s; }
+.balao--marco[data-pressionando] { filter: brightness(1.12); }
+@media (prefers-reduced-motion: reduce) { .balao[data-pressionando] { transform: none; transition: none; } }
+
+/* Mouse: um ⋯ discreto ao passar o mouse ou focar (no celular só a pressão longa). */
+@media (hover: hover) and (pointer: fine) {
+  .mensagem__mais {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 32px; min-height: var(--alvo-minimo);
+    margin: -15px 0; padding: 0; background: transparent; border: 0; color: var(--texto-2); font-size: 18px; cursor: pointer; opacity: 0;
+  }
+  .mensagem:hover .mensagem__mais, .mensagem:focus-within .mensagem__mais { opacity: 1; }
+  .mensagem--marco .mensagem__meta { flex-direction: row-reverse; }
+}
+
+/* Topo do Chat: ⋯ → Apagar conversa */
+.chat__topo { position: relative; }
+.chat__mais { flex-shrink: 0; min-width: var(--alvo-minimo); min-height: var(--alvo-minimo); background: transparent; border: 0; font-size: 22px; cursor: pointer; }
+.chat__menu { position: absolute; right: 8px; top: calc(100% - 4px); z-index: 45; background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 12px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); }
+.chat__menu-item { min-height: var(--alvo-minimo); padding: 0 20px; background: transparent; border: 0; color: var(--erro); cursor: pointer; white-space: nowrap; }
+.chat__menu-item:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Folha de ações (bottom sheet): fundo escurecido; a folha fica acima da barra de abas e acima do aviso (toast). */
+.folha-fundo { position: fixed; inset: 0; z-index: 90; background: rgba(0, 0, 0, 0.55); }
+.folha {
+  position: absolute; left: 0; right: 0; bottom: calc(var(--altura-barra) + env(safe-area-inset-bottom)); max-height: 70dvh; overflow-y: auto;
+  width: 100%; max-width: var(--coluna); margin: 0 auto; box-sizing: border-box; display: grid; gap: 2px; padding: 8px 12px 12px;
+  background: var(--superficie); border: 1px solid var(--borda); border-bottom: 0; border-radius: 18px 18px 0 0; animation: subir-folha 0.18s ease-out;
+}
+html[data-teclado='aberto'] .folha { bottom: 0; }
+@keyframes subir-folha { from { transform: translateY(24px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .folha { animation: none; } }
+.folha__acao {
+  min-height: var(--alvo-minimo); padding: 0 16px; background: transparent; border: 0; border-radius: 12px; color: var(--texto); font: inherit;
+  text-align: left; cursor: pointer; overflow-wrap: anywhere;
+}
+.folha__acao:hover:not(:disabled) { background: var(--superficie-2); }
+.folha__acao--perigo { color: var(--erro); }
+.folha__acao:disabled { opacity: 0.5; cursor: not-allowed; }
+.folha__cancelar { margin-top: 6px; width: 100%; }
+
+/* Separador de dia ("Hoje", "Ontem", "seg., 17 de nov.") */
+.separador-dia { align-self: center; max-width: 100%; margin: 6px 0 2px; }
+.separador-dia span { display: inline-block; max-width: 100%; padding: 2px 12px; border-radius: 999px; background: var(--superficie); color: var(--texto-2); font-size: 13px; line-height: 20px; overflow-wrap: anywhere; }

@@ -5,6 +5,7 @@ import { ErroHttp, ErroRede } from '../api/cliente';
 import {
   abrirConversa, conversaDeHoje, criarConversa, enviarMensagem, ErroInterrompido, type EventoChat, type MensagemParaEnviar,
 } from '../api/conversas';
+import { estaPendente } from './apagar-com-desfazer';
 import { limparRascunho, salvarRascunho } from './rascunho';
 
 export type TipoErroBolha = 'ia' | 'rede' | 'interrompida' | 'limite' | 'sessao';
@@ -26,6 +27,8 @@ export interface Bolha {
   erro?: { tipo: TipoErroBolha; mensagem: string };
   /** Cartões de sugestão desta resposta (no máximo 3). */
   sugestoes?: SugestaoDoChat[];
+  /** Instante (ISO) em que a mensagem foi enviada/recebida; a resposta em andamento ainda não tem. */
+  criadaEm?: string;
 }
 export interface ConversaAberta {
   id: string | null;
@@ -39,7 +42,7 @@ const ID_TEMPORARIO = 'resposta-em-andamento';
 
 const bolhaDe = (m: ConversaCompleta['mensagens'][number], sugestoes: ConversaCompleta['sugestoes'] = []): Bolha => {
   const proprias = sugestoes.filter((s) => s.mensagem_id === m.id).map((s) => ({ id: s.id, tipo: s.tipo, conteudo: s.conteudo, status: s.status }));
-  return { id: m.id, autor: m.autor, texto: m.texto, origem: m.origem, estado: 'ok', ...(proprias.length ? { sugestoes: proprias } : {}) };
+  return { id: m.id, autor: m.autor, texto: m.texto, origem: m.origem, estado: 'ok', criadaEm: m.criada_em, ...(proprias.length ? { sugestoes: proprias } : {}) };
 };
 
 function erroDeExcecao(e: unknown): NonNullable<Bolha['erro']> {
@@ -104,7 +107,8 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
     (idUrl ? abrirConversa(idUrl) : conversaDeHoje())
       .then((dados) => {
         if (cancelado) return;
-        if (!dados) {
+        // Uma conversa que o Marco acabou de apagar (ainda nos 5 s do Desfazer) não volta como "conversa de hoje".
+        if (!dados || estaPendente(dados.conversa.id)) {
           reiniciar({ id: null, titulo: null, modo: 'padrao' });
         } else {
           reiniciar({ id: dados.conversa.id, titulo: dados.conversa.titulo, modo: dados.conversa.modo });
@@ -155,7 +159,7 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
           });
         } else if (ev.tipo === 'fim') {
           pendenteRef.current = null;
-          atualizarResposta((b) => ({ ...b, id: ev.mensagemId, estado: 'ok' }));
+          atualizarResposta((b) => ({ ...b, id: ev.mensagemId, estado: 'ok', criadaEm: new Date().toISOString() }));
           if (ev.titulo) definirConversa({ ...conversaRef.current, titulo: ev.titulo });
         } else if (ev.tipo === 'erro') {
           atualizarResposta((b) => ({ ...b, estado: 'erro', erro: { tipo: 'ia', mensagem: ev.mensagem } }));
@@ -192,7 +196,7 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
       salvarRascunho(conversaRef.current.id, t);
       setBolhas((l) => [
         ...l.filter((b) => b.id !== ID_TEMPORARIO),
-        { id: msg.id, autor: 'marco', texto: t, origem, estado: 'ok' },
+        { id: msg.id, autor: 'marco', texto: t, origem, estado: 'ok', criadaEm: new Date().toISOString() },
         { id: ID_TEMPORARIO, autor: 'jose', texto: '', origem: 'texto', estado: 'transmitindo' },
       ]);
       await executar(msg);
@@ -234,5 +238,8 @@ export function useChat({ idUrl, nova, aoCriar }: Opcoes) {
     setBolhas((lista) => lista.map((b) => (b.sugestoes?.some((s) => s.id === id) ? { ...b, sugestoes: b.sugestoes.map((s) => (s.id === id ? { ...s, ...mudanca } : s)) } : b)));
   }, []);
 
-  return { geracao, carga, conversa, bolhas, ocupado, enviar, tentarDeNovo, iniciarDecisao, recarregar, atualizarSugestao };
+  /** Tira da lista as mensagens que a API já apagou. */
+  const removerBolhas = useCallback((ids: string[]) => setBolhas((l) => l.filter((b) => !ids.includes(b.id))), []);
+
+  return { geracao, carga, conversa, bolhas, ocupado, enviar, tentarDeNovo, iniciarDecisao, recarregar, atualizarSugestao, removerBolhas };
 }

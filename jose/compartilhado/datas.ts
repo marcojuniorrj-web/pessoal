@@ -7,7 +7,7 @@ function formatador(fuso: string) {
   let f = formatadores.get(fuso);
   if (!f) {
     f = new Intl.DateTimeFormat('en-CA', {
-      timeZone: fuso, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
+      timeZone: fuso, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
     });
     formatadores.set(fuso, f);
   }
@@ -18,7 +18,7 @@ function partes(instante: Date | string, fuso: string) {
   const d = typeof instante === 'string' ? new Date(instante) : instante;
   const p: Record<string, string> = {};
   for (const parte of formatador(fuso).formatToParts(d)) p[parte.type] = parte.value;
-  return { dia: `${p.year}-${p.month}-${p.day}`, hora: Number(p.hour) };
+  return { dia: `${p.year}-${p.month}-${p.day}`, hora: Number(p.hour), minuto: Number(p.minute) };
 }
 
 /** Dia local (AAAA-MM-DD) de um instante no fuso informado. */
@@ -71,4 +71,45 @@ export function saudacao(nome: string, agora: Date, fuso: string = FUSO_PADRAO):
   const periodo = h >= 5 && h < 12 ? 'Bom dia' : h >= 12 && h < 18 ? 'Boa tarde' : 'Boa noite';
   const primeiro = nome.trim().split(/\s+/)[0] ?? '';
   return primeiro ? `${periodo}, ${primeiro}.` : `${periodo}.`;
+}
+
+// ---- Horário das mensagens (telas.md, tela 3) ----
+
+/** Hora local de uma mensagem em 24 h: "14:32". */
+export function horaMensagem(instante: Date | string, fuso: string = FUSO_PADRAO): string {
+  const { hora, minuto } = partes(instante, fuso);
+  return `${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}`;
+}
+
+const DIAS_SEMANA = ['dom.', 'seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.'];
+const MESES = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
+
+/**
+ * Rótulo do separador de dia: "Hoje", "Ontem" ou "seg., 17 de nov." (com " de 2025" quando não é o ano corrente).
+ * Escrito à mão (e não com Intl) para ser igual em todos os navegadores.
+ */
+export function rotuloDia(instante: Date | string, agora: Date, fuso: string = FUSO_PADRAO): string {
+  const dia = diaLocal(instante, fuso);
+  const dias = diasEntre(dia, hoje(agora, fuso));
+  if (dias <= 0) return 'Hoje';
+  if (dias === 1) return 'Ontem';
+  const [ano, mes, d] = dia.split('-').map(Number) as [number, number, number];
+  const semana = DIAS_SEMANA[new Date(Date.UTC(ano, mes - 1, d)).getUTCDay()]!;
+  const base = `${semana}, ${d} de ${MESES[mes - 1]}`;
+  return ano === Number(hoje(agora, fuso).slice(0, 4)) ? base : `${base} de ${ano}`;
+}
+
+/**
+ * Para cada mensagem (na ordem), o rótulo do dia quando ela abre um dia novo (a 1ª sempre abre), senão null.
+ * Instantes ausentes (balão sem hora) não abrem nem fecham dia.
+ */
+export function separadoresDeDia(instantes: Array<Date | string | null | undefined>, agora: Date, fuso: string = FUSO_PADRAO): Array<string | null> {
+  let ultimo: string | null = null;
+  return instantes.map((i) => {
+    if (!i) return null;
+    const dia = diaLocal(i, fuso);
+    if (dia === ultimo) return null;
+    ultimo = dia;
+    return rotuloDia(i, agora, fuso);
+  });
 }
