@@ -2,7 +2,7 @@
 //   sistema → memórias → metas → tarefas (até 50) → [ponto de cache] → data/hora → 20 mensagens em texto puro.
 import { ROTULO_AREA, type AreaMemoria } from '@compartilhado/areas';
 import { FUSO_PADRAO } from '@compartilhado/datas';
-import type { MensagemIA } from '../../adaptadores/ia/tipos';
+import type { MensagemIA, TipoSugestao } from '../../adaptadores/ia/tipos';
 import type { Prompt } from '../../adaptadores/ia/prompt';
 
 export const LIMITE_TAREFAS_CONTEXTO = 50;
@@ -16,8 +16,8 @@ export interface MensagemCtx { autor: 'marco' | 'jose'; texto: string; sugestoes
 
 export interface EntradaContexto {
   prompt: Prompt;
-  /** Liga a seção de sugestões do prompt (ferramentas). */
-  sugestoes: boolean;
+  /** Tipos de sugestão ligados (ferramentas). Vazio: a seção de sugestões do prompt não entra. */
+  sugestoes: TipoSugestao[];
   modo: 'padrao' | 'decidir';
   memorias: MemoriaCtx[];
   metas: MetaCtx[];
@@ -33,6 +33,29 @@ export interface ContextoMontado {
   sistemaEstavel: string;
   sistemaVolatil: string;
   mensagens: MensagemIA[];
+}
+
+const NOME_FERRAMENTA: Record<TipoSugestao, string> = { tarefa: 'sugerir_tarefa', meta: 'sugerir_meta', memoria: 'sugerir_memoria' };
+const NOME_TIPO: Record<TipoSugestao, string> = { tarefa: 'tarefa', meta: 'meta', memoria: 'memória' };
+
+const lista = (itens: string[], conector: string) => (itens.length <= 1 ? (itens[0] ?? '') : `${itens.slice(0, -1).join(', ')} ${conector} ${itens.at(-1)}`);
+
+/**
+ * Monta a seção SUGESTOES só com o que está ligado: {{TIPOS}} e {{FERRAMENTAS}} viram a lista dos tipos ligados e
+ * as linhas marcadas com {memoria} ou {tarefa,meta} só ficam se algum desses tipos estiver ligado.
+ */
+export function secaoSugestoes(modelo: string, ligados: TipoSugestao[]): string {
+  const ordem = (['tarefa', 'meta', 'memoria'] as const).filter((t) => ligados.includes(t));
+  return modelo
+    .split('\n')
+    .flatMap((linha) => {
+      const m = /^\{([a-z,]+)\}\s*/.exec(linha);
+      if (!m) return [linha];
+      return m[1]!.split(',').some((t) => ligados.includes(t as TipoSugestao)) ? [`- ${linha.slice(m[0].length)}`] : [];
+    })
+    .join('\n')
+    .replaceAll('{{TIPOS}}', lista(ordem.map((t) => NOME_TIPO[t]), 'ou'))
+    .replaceAll('{{FERRAMENTAS}}', lista(ordem.map((t) => `\`${NOME_FERRAMENTA[t]}\``), 'ou'));
 }
 
 const linhaPrazo = (prazo: string | null) => (prazo ? ` (prazo ${prazo})` : '');
@@ -59,7 +82,7 @@ export function descreverAgora(agora: Date, fuso: string = FUSO_PADRAO): string 
 
 export function montarContexto(e: EntradaContexto): ContextoMontado {
   const partes: string[] = [e.prompt.base];
-  if (e.sugestoes) partes.push(e.prompt.sugestoes);
+  if (e.sugestoes.length) partes.push(secaoSugestoes(e.prompt.sugestoes, e.sugestoes));
 
   partes.push(
     e.memorias.length

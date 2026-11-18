@@ -59,7 +59,7 @@ describe('adaptador Claude: streaming', () => {
 
   it('monta a requisição: cache_control no prefixo, sem parâmetros proibidos', async () => {
     const f = vi.fn(async (_u: unknown, _i: unknown) => sse([inicio, ...fim('end_turn')]));
-    await todos(criarClienteClaude({ apiKey: 'chave-teste', fetch: f as unknown as typeof fetch }).transmitir({ ...pedido, ferramentas: true }));
+    await todos(criarClienteClaude({ apiKey: 'chave-teste', fetch: f as unknown as typeof fetch }).transmitir({ ...pedido, ferramentas: ['tarefa', 'meta', 'memoria'] }));
     const [url, init] = f.mock.calls[0]! as [string, RequestInit];
     expect(url).toBe('https://api.anthropic.com/v1/messages');
     const h = init.headers as Record<string, string>;
@@ -73,6 +73,51 @@ describe('adaptador Claude: streaming', () => {
     for (const proibido of ['temperature', 'top_p', 'top_k', 'thinking']) expect(corpo).not.toHaveProperty(proibido);
     // a última mensagem é do usuário (sem prefill)
     expect(corpo.messages.at(-1).role).toBe('user');
+  });
+
+  it('só declara as ferramentas ligadas (onda 4: só sugerir_memoria), sempre strict e tool_choice automático', () => {
+    const corpo = montarCorpo({ ...pedido, ferramentas: ['memoria'] }, false) as { tools: Array<Record<string, unknown>>; tool_choice: unknown };
+    expect(corpo.tools.map((t) => t.name)).toEqual(['sugerir_memoria']);
+    expect(corpo.tools[0]).toMatchObject({ strict: true, input_schema: { additionalProperties: false, required: ['texto', 'area'] } });
+    expect(corpo.tools[0]).not.toHaveProperty('tipo');
+    expect(JSON.stringify(corpo.tools)).not.toMatch(/minLength|maxLength/); // não suportados com strict: o limite é do Zod
+    expect(corpo.tool_choice).toEqual({ type: 'auto' }); // nada de tool_choice forçado (400 no Sonnet 5.5)
+    for (const sem of [undefined, []] as const) {
+      const c = montarCorpo({ ...pedido, ferramentas: sem as never }, false);
+      expect(c).not.toHaveProperty('tools');
+      expect(c).not.toHaveProperty('tool_choice');
+    }
+  });
+
+  it('descarta e registra (sem conteúdo) a ferramenta com JSON truncado', async () => {
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const f = async () => sse([
+      inicio,
+      texto(0, 'ok'),
+      { type: 'content_block_start', index: 1, content_block: { type: 'tool_use', id: 't1', name: 'sugerir_memoria', input: {} } },
+      { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: '{"texto":"segredo da mem' } },
+      { type: 'content_block_stop', index: 1 },
+      ...fim('max_tokens'),
+    ]);
+    const e = await todos(criarClienteClaude({ apiKey: 'k', fetch: f as unknown as typeof fetch }).transmitir(pedido));
+    expect(e.some((x) => x.tipo === 'sugestao')).toBe(false);
+    expect(aviso).toHaveBeenCalledWith('ia sugestão descartada: JSON inválido', { ferramenta: 'sugerir_memoria' });
+    expect(JSON.stringify(aviso.mock.calls)).not.toContain('segredo');
+    aviso.mockRestore();
+  });
+
+  it('com a ferramenta, a resposta termina em tool_use sem segunda chamada à API', async () => {
+    const f = vi.fn(async (_u: unknown, _i: unknown) => sse([
+      inicio,
+      texto(0, 'Anotei.'),
+      { type: 'content_block_start', index: 1, content_block: { type: 'tool_use', id: 't1', name: 'sugerir_memoria', input: {} } },
+      { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: '{"texto":"Acorda às 6h","area":"saude"}' } },
+      { type: 'content_block_stop', index: 1 },
+      ...fim('tool_use'),
+    ]));
+    const e = await todos(criarClienteClaude({ apiKey: 'k', fetch: f as unknown as typeof fetch }).transmitir({ ...pedido, ferramentas: ['memoria'] }));
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(e.map((x) => x.tipo)).toEqual(['texto', 'sugestao', 'fim']);
   });
 
   it('troca de modelo: o profundo usa fallback de recusa, o padrão não', async () => {

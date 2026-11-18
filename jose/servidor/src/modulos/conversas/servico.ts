@@ -1,6 +1,6 @@
 // Regra de negócio do chat: enviar mensagem, montar o contexto, chamar a IA e gravar a resposta.
 // Cada evento devolvido aqui vira um evento SSE (`texto`, `sugestao`, `fim`, `erro`) na rota.
-import { conteudoSugestaoSchema, type MensagemDto } from '@compartilhado/schemas';
+import type { MensagemDto } from '@compartilhado/schemas';
 import { diaLocal, hoje } from '@compartilhado/datas';
 import { prompt } from '../../adaptadores/ia/prompt';
 import { ErroIA, type ClienteIA, type EventoIA, type PedidoIA } from '../../adaptadores/ia/tipos';
@@ -10,13 +10,13 @@ import { ErroApi } from '../../compartilhado/erros';
 import { uuidv7 } from '../../compartilhado/id';
 import type { UsuarioLinha } from '../auth/repositorio';
 import { LIMITE_TAREFAS_CONTEXTO, montarContexto, type MensagemCtx } from './contexto';
+import { avaliarSugestao, type Proposta } from './sugestoes-ia';
 import { gerarTitulo } from './titulo';
 import {
   buscarMensagem, inserirMensagemMarco, inserirRespostaJose, inserirSugestao, definirTitulo, mensagensDaConversa, memoriasDoUsuario, metasAtivas,
   respostasDoDia, sugestoesDaConversa, tarefasPendentes, type ConversaLinha, type MensagemLinha,
 } from './repositorio';
 
-export const MAX_SUGESTOES_POR_RESPOSTA = 3;
 const MS_36H = 36 * 60 * 60 * 1000;
 
 export type EventoSaida =
@@ -35,7 +35,8 @@ export interface EntradaEnvio {
 
 export const MENSAGEM_LIMITE = 'Limite de hoje atingido, volta amanhã.';
 
-const TIPO_FERRAMENTA = { sugerir_tarefa: 'tarefa', sugerir_meta: 'meta', sugerir_memoria: 'memoria' } as const;
+/** Texto usado quando o modelo só chamou a ferramenta, sem escrever a resposta (a mensagem nunca fica vazia). */
+export const TEXTO_SO_SUGESTOES = 'Separei isto para você decidir se guarda.';
 
 /** Traduz um erro da IA para o evento `erro` (mensagens do telas.md, sem detalhes internos). */
 export function erroParaEvento(e: unknown): Extract<EventoSaida, { evento: 'erro' }> {
@@ -140,7 +141,7 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
   };
 
   let texto = '';
-  const propostas: Array<{ tipo: 'tarefa' | 'meta' | 'memoria'; conteudo: unknown }> = [];
+  const propostas: Proposta[] = [];
   let fim: Extract<EventoIA, { tipo: 'fim' }> | undefined;
 
   try {
@@ -149,15 +150,21 @@ async function* responder(e: EntradaEnvio, ia: ClienteIA, sinal?: AbortSignal): 
         texto += ev.delta;
         yield { evento: 'texto', dados: { delta: ev.delta } };
       } else if (ev.tipo === 'sugestao') {
-        const tipo = TIPO_FERRAMENTA[ev.nome as keyof typeof TIPO_FERRAMENTA];
-        const valido = tipo ? conteudoSugestaoSchema[tipo].safeParse(ev.entrada) : undefined;
-        // Validada com Zod; o servidor ignora o que passar de 3 por resposta.
-        if (tipo && valido?.success && propostas.length < MAX_SUGESTOES_POR_RESPOSTA) propostas.push({ tipo, conteudo: valido.data });
+        // Validada com Zod; o servidor ignora o que passar de 3 por resposta e a memória que já existe.
+        const r = avaliarSugestao(ev.nome, ev.entrada, { ligadas: deps.sugestoesAtivas, memorias, aceitas: propostas });
+        if (r.ok) propostas.push(r.proposta);
+        // O log leva só ids, o nome da ferramenta e os campos inválidos (nunca o conteúdo).
+        else console.warn('ia sugestão descartada', { conversa: conversa.id, ferramenta: ev.nome, motivo: r.motivo, campos: r.campos });
       } else {
         fim = ev;
       }
     }
-    if (!fim || !texto.trim()) throw new ErroIA('indisponivel', 'Resposta vazia.');
+    if (!fim) throw new ErroIA('indisponivel', 'Resposta vazia.');
+    if (!texto.trim()) {
+      if (!propostas.length) throw new ErroIA('indisponivel', 'Resposta vazia.');
+      texto = TEXTO_SO_SUGESTOES;
+      yield { evento: 'texto', dados: { delta: texto } };
+    }
   } catch (erro) {
     if (erro instanceof ErroIA && erro.tipo === 'cancelado') return; // o Marco fechou a conexão: nada a gravar
     console.error('ia falhou', { conversa: conversa.id, tipo: erro instanceof ErroIA ? erro.tipo : 'desconhecido', status: erro instanceof ErroIA ? erro.status : undefined, ms: Date.now() - inicio });

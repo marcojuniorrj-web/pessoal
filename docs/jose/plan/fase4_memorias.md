@@ -9,7 +9,7 @@ As memórias salvas passam a deixar as respostas personalizadas.
 Fase 2.
 
 ## Tarefas (prompts pequenos)
-- [ ] 4.1 Ferramentas da IA (`sugerir_memoria` agora; `sugerir_tarefa` e `sugerir_meta` declaradas, mas ligadas na Fase 5), com `strict: true`:
+- [x] 4.1 Ferramentas da IA (`sugerir_memoria` agora; `sugerir_tarefa` e `sugerir_meta` declaradas, mas ligadas na Fase 5), com `strict: true`:
   - o texto vem antes das ferramentas;
   - validação Zod;
   - máximo de 3 por resposta;

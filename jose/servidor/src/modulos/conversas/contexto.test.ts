@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { lerPrompt } from '../../adaptadores/ia/prompt';
-import { LIMITE_MENSAGENS_CONTEXTO, LIMITE_TAREFAS_CONTEXTO, montarContexto, normalizarMensagens, type EntradaContexto } from './contexto';
+import { prompt as promptReal } from '../../adaptadores/ia/prompt';
+import { LIMITE_MENSAGENS_CONTEXTO, LIMITE_TAREFAS_CONTEXTO, montarContexto, normalizarMensagens, secaoSugestoes, type EntradaContexto } from './contexto';
 
 const prompt = lerPrompt('=== BASE ===\nPROMPT-BASE\n=== SUGESTOES ===\nPROMPT-SUGESTOES\n=== DECIDIR ===\nPROMPT-DECIDIR\n=== TITULO ===\nPROMPT-TITULO');
 const agora = new Date('2026-11-17T14:20:00-03:00');
 
 const entrada = (extra: Partial<EntradaContexto> = {}): EntradaContexto => ({
-  prompt, sugestoes: true, modo: 'padrao', agora,
+  prompt, sugestoes: ['memoria'], modo: 'padrao', agora,
   memorias: [{ texto: 'Acorda às 7h.', area: 'saude' }, { texto: 'É gerente comercial.', area: 'sobre_mim' }],
   metas: [{ titulo: 'Fechar a meta do trimestre', area: 'trabalho', prazo: '2026-12-20' }],
   tarefas: [{ titulo: 'Enviar proposta', area: 'trabalho', prazo: '2026-11-17' }, { titulo: 'Pagar condomínio', area: 'casa', prazo: null }],
@@ -60,7 +61,7 @@ describe('montarContexto', () => {
   });
 
   it('modo decidir coloca a instrução depois do ponto de cache; sugestões só se ligadas', () => {
-    const d = montarContexto(entrada({ modo: 'decidir', sugestoes: false }));
+    const d = montarContexto(entrada({ modo: 'decidir', sugestoes: [] }));
     expect(d.sistemaVolatil).toContain('PROMPT-DECIDIR');
     expect(d.sistemaEstavel).not.toContain('PROMPT-DECIDIR');
     expect(d.sistemaEstavel).not.toContain('PROMPT-SUGESTOES');
@@ -99,5 +100,28 @@ describe('normalizarMensagens', () => {
       { papel: 'assistant', texto: 'a1' },
       { papel: 'user', texto: 'u3' },
     ]);
+  });
+});
+
+describe('secaoSugestoes (prompt só com o que está ligado)', () => {
+  it('só memória (onda 4): cita só sugerir_memoria, orienta a não repetir e não fala de tarefa nem de data', () => {
+    const t = secaoSugestoes(promptReal.sugestoes, ['memoria']);
+    expect(t).toContain('virar memória, escreva primeiro a resposta em texto e só depois use `sugerir_memoria`');
+    expect(t).toMatch(/Não sugira uma memória que já está na lista de memórias/);
+    expect(t).toContain('No máximo 3 sugestões');
+    expect(t).not.toContain('sugerir_tarefa');
+    expect(t).not.toContain('AAAA-MM-DD');
+    expect(t).not.toMatch(/\{|\}/);
+  });
+  it('tarefa, meta e memória ligadas: lista as três e ensina a converter datas', () => {
+    const t = secaoSugestoes(promptReal.sugestoes, ['tarefa', 'meta', 'memoria']);
+    expect(t).toContain('tarefa, meta ou memória');
+    expect(t).toContain('`sugerir_tarefa`, `sugerir_meta` ou `sugerir_memoria`');
+    expect(t).toContain('AAAA-MM-DD');
+  });
+  it('só tarefa: sem as regras de memória', () => {
+    const t = secaoSugestoes(promptReal.sugestoes, ['tarefa']);
+    expect(t).toContain('virar tarefa');
+    expect(t).not.toContain('Memória é um fato');
   });
 });

@@ -4,8 +4,11 @@
 //  - o raciocínio é adaptativo (padrão) e controlado por output_config.effort (low/medium/high);
 //  - o texto do raciocínio vem omitido por padrão; blocos "thinking" são ignorados aqui;
 //  - stop_reason "refusal" chega com HTTP 200 e vira ErroIA('recusa');
-//  - fallbacks do servidor só existem para o modelo profundo (o Haiku não tem fallback de recusa).
-import { ErroIA, type ClienteIA, type EventoIA, type PedidoIA, type UsoIA } from './tipos';
+//  - fallbacks do servidor só existem para o modelo profundo (o Haiku não tem fallback de recusa);
+//  - ferramentas: strict: true, tool_choice automático (tool_choice forçado dá 400 no Sonnet 5.5), additionalProperties: false
+//    e sem minLength/maxLength no schema (não suportados com strict: os limites são validados com Zod no servidor);
+//  - o texto vem antes das ferramentas (pedido no prompt) e NÃO há segunda chamada depois delas: a resposta termina em tool_use.
+import { ErroIA, type ClienteIA, type EventoIA, type PedidoIA, type TipoSugestao, type UsoIA } from './tipos';
 
 export const URL_MENSAGENS = 'https://api.anthropic.com/v1/messages';
 export const VERSAO_API = '2023-06-01';
@@ -15,9 +18,10 @@ const AREAS_ITEM = ['trabalho', 'financas', 'saude', 'casa'];
 const AREAS_MEMORIA = ['sobre_mim', ...AREAS_ITEM];
 
 /** Ferramentas de sugestão (arquitetura.md §4): strict, tool_choice auto. */
-export const FERRAMENTAS = [
+export const FERRAMENTAS: Array<{ name: string; tipo: TipoSugestao; description: string; strict: true; input_schema: Record<string, unknown> }> = [
   {
     name: 'sugerir_tarefa',
+    tipo: 'tarefa',
     description: 'Propõe uma tarefa ao Marco. Ele decide se salva. Use só depois de escrever a resposta em texto.',
     strict: true,
     input_schema: {
@@ -33,6 +37,7 @@ export const FERRAMENTAS = [
   },
   {
     name: 'sugerir_meta',
+    tipo: 'meta',
     description: 'Propõe uma meta ao Marco. Ele decide se salva. Use só depois de escrever a resposta em texto.',
     strict: true,
     input_schema: {
@@ -48,6 +53,7 @@ export const FERRAMENTAS = [
   },
   {
     name: 'sugerir_memoria',
+    tipo: 'memoria',
     description: 'Propõe guardar um fato duradouro sobre o Marco. Ele decide se salva. Nunca repita uma memória que já existe.',
     strict: true,
     input_schema: {
@@ -87,8 +93,10 @@ export function montarCorpo(p: PedidoIA, comFallback: boolean): Record<string, u
     messages: p.mensagens.map((m) => ({ role: m.papel, content: m.texto })),
   };
   if (p.esforco) corpo.output_config = { effort: p.esforco };
-  if (p.ferramentas) {
-    corpo.tools = FERRAMENTAS;
+  const ligadas = FERRAMENTAS.filter((f) => p.ferramentas?.includes(f.tipo));
+  if (ligadas.length) {
+    // `tipo` é só nosso (não faz parte do schema da API): sai do corpo.
+    corpo.tools = ligadas.map(({ tipo: _tipo, ...ferramenta }) => ferramenta);
     corpo.tool_choice = { type: 'auto' };
   }
   if (comFallback) corpo.fallbacks = 'default';
@@ -228,7 +236,8 @@ export function criarClienteClaude(opcoes: OpcoesClaude): ClienteIA {
                 try {
                   yield { tipo: 'sugestao', nome: f.nome, entrada: JSON.parse(f.json || '{}') };
                 } catch {
-                  /* entrada truncada ou inválida: ignora a sugestão */
+                  // Entrada truncada ou inválida: descarta a sugestão e registra (só o nome da ferramenta, nunca o conteúdo).
+                  console.warn('ia sugestão descartada: JSON inválido', { ferramenta: f.nome });
                 }
               }
               break;

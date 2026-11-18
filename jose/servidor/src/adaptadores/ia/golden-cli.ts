@@ -18,7 +18,7 @@ let reprovados = 0;
 for (const caso of CASOS_GOLDEN) {
   const contexto = montarContexto({
     prompt,
-    sugestoes: false,
+    sugestoes: [],
     modo: caso.modo ?? (caso.id === 'decisao' ? 'decidir' : 'padrao'),
     memorias: caso.memorias.map((texto) => ({ texto, area: 'sobre_mim' as const })),
     metas: caso.metas.map((titulo) => ({ titulo, area: 'trabalho' as const, prazo: null })),

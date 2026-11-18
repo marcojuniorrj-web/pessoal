@@ -1,6 +1,6 @@
 import type { PerfilGoogle, ProvedorOAuth } from '../src/adaptadores/google/oauth';
 import type { Transcritor } from '../src/adaptadores/voz/whisper';
-import type { ClienteIA } from '../src/adaptadores/ia/tipos';
+import type { ClienteIA, TipoSugestao } from '../src/adaptadores/ia/tipos';
 import type { Ambiente } from '../src/ambiente';
 import { criarApp } from '../src/index';
 import type { Dependencias } from '../src/compartilhado/dependencias';
@@ -36,14 +36,14 @@ export function provedorFalso(perfil: PerfilGoogle | Error): ProvedorOAuth {
 
 export const PERFIL_MARCO: PerfilGoogle = { email: 'marco@gmail.com', emailVerificado: true, nome: 'Marco', fotoUrl: 'https://foto/m.png' };
 
-export function criarAppTeste(opcoes: { perfil?: PerfilGoogle | Error; agora?: () => Date; env?: Partial<Ambiente>; transcritor?: Transcritor; ia?: ClienteIA; sugestoesAtivas?: boolean } = {}) {
+export function criarAppTeste(opcoes: { perfil?: PerfilGoogle | Error; agora?: () => Date; env?: Partial<Ambiente>; transcritor?: Transcritor; ia?: ClienteIA; sugestoesAtivas?: TipoSugestao[] } = {}) {
   const env = criarAmbienteTeste(opcoes.env);
   const deps: Dependencias = {
     agora: opcoes.agora ?? (() => new Date()),
     provedorOAuth: () => provedorFalso(opcoes.perfil ?? PERFIL_MARCO),
     transcritor: () => opcoes.transcritor,
     ia: () => opcoes.ia,
-    sugestoesAtivas: opcoes.sugestoesAtivas ?? false,
+    sugestoesAtivas: opcoes.sugestoesAtivas ?? [],
   };
   const app = criarApp(deps);
   const chamar = (caminho: string, init: RequestInit = {}) => app.request(`${URL_TESTE}${caminho}`, init, env);

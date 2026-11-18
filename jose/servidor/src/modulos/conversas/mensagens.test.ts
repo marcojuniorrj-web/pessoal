@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { dependenciasPadrao } from '../../compartilhado/dependencias';
 import { ErroIA } from '../../adaptadores/ia/tipos';
 import { criarAppTeste, entrar, URL_TESTE } from '../../../testes/ambiente';
 import { criarIaFalsa, lerEventos, type Passo } from '../../../testes/ia-falsa';
@@ -209,19 +210,97 @@ describe('POST /api/conversas/:id/mensagens (SSE)', () => {
 
   it('sugestões: valida com Zod, ignora o que passar de 3 e grava como pendentes', async () => {
     const tarefa = (n: number) => ({ nome: 'sugerir_tarefa', entrada: { titulo: `T${n}`, area: 'casa' } });
-    const x = await preparar([{ partes: ['Anotei.'], sugestoes: [tarefa(1), { nome: 'sugerir_meta', entrada: { titulo: '', area: 'casa' } }, tarefa(2), tarefa(3), tarefa(4)] }], { sugestoesAtivas: true });
+    const x = await preparar([{ partes: ['Anotei.'], sugestoes: [tarefa(1), { nome: 'sugerir_meta', entrada: { titulo: '', area: 'casa' } }, tarefa(2), tarefa(3), tarefa(4)] }], { sugestoesAtivas: ['tarefa', 'meta', 'memoria'] });
     const eventos = await lerEventos(await x.enviar({ id: UUID(18), texto: 'preciso fazer 4 coisas' }));
     expect(eventos.map((e) => e.evento)).toEqual(['texto', 'sugestao', 'sugestao', 'sugestao', 'fim']);
-    expect(x.pedidos[0]).toMatchObject({ ferramentas: true });
+    expect(x.pedidos[0]).toMatchObject({ ferramentas: ['tarefa', 'meta', 'memoria'] });
     expect(x.pedidos[0]!.sistemaEstavel).toContain('Sugestões (ferramentas)');
     const linhas = (await x.t.env.DB.prepare('SELECT tipo, status, conteudo FROM sugestoes ORDER BY rowid').all<{ tipo: string; status: string; conteudo: string }>()).results;
     expect(linhas.map((l) => [l.tipo, l.status, JSON.parse(l.conteudo).titulo])).toEqual([['tarefa', 'pendente', 'T1'], ['tarefa', 'pendente', 'T2'], ['tarefa', 'pendente', 'T3']]);
   });
 
+  describe('sugerir_memoria (tarefa 4.1)', () => {
+    const memoria = (texto: string, area = 'saude') => ({ nome: 'sugerir_memoria', entrada: { texto, area } });
+    const aviso = () => vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    it('o texto vem antes: o evento `sugestao` traz id, tipo e conteudo, e a linha fica pendente', async () => {
+      const x = await preparar([{ partes: ['Boa, ', 'anotei.'], sugestoes: [memoria('Acorda às 6h.')] }], { sugestoesAtivas: ['memoria'] });
+      const eventos = await lerEventos(await x.enviar({ id: UUID(30), texto: 'eu acordo às 6h' }));
+      expect(eventos.map((e) => e.evento)).toEqual(['texto', 'texto', 'sugestao', 'fim']);
+      expect(eventos[2]!.dados).toMatchObject({ tipo: 'memoria', conteudo: { texto: 'Acorda às 6h.', area: 'saude' } });
+      const linha = await x.t.env.DB.prepare('SELECT id, tipo, status, item_id FROM sugestoes').first<{ id: string; tipo: string; status: string; item_id: string | null }>();
+      expect(linha).toMatchObject({ id: eventos[2]!.dados.id, tipo: 'memoria', status: 'pendente', item_id: null });
+      expect(x.pedidos[0]!.ferramentas).toEqual(['memoria']);
+      expect(x.pedidos).toHaveLength(1); // nenhuma segunda chamada depois da ferramenta
+      expect(x.pedidos[0]!.sistemaEstavel).toContain('`sugerir_memoria`');
+      expect(x.pedidos[0]!.sistemaEstavel).not.toContain('sugerir_tarefa');
+    });
+
+    it('a 4ª sugestão é ignorada e o conteúdo inválido é descartado com registro no log (sem o conteúdo)', async () => {
+      const log = aviso();
+      const x = await preparar([{ partes: ['Anotei.'], sugestoes: [memoria('A'), memoria('B'), memoria('x'.repeat(301)), memoria('C'), memoria('D'), { nome: 'sugerir_memoria', entrada: { texto: 'E', area: 'nao_existe' } }] }], { sugestoesAtivas: ['memoria'] });
+      const eventos = await lerEventos(await x.enviar({ id: UUID(31), texto: 'muita coisa' }));
+      expect(eventos.filter((e) => e.evento === 'sugestao').map((e) => (e.dados.conteudo as { texto: string }).texto)).toEqual(['A', 'B', 'C']);
+      const motivos = log.mock.calls.filter((c) => c[0] === 'ia sugestão descartada').map((c) => (c[1] as { motivo: string }).motivo);
+      expect(motivos).toEqual(['invalida', 'acima_do_limite', 'invalida']);
+      expect(log.mock.calls.find((c) => (c[1] as { motivo: string }).motivo === 'invalida')![1]).toMatchObject({ ferramenta: 'sugerir_memoria', campos: ['texto'] });
+      expect(JSON.stringify(log.mock.calls)).not.toContain('xxxxx');
+      log.mockRestore();
+    });
+
+    it('ignora ferramenta que não está ligada (tarefa e meta ficam para a onda 5) e ferramenta desconhecida', async () => {
+      const log = aviso();
+      const x = await preparar([{ sugestoes: [{ nome: 'sugerir_tarefa', entrada: { titulo: 'T', area: 'casa' } }, { nome: 'sugerir_meta', entrada: { titulo: 'M', area: 'casa' } }, { nome: 'apagar_tudo', entrada: {} }, memoria('Corre às terças.')] }], { sugestoesAtivas: ['memoria'] });
+      const eventos = await lerEventos(await x.enviar({ id: UUID(32), texto: 'oi' }));
+      expect(eventos.filter((e) => e.evento === 'sugestao')).toHaveLength(1);
+      expect(log.mock.calls.map((c) => (c[1] as { motivo: string }).motivo)).toEqual(['desligada', 'desligada', 'ferramenta_desconhecida']);
+      log.mockRestore();
+    });
+
+    it('não repete uma memória que já existe (mesmo com outra pontuação ou acento) nem duas iguais na mesma resposta', async () => {
+      const log = aviso();
+      const x = await preparar([{ sugestoes: [memoria('acorda as 6H'), memoria('Trabalha de casa às sextas.', 'trabalho'), memoria('trabalha de CASA as sextas', 'trabalho')] }], { sugestoesAtivas: ['memoria'] });
+      const usuario = (await x.t.env.DB.prepare('SELECT id FROM usuarios').first<{ id: string }>())!.id;
+      await x.t.env.DB.prepare("INSERT INTO memorias (id, usuario_id, texto, area, origem, criada_em) VALUES ('m1', ?, 'Acorda às 6h.', 'saude', 'manual', '2026-11-01T00:00:00Z')").bind(usuario).run();
+      const eventos = await lerEventos(await x.enviar({ id: UUID(33), texto: 'oi' }));
+      expect(eventos.filter((e) => e.evento === 'sugestao').map((e) => (e.dados.conteudo as { texto: string }).texto)).toEqual(['Trabalha de casa às sextas.']);
+      expect(log.mock.calls.map((c) => (c[1] as { motivo: string }).motivo)).toEqual(['memoria_repetida', 'memoria_repetida']);
+      log.mockRestore();
+    });
+
+    it('se o modelo só chamar a ferramenta, a resposta ganha um texto curto (a mensagem nunca fica vazia)', async () => {
+      const x = await preparar([{ partes: [], sugestoes: [memoria('Tem um filho pequeno.', 'casa')] }], { sugestoesAtivas: ['memoria'] });
+      const eventos = await lerEventos(await x.enviar({ id: UUID(34), texto: 'tenho um filho pequeno' }));
+      expect(eventos.map((e) => e.evento)).toEqual(['texto', 'sugestao', 'fim']);
+      expect((await x.t.env.DB.prepare("SELECT texto FROM mensagens WHERE autor='jose'").first<{ texto: string }>())!.texto).toBe(eventos[0]!.dados.delta);
+    });
+
+    it('sem texto e sem sugestão válida continua sendo erro', async () => {
+      const x = await preparar([{ partes: [], sugestoes: [memoria('x'.repeat(400))] }], { sugestoesAtivas: ['memoria'] });
+      const eventos = await lerEventos(await x.enviar({ id: UUID(35), texto: 'oi' }));
+      expect(eventos.map((e) => e.evento)).toEqual(['erro']);
+    });
+
+    it('a configuração padrão do app liga só a memória', () => {
+      expect(dependenciasPadrao.sugestoesAtivas).toEqual(['memoria']);
+    });
+
+    it('as memórias salvas entram no contexto de toda resposta, e o prompt orienta a não repetir', async () => {
+      const x = await preparar([{}], { sugestoesAtivas: ['memoria'] });
+      const usuario = (await x.t.env.DB.prepare('SELECT id FROM usuarios').first<{ id: string }>())!.id;
+      await x.t.env.DB.prepare("INSERT INTO memorias (id, usuario_id, texto, area, origem, criada_em) VALUES ('m1', ?, 'Acorda às 6h.', 'saude', 'manual', '2026-11-01T00:00:00Z')").bind(usuario).run();
+      await (await x.enviar({ id: UUID(36), texto: 'o que faço hoje?' })).text();
+      const estavel = x.pedidos[0]!.sistemaEstavel;
+      expect(estavel).toContain('- [Saúde e rotina] Acorda às 6h.');
+      expect(estavel).toMatch(/Não sugira uma memória que já está na lista de memórias/);
+      expect(estavel.indexOf('Acorda às 6h.')).toBeGreaterThan(estavel.indexOf('Sugestões (ferramentas)')); // memórias depois do prompt, antes das tarefas (cache)
+    });
+  });
+
   it('por padrão (onda 2) as ferramentas de sugestão ficam desligadas', async () => {
     const x = await preparar();
     await (await x.enviar({ id: UUID(19), texto: 'oi' })).text();
-    expect(x.pedidos[0]!.ferramentas).toBe(false);
+    expect(x.pedidos[0]!.ferramentas).toEqual([]);
     expect(x.pedidos[0]!.sistemaEstavel).not.toContain('Sugestões (ferramentas)');
   });
 });

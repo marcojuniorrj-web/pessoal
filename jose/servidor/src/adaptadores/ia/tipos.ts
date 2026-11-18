@@ -1,5 +1,8 @@
 // Contrato do adaptador de IA: a regra de negócio só conhece estes tipos (nunca a API da Anthropic).
 
+/** Tipos de sugestão que o José pode propor (uma ferramenta por tipo). */
+export type TipoSugestao = 'tarefa' | 'meta' | 'memoria';
+
 export interface MensagemIA {
   papel: 'user' | 'assistant';
   texto: string;
@@ -16,8 +19,8 @@ export interface PedidoIA {
   sistemaVolatil: string;
   /** Sempre começa e termina com "user", alternando papéis. */
   mensagens: MensagemIA[];
-  /** Liga as ferramentas sugerir_tarefa / sugerir_meta / sugerir_memoria. */
-  ferramentas?: boolean;
+  /** Ferramentas ligadas nesta chamada (sugerir_tarefa / sugerir_meta / sugerir_memoria). Vazio ou ausente: nenhuma. */
+  ferramentas?: TipoSugestao[];
   /** Pede ao provedor um novo modelo quando o profundo recusar (só o modelo profundo suporta). */
   fallbackRecusa?: boolean;
 }
