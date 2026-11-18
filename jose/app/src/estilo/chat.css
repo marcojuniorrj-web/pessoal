@@ -1,9 +1,10 @@
 /* Chat (telas.md, tela 3): balões estilo WhatsApp, campo que sobe com o teclado e gaveta de Histórico. */
 /* Com o Chat aberto a casca tem a altura visível (o teclado a reduz) e reserva a barra de abas;
    a faixa "Offline" (em fluxo) e o Chat dividem o que sobra, então nada fica atrás da barra. */
-.casca:has(.chat) { height: var(--altura-visivel, 100dvh); min-height: 0; padding-bottom: calc(var(--altura-barra) + env(safe-area-inset-bottom)); }
+.casca:has(.chat) { height: 100dvh; min-height: 0; padding-bottom: calc(var(--altura-barra) + env(safe-area-inset-bottom)); }
 .casca:has(.chat) .casca__conteudo { padding-bottom: 0; min-height: 0; display: flex; flex-direction: column; }
-html[data-teclado='aberto'] .casca:has(.chat) { padding-bottom: 0; }
+/* Teclado aberto: a casca fica fixa na área realmente visível (o iPhone empurra a página; --topo-visivel compensa). */
+html[data-teclado='aberto'] .casca:has(.chat) { position: fixed; left: 0; right: 0; top: var(--topo-visivel, 0px); height: var(--altura-visivel, 100dvh); padding-bottom: 0; }
 .chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 html[data-teclado='aberto'] .barra-abas { display: none; }
 

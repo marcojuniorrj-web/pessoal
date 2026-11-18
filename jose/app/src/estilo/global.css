@@ -3,6 +3,7 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #raiz { height: 100%; margin: 0; }
+html, body { max-width: 100%; overflow-x: clip; }
 body {
   background: var(--fundo);
   color: var(--texto);
@@ -44,7 +45,7 @@ button { font: inherit; color: inherit; }
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(var(--altura-barra) + 16px + env(safe-area-inset-bottom) + var(--altura-rodape-chat, 0px));
   display: flex; align-items: center; gap: 12px; min-height: var(--alvo-minimo);
-  padding: 4px 8px 4px 16px; max-width: calc(100% - 32px);
+  padding: 4px 8px 4px 16px; width: max-content; max-width: calc(100vw - 32px);
   background: var(--superficie-2); border: 1px solid var(--borda); border-radius: var(--raio);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); z-index: 80;
   animation: subir 0.2s ease-out;
@@ -86,7 +87,8 @@ html[data-teclado='aberto'] .toast { bottom: calc(16px + var(--altura-rodape-cha
 }
 
 /* Casca do app */
-.casca { min-height: 100%; display: flex; flex-direction: column; }
+/* Com a barra de status translúcida do iPhone (viewport-fit=cover) o conteúdo vai até as bordas: reserva o notch e as laterais. */
+.casca { min-height: 100%; display: flex; flex-direction: column; padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }
 .casca__conteudo { flex: 1; padding-bottom: calc(var(--altura-barra) + env(safe-area-inset-bottom) + 16px); }
 .barra-abas {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
@@ -107,7 +109,7 @@ html[data-teclado='aberto'] .toast { bottom: calc(16px + var(--altura-rodape-cha
 .mensagem-erro { color: var(--erro); }
 
 /* Login */
-.login { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; }
+.login { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: calc(24px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left)); text-align: center; }
 .login__logo { width: 88px; height: 88px; border-radius: 50%; background: var(--destaque); color: var(--texto-sobre-destaque); display: grid; place-items: center; font-size: 48px; font-weight: 700; }
 .login__nome { font-size: 32px; font-weight: 600; }
 .login__frase { color: var(--texto-2); margin-bottom: 16px; }
