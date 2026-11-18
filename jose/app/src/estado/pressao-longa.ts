@@ -3,6 +3,11 @@
 // soltar ou o sistema cancelar o toque antes do tempo, nada acontece.
 export const TEMPO_PRESSAO_MS = 450;
 export const TOLERANCIA_MOVIMENTO_PX = 10;
+/**
+ * Janela depois de abrir a folha em que um novo toque ainda não vale. A pressão longa abre a folha com o dedo ainda apoiado:
+ * ao soltar, o navegador pode gerar um clique "fantasma" (e um mousedown de compatibilidade) sobre o que está embaixo do dedo.
+ */
+export const JANELA_ABERTURA_MS = 600;
 
 export interface OpcoesPressao {
   /** Chamado uma única vez por pressão, quando o tempo passa sem movimento. */

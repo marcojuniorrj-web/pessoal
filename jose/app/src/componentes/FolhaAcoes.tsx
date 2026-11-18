@@ -1,4 +1,5 @@
-import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { useEffect, useRef, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
+import { JANELA_ABERTURA_MS } from '../estado/pressao-longa';
 import { Botao } from './Botao';
 
 export interface AcoesDaFolha {
@@ -18,8 +19,6 @@ interface Props extends AcoesDaFolha {
 }
 
 const FOCAVEIS = 'button:not([disabled])';
-/** Um toque no fundo escurecido logo depois de abrir (o dedo que acabou de soltar) não fecha a folha. */
-const GUARDA_FUNDO_MS = 350;
 
 /**
  * Folha de ações na parte de baixo (como no WhatsApp), acima da barra de abas, com fundo escurecido.
@@ -27,9 +26,20 @@ const GUARDA_FUNDO_MS = 350;
  */
 export function FolhaAcoes({ comResposta, semRede, origem, aoFechar, aoCopiar, aoApagar, aoApagarComResposta }: Props) {
   const folhaRef = useRef<HTMLDivElement>(null);
-  const abertaEm = useRef(Date.now());
+  const abertaEm = useRef(performance.now());
+  /** Alvo do último pointerdown que aconteceu dentro da folha depois da janela de abertura. */
+  const ultimoToque = useRef<EventTarget | null>(null);
   const fecharRef = useRef(aoFechar);
   fecharRef.current = aoFechar;
+
+  const aoTocar = (e: PointerEvent<HTMLElement>) => {
+    ultimoToque.current = e.timeStamp - abertaEm.current > JANELA_ABERTURA_MS ? e.target : null;
+  };
+  /** Clique de verdade: do teclado (detail 0) ou depois de um pointerdown válido sobre o mesmo elemento. */
+  const valido = (e: MouseEvent<HTMLElement>) => e.detail === 0 || (ultimoToque.current instanceof Node && e.currentTarget.contains(ultimoToque.current));
+  const agir = (fn: () => void) => (e: MouseEvent<HTMLElement>) => {
+    if (valido(e)) fn();
+  };
 
   // Foco: vai para dentro da folha (isso também fecha o teclado do iPhone); ao fechar volta ao balão.
   useEffect(() => {
@@ -38,6 +48,18 @@ export function FolhaAcoes({ comResposta, semRede, origem, aoFechar, aoCopiar, a
       if (origem?.isConnected) origem.focus({ preventScroll: true });
     };
   }, [origem]);
+
+  // Se o foco escapar da folha (ex.: o mousedown de compatibilidade do iOS cai no fundo e leva o foco ao body), volta ao 1º botão.
+  useEffect(() => {
+    const aoPerder = () => {
+      setTimeout(() => {
+        const folhaEl = folhaRef.current;
+        if (folhaEl?.isConnected && !folhaEl.contains(document.activeElement)) folhaEl.querySelector<HTMLElement>(FOCAVEIS)?.focus();
+      }, 0);
+    };
+    document.addEventListener('focusout', aoPerder);
+    return () => document.removeEventListener('focusout', aoPerder);
+  }, []);
 
   useEffect(() => {
     const aoTeclar = (e: globalThis.KeyboardEvent) => {
@@ -69,23 +91,26 @@ export function FolhaAcoes({ comResposta, semRede, origem, aoFechar, aoCopiar, a
   return (
     <div
       className="folha-fundo"
+      onPointerDownCapture={aoTocar}
+      // O mousedown de compatibilidade (depois do toque) não pode tirar o foco da folha.
+      onMouseDown={(e) => e.target === e.currentTarget && e.preventDefault()}
       onClick={(e) => {
-        if (e.target === e.currentTarget && Date.now() - abertaEm.current > GUARDA_FUNDO_MS) aoFechar();
+        if (e.target === e.currentTarget && (e.detail === 0 || ultimoToque.current === e.target)) aoFechar();
       }}
     >
       <div ref={folhaRef} className="folha" role="dialog" aria-modal="true" aria-label="Ações da mensagem" onKeyDown={prenderTab}>
-        <button type="button" className="folha__acao" onClick={aoCopiar}>
+        <button type="button" className="folha__acao" onClick={agir(aoCopiar)}>
           Copiar
         </button>
-        <button type="button" className="folha__acao folha__acao--perigo" disabled={semRede} onClick={aoApagar}>
+        <button type="button" className="folha__acao folha__acao--perigo" disabled={semRede} onClick={agir(aoApagar)}>
           Apagar mensagem
         </button>
         {comResposta && (
-          <button type="button" className="folha__acao folha__acao--perigo" disabled={semRede} onClick={aoApagarComResposta}>
+          <button type="button" className="folha__acao folha__acao--perigo" disabled={semRede} onClick={agir(aoApagarComResposta)}>
             Apagar mensagem e resposta
           </button>
         )}
-        <Botao className="folha__cancelar" onClick={aoFechar}>
+        <Botao className="folha__cancelar" onClick={agir(aoFechar)}>
           Cancelar
         </Botao>
       </div>

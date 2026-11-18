@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { horaMensagem, rotuloDia } from '../compartilhado/datas';
 import { novaConversa, simularApi, simularChat, type ChatFalso, type ConversaFalsa } from './apoio';
+import { JANELA_ABERTURA_MS } from '../app/src/estado/pressao-longa';
 import { elementosForaDaTela, medir, menoresQue, sobrepoe } from './medidas';
 
 const MIN_DIA = 24 * 60;
@@ -29,6 +30,8 @@ async function segurar(page: Page, alvo: Locator, ms = 600) {
   await page.mouse.down();
   await page.waitForTimeout(ms);
   await page.mouse.up();
+  // um toque só vale na folha depois da janela de abertura (anti-clique fantasma da pressão longa)
+  if (ms >= 450) await page.waitForTimeout(JANELA_ABERTURA_MS + 50);
 }
 
 test.describe('Horário e separadores de dia (2b.4)', () => {
@@ -240,7 +243,6 @@ test.describe('Pressão longa e folha de ações (2b.5)', () => {
     await expect(balaoJose(page)).toBeFocused();
 
     await segurar(page, balaoJose(page));
-    await page.waitForTimeout(400);
     await page.mouse.click(10, 10); // no fundo escurecido, longe da folha
     await expect(folha(page)).toHaveCount(0);
   });
