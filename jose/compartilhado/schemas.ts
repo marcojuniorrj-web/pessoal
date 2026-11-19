@@ -66,6 +66,10 @@ export const loteSugestoesSchema = z
   }, `Até ${LIMITE_LOTE} sugestões, sem repetir nenhuma`);
 export type LoteSugestoes = z.infer<typeof loteSugestoesSchema>;
 
+/** "Apagar todos os meus dados": a palavra exata (maiúsculas) é a confirmação final. */
+export const PALAVRA_APAGAR_TUDO = 'APAGAR';
+export const apagarTudoSchema = z.object({ confirmacao: z.literal(PALAVRA_APAGAR_TUDO) });
+
 export const conversaEntradaSchema = z.object({
   tipo: z.enum(['normal', 'boas_vindas']),
   modo: z.enum(['padrao', 'decidir']).optional(),

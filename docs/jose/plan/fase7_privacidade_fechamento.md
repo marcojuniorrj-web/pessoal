@@ -12,7 +12,7 @@ O MVP fica pronto para uso diário:
 Fases 1 a 6.
 
 ## Tarefas (prompts pequenos)
-- [ ] 7.1 `DELETE /api/eu` com `{confirmacao: "APAGAR"}`: apaga todas as tabelas numa transação e limpa o cookie. **Aceite:** depois de apagar, nenhuma linha do usuário sobra (teste conta as linhas de todas as tabelas).
+- [x] 7.1 `DELETE /api/eu` com `{confirmacao: "APAGAR"}`: apaga todas as tabelas numa transação e limpa o cookie. **Aceite:** depois de apagar, nenhuma linha do usuário sobra (teste conta as linhas de todas as tabelas).
 - [ ] 7.2 Ajustes → "Apagar todos os meus dados": aviso, depois digitar "APAGAR", estados apagando e erro, e volta ao Login. **Aceite:** teste Playwright.
 - [ ] 7.3 Script `servidor/scripts/metricas.sql` (rodado com `wrangler d1 execute`): dias ativos seguidos, taxa de sugestões salvas, tarefas concluídas por semana e tokens por modelo por dia. **Aceite:** com dados de teste conhecidos, devolve os números esperados.
 - [ ] 7.4 Revisão de segurança: isolamento (teste com 2 usuários em **todas** as rotas `/:id` → 404), Origin, cookies, logs sem conteúdo e segredos fora do repositório. **Aceite:** a suíte de isolamento passa e não há segredo no git.

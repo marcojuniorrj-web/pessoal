@@ -1,5 +1,10 @@
+import { apagarTudoSchema } from '@compartilhado/schemas';
 import { Hono } from 'hono';
+import { deleteCookie } from 'hono/cookie';
+import { requisicaoInvalida } from '../../compartilhado/erros';
+import { COOKIE_SESSAO } from '../auth/cookies';
 import type { AppEnv } from '../auth/sessao';
+import { apagarTudoDoUsuario } from './repositorio';
 
 export function rotasConta() {
   const rotas = new Hono<AppEnv>();
@@ -27,6 +32,16 @@ export function rotasConta() {
   // Pular ou concluir as boas-vindas: a flag passa a valer e o app abre o Chat. Idempotente.
   rotas.post('/eu/boas-vindas', async (c) => {
     await c.env.DB.prepare('UPDATE usuarios SET boas_vindas_concluida = 1 WHERE id = ?').bind(c.var.usuario.id).run();
+    return c.body(null, 204);
+  });
+
+  // Apagar todos os meus dados (dados.md regra 14): exige {confirmacao: "APAGAR"} e apaga tudo do usuário numa transação.
+  rotas.delete('/eu', async (c) => {
+    const corpo = apagarTudoSchema.safeParse(await c.req.json().catch(() => null));
+    if (!corpo.success) throw requisicaoInvalida('Para apagar tudo, envie a confirmação "APAGAR".');
+    await apagarTudoDoUsuario(c.env.DB, c.var.usuario.id);
+    deleteCookie(c, COOKIE_SESSAO, { path: '/' });
+    console.log('conta apagada');
     return c.body(null, 204);
   });
 
