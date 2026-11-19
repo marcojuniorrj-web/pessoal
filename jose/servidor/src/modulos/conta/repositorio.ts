@@ -1,4 +1,8 @@
-/** Apaga TODAS as linhas do usuário, em todas as tabelas, numa única transação (D1 batch). */
+/**
+ * Apaga TODAS as linhas do usuário, em todas as tabelas, numa única transação (D1 batch).
+ * Ao criar uma tabela nova numa migração, inclua-a aqui: `conta.test.ts` compara esta lista
+ * com o `sqlite_master` e quebra se faltar alguma.
+ */
 export async function apagarTudoDoUsuario(db: D1Database, usuarioId: string): Promise<void> {
   const porUsuario = (sql: string) => db.prepare(sql).bind(usuarioId);
   // Do mais dependente para o menos (não depende só da cascata): sugestões → mensagens → conversas → o resto → usuário.
