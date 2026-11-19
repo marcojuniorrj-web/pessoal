@@ -72,11 +72,37 @@ Depois de saber a URL, volte ao Google Cloud e cadastre o redirecionamento de pr
 ### Deploy sem o upload de assets (`npm run deploy:embutido`)
 Alguns ambientes (proxies que reescrevem o cabeçalho de autorização) derrubam o upload de arquivos do `wrangler deploy` com 401. Nesse caso use `npm run deploy:embutido`: ele faz o build, embute os arquivos da interface dentro do Worker (`servidor/embutido/`, gerado, fora do git) e publica com `servidor/wrangler.embutido.toml` (gerado a partir do `wrangler.toml`, sem `[assets]`). O resultado para o usuário é idêntico. O deploy normal (`npm run deploy`) continua valendo num computador comum.
 
+### Checklist de deploy (a cada versão publicada)
+Marque um por um antes de dizer "publicado". Nada aqui apaga dados; só o item 7 mexe no banco real e é opcional.
+- [ ] 1. `git status` limpo e na branch certa; `npm test` verde (unitários, rotas, segurança, métricas).
+- [ ] 2. `npm run build` sem erro (roda o `tsc` e o Vite) e `npx playwright test --trace off` verde (celular 390 px e computador).
+- [ ] 3. Há migração nova em `servidor/migracoes/`? Então `npm run db:migrar:remoto` **antes** do deploy (as migrações funcionam sobre o banco existente) e, antes dela, um `npm run backup`.
+- [ ] 4. Segredos no ar: `npx wrangler secret list --config servidor/wrangler.toml` mostra `ANTHROPIC_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OWNER_EMAIL` e `SESSION_SECRET`. Nunca coloque segredo no código nem no `wrangler.toml`.
+- [ ] 5. Publicar: `npm run deploy` (ou `npm run deploy:embutido` se o upload de assets falhar).
+- [ ] 6. Conferir: `curl -i https://jose.<subdominio>.workers.dev/saude` responde 200 `{"ok":true}`; abrir o app no celular, entrar, mandar uma mensagem e ver a resposta; Ajustes mostra a versão nova.
+- [ ] 7. (Só se uma conta nova precisar disso) marcar as boas-vindas: ver "Boas-vindas e modo decisão".
+- [ ] 8. Logs: no painel da Cloudflare (Workers › jose › Logs) ou `npx wrangler tail jose --config servidor/wrangler.toml`: só ids, tempos, tokens e erros; se aparecer texto de mensagem, é um defeito (os testes de `seguranca.test.ts` existem para impedir isso).
+- [ ] 9. Backup semanal agendado (abaixo) e restauração testada pelo menos uma vez num banco de teste.
+
 ### Backup semanal
 ```bash
-npm run backup        # gera backups/jose-AAAA-MM-DD.sql e mantém as 4 cópias mais recentes
+npm run backup        # gera backups/jose-AAAA-MM-DD.sql (wrangler d1 export --remote) e mantém as 4 cópias mais recentes
 ```
-Agende uma vez por semana (cron/launchd ou um lembrete). O Time Travel do D1 guarda mais 30 dias.
+- Agende uma vez por semana (cron/launchd ou um lembrete no celular). A pasta `backups/` fica fora do git: o arquivo tem todas as conversas e memórias, então guarde-a num lugar privado.
+- O `wrangler d1 export jose --remote --config servidor/wrangler.toml --output arquivo.sql` é o mesmo comando por baixo; ele só lê o banco.
+- **Segunda camada, Time Travel do D1** (últimos 30 dias, sem agendar nada):
+  `npx wrangler d1 time-travel info jose --config servidor/wrangler.toml` mostra os bookmarks e
+  `npx wrangler d1 time-travel restore jose --timestamp=2026-11-18T12:00:00Z --config servidor/wrangler.toml` volta o banco àquele momento (**sobrescreve o banco atual**: confira a data com `info` antes e faça um `npm run backup` primeiro, pois o restore também guarda um bookmark para desfazer).
+- **Restaurar de um arquivo `.sql`** (banco novo ou vazio): `npx wrangler d1 create jose-restaurado`, depois `npx wrangler d1 execute jose-restaurado --remote --file backups/jose-AAAA-MM-DD.sql` e, só depois de conferir, trocar o `database_id` no `wrangler.toml`. Nunca rode isso por cima do banco em uso.
+
+## Emergência: celular perdido ou roubado
+1. **Pelo app, em outro aparelho:** Ajustes › **Sair de todos os aparelhos** (derruba todas as sessões na hora; o cookie antigo passa a dar 401).
+2. **Sem outro aparelho com o app:** pelo computador, derrube as sessões direto no banco:
+   `npx wrangler d1 execute jose --remote --config servidor/wrangler.toml --command "DELETE FROM sessoes"`
+   (o efeito é o mesmo; depois é só entrar de novo com o Google).
+3. No Google (myaccount.google.com › Segurança › Seus dispositivos) saia do aparelho perdido e troque a senha da conta se houver risco.
+4. Se o aparelho estiver desbloqueado e com os dados à vista e você quiser apagar tudo do servidor: Ajustes › **Apagar todos os meus dados** (pede digitar APAGAR; não tem volta, só o backup).
+5. Chave da IA exposta? Gere outra no console da Anthropic e troque: `npx wrangler secret put ANTHROPIC_API_KEY --config servidor/wrangler.toml`. A chave nunca vai para o celular, então perder o aparelho não a expõe.
 
 ## Métricas de uso (tarefa 7.3)
 `servidor/scripts/metricas.sql` só lê o banco e devolve 4 tabelas: dias ativos seguidos (atual, maior e total), taxa de sugestões salvas, tarefas concluídas por semana e tokens por modelo por dia.
@@ -97,6 +123,9 @@ npx wrangler d1 execute jose --local --config servidor/wrangler.dev.toml --file 
 6. Modo avião: o app abre e mostra "Offline".
 7. **Voz:** no Chat, com o campo vazio, toque no 🎤 e fale (o contador desce de 2:00); toque em ■ para parar e enviar, ou em ✕ para cancelar. O texto transcrito vira uma mensagem com o 🎤 pequeno e o José responde. O formato gravado é `audio/mp4` no iPhone e `audio/webm` no Android. O roteiro completo da voz (permissão, 30 s, 2 min, segundo plano, microfone negado) está em `docs/jose/plan/fase3_voz.md`. Se o iPhone falhar, registre em `docs/jose/plan/execucao.md` e acione o plano B (converter no cliente ou trocar o provedor atrás de `servidor/src/adaptadores/voz/`).
 8. Ajustes > **Sair de todos os aparelhos**: volta ao Login.
+9. **Só em ambiente de teste (banco local, nunca o real):** Ajustes › **Apagar todos os meus dados** › Continuar › digite `APAGAR` › Apagar tudo. O app volta ao Login; ao entrar de novo, tudo começa do zero (boas-vindas incluídas). No banco real isso é irreversível (só o backup recupera).
 
-## Emergência (celular perdido)
-`npx wrangler d1 execute jose --remote --config servidor/wrangler.toml --command "DELETE FROM sessoes"`
+## Privacidade e segurança (resumo da onda 7)
+- `DELETE /api/eu` com `{"confirmacao":"APAGAR"}` apaga, numa transação, todas as linhas do usuário em todas as tabelas (sugestões, mensagens, conversas, tarefas, metas, memórias, uso diário, sessões e o usuário) e limpa o cookie. O app também apaga o que guarda no aparelho (`localStorage` `jose:*`) e recarrega no Login.
+- Testes: `servidor/src/seguranca.test.ts` (isolamento com 2 usuários em todas as rotas `/:id`, Origin, cookies, cabeçalhos, logs sem conteúdo ou segredo) e `scripts/segredos.test.ts` (nenhum segredo versionado).
+- Desempenho no celular (medido em Chromium com CPU 4x e Slow 4G): `npm run build && node scripts/medir-desempenho.mjs` (ou `npm run medir`). Os números estão em `docs/jose/plan/execucao.md`.

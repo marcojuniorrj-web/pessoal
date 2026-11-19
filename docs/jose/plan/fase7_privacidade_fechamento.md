@@ -17,9 +17,9 @@ Fases 1 a 6.
 - [x] 7.3 Script `servidor/scripts/metricas.sql` (rodado com `wrangler d1 execute`): dias ativos seguidos, taxa de sugestões salvas, tarefas concluídas por semana e tokens por modelo por dia. **Aceite:** com dados de teste conhecidos, devolve os números esperados.
 - [x] 7.4 Revisão de segurança: isolamento (teste com 2 usuários em **todas** as rotas `/:id` → 404), Origin, cookies, logs sem conteúdo e segredos fora do repositório. **Aceite:** a suíte de isolamento passa e não há segredo no git.
 - [x] 7.5 Suíte e2e no Playwright cobrindo as 10 histórias de `usuarios.md`, no celular (390px) e no computador. **Aceite:** tudo verde, com `--trace off`.
-- [ ] 7.6 Performance: o campo de texto fica utilizável em até 3 s com o app instalado; peso do JS medido; consultas lentas no D1 revisadas. **Aceite:** medição registrada em `execucao.md`.
+- [x] 7.6 Performance: o campo de texto fica utilizável em até 3 s com o app instalado; peso do JS medido; consultas lentas no D1 revisadas. **Aceite:** medição registrada em `execucao.md`.
 - [ ] 7.7 Ajuste fino do prompt depois de rodar os casos golden de novo, com a revisão de estímulo visual (cartões e avisos) junto com o Marco. **Aceite:** o Marco aprova o tom.
-- [ ] 7.8 Deploy final, backup semanal rodando e procedimento de emergência documentado ("celular perdido": `DELETE FROM sessoes`). **Aceite:** checklist do README completo.
+- [ ] 7.8 Deploy final, backup semanal rodando e procedimento de emergência documentado ("celular perdido": `DELETE FROM sessoes`). **Aceite:** checklist do README completo. *(Onda 7, construtor: o README já traz o checklist de deploy, backup, restauração, emergência e métricas; faltam o deploy final e o agendamento do backup semanal, que dependem do Marco.)*
 
 ## Como testar (roteiro para o Marco)
 1. Use o José normalmente por **7 dias seguidos**: de manhã, quando travar, antes de uma decisão e à noite.
