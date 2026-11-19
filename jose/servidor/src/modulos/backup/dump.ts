@@ -68,7 +68,8 @@ export async function gerarDump(db: D1Database): Promise<ResultadoDump> {
   }
   const ordem = ordenarPorChaveEstrangeira(nomesTabelas, dependencias);
 
-  const partes: string[] = ['-- Backup do José (D1). As linhas da tabela `sessoes` não são salvas: restaurar não reabre sessões.', 'BEGIN TRANSACTION;'];
+  const partes: string[] = ['-- Backup do José (D1). As linhas da tabela `sessoes` não são salvas: restaurar não reabre sessões.'];
+  // Sem BEGIN/COMMIT de propósito: o D1 recusa transações escritas à mão num arquivo importado.
   for (const t of ordem) partes.push(`${results.find((o) => o.type === 'table' && o.name === t)!.sql};`);
   for (const o of results.filter((o) => o.type === 'index')) partes.push(`${o.sql};`);
 
@@ -84,6 +85,5 @@ export async function gerarDump(db: D1Database): Promise<ResultadoDump> {
       linhas++;
     }
   }
-  partes.push('COMMIT;');
   return { sql: partes.join('\n') + '\n', tabelas, linhas };
 }

@@ -98,7 +98,7 @@ npx wrangler r2 object get jose-backups/backups/jose-AAAA-MM-DD.sql --remote --f
 ```
 O arquivo tem **todas as conversas e memórias**: guarde-o num lugar privado e não o coloque no git (a pasta `backups/` já está ignorada).
 
-**O que o arquivo contém:** o esquema completo (tabelas e índices, lidos do próprio banco: tabela nova entra no backup sozinha) e as linhas de todas as tabelas, **exceto a `sessoes`**. As sessões não são salvas de propósito: restaurar uma cópia nunca reabre um login já encerrado (depois de restaurar, entre de novo com o Google). O conteúdo vem dentro de `BEGIN TRANSACTION; ... COMMIT;`.
+**O que o arquivo contém:** o esquema completo (tabelas e índices, lidos do próprio banco: tabela nova entra no backup sozinha) e as linhas de todas as tabelas, **exceto a `sessoes`**. As sessões não são salvas de propósito: restaurar uma cópia nunca reabre um login já encerrado (depois de restaurar, entre de novo com o Google). O arquivo não usa `BEGIN`/`COMMIT`, porque o D1 recusa transações escritas à mão; as tabelas vêm na ordem das chaves estrangeiras.
 
 **Restaurar num banco NOVO** (nunca por cima do banco em uso):
 ```bash
@@ -106,7 +106,7 @@ npx wrangler d1 create jose-restaurado --config servidor/wrangler.toml
 npx wrangler d1 execute jose-restaurado --remote --file ./jose-AAAA-MM-DD.sql --config servidor/wrangler.toml
 npx wrangler d1 execute jose-restaurado --remote --command "SELECT COUNT(*) FROM mensagens" --config servidor/wrangler.toml   # conferir
 ```
-Só depois de conferir, troque o `database_id` no `wrangler.toml` e publique. Se o D1 recusar o `BEGIN`/`COMMIT` do arquivo (o D1 não aceita transações escritas à mão em alguns caminhos), remova essas duas linhas (`grep -v -x -E 'BEGIN TRANSACTION;|COMMIT;' jose-AAAA-MM-DD.sql > sem-transacao.sql`) e execute o arquivo novo. Para testar o arquivo sem tocar na nuvem: `sqlite3 teste.db < jose-AAAA-MM-DD.sql`.
+Só depois de conferir, troque o `database_id` no `wrangler.toml` e publique. Para testar o arquivo sem tocar na nuvem: `sqlite3 teste.db < jose-AAAA-MM-DD.sql`.
 
 > **Privacidade: "Apagar todos os meus dados" NÃO apaga as cópias do R2.** O botão do app apaga o banco, mas os arquivos `backups/jose-*.sql` continuam no bucket por até 8 semanas, com o conteúdo de antes do apagamento. Para apagá-los de verdade:
 > ```bash

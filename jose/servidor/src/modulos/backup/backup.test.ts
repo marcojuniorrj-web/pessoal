@@ -66,12 +66,11 @@ describe('gerarDump', () => {
     expect(literalSql('🙂\nx')).toBe("'🙂\nx'");
   });
 
-  it('vem dentro de BEGIN/COMMIT, com CREATE de tabelas e índices antes dos INSERT', async () => {
+  it('não usa BEGIN/COMMIT (o D1 recusa), com CREATE de tabelas e índices antes dos INSERT', async () => {
     const { db } = await bancoComDados();
     const { sql } = await gerarDump(db);
     const linhas = sql.split('\n');
-    expect(linhas[1]).toBe('BEGIN TRANSACTION;');
-    expect(linhas.at(-2)).toBe('COMMIT;');
+    expect(sql).not.toMatch(/BEGIN|COMMIT/);
     expect(sql).not.toMatch(/d1_migrations|_cf_|sqlite_sequence/);
     expect(sql).toContain('CREATE INDEX idx_mensagens_conversa_criada');
     const ultimoCreate = Math.max(...linhas.map((l, i) => (l.startsWith('CREATE') ? i : -1)));
