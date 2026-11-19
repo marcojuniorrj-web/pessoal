@@ -1,14 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { PALAVRA_APAGAR_TUDO } from '@compartilhado/schemas';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/cliente';
 import { Botao } from '../componentes/Botao';
 import { InstrucaoInstalar, useInstalar } from '../componentes/InstrucaoInstalar';
 import { useToast } from '../componentes/Toast';
 import { abrirBoasVindas, caminhoBoasVindas } from '../estado/boas-vindas';
+import { limparDadosLocais } from '../estado/dados-locais';
 import { useOnline } from '../estado/online';
 import { useSessao, useUsuario } from '../estado/sessao';
+import { useTecladoVirtual } from '../estado/teclado';
 
 type Pergunta = null | 'sair' | 'sair-todos';
+type PassoApagar = null | 'aviso' | 'digitar';
 
 export function Ajustes() {
   const usuario = useUsuario();
@@ -21,16 +25,56 @@ export function Ajustes() {
   const online = useOnline();
   const instalar = useInstalar();
   const [instrucaoAberta, setInstrucaoAberta] = useState(false);
+  // Apagar todos os meus dados: 1) aviso, 2) digitar APAGAR; depois "apagando" e, se falhar, o erro na própria tela.
+  const [apagar, setApagar] = useState<PassoApagar>(null);
+  const [digitado, setDigitado] = useState('');
+  const [apagando, setApagando] = useState(false);
+  const [erroApagar, setErroApagar] = useState(false);
+  const campoApagar = useRef<HTMLInputElement>(null);
+  useTecladoVirtual();
 
-  // Esc fecha a confirmação, como o Cancelar.
+  const fecharApagar = () => {
+    setApagar(null);
+    setDigitado('');
+    setErroApagar(false);
+  };
+
+  // Esc fecha a confirmação, como o Cancelar (menos enquanto está saindo ou apagando).
   useEffect(() => {
-    if (!confirmar) return;
+    if (!confirmar && !apagar) return;
     const aoTeclar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !saindo) setConfirmar(null);
+      if (e.key !== 'Escape') return;
+      if (apagar) {
+        if (!apagando) fecharApagar();
+      } else if (!saindo) setConfirmar(null);
     };
     document.addEventListener('keydown', aoTeclar);
     return () => document.removeEventListener('keydown', aoTeclar);
-  }, [confirmar, saindo]);
+  }, [confirmar, saindo, apagar, apagando]);
+
+  // No passo de digitar o foco vai para o campo, que fica à vista mesmo com o teclado aberto.
+  useEffect(() => {
+    if (apagar !== 'digitar') return;
+    campoApagar.current?.focus();
+    campoApagar.current?.scrollIntoView?.({ block: 'center' });
+  }, [apagar]);
+
+  const apagarTudo = async () => {
+    if (apagando || digitado !== PALAVRA_APAGAR_TUDO) return;
+    setApagando(true);
+    setErroApagar(false);
+    try {
+      await api.delete('/api/eu', { confirmacao: digitado });
+    } catch {
+      // Nada foi apagado (o servidor apaga tudo ou nada): o Marco pode tentar de novo.
+      setErroApagar(true);
+      setApagando(false);
+      return;
+    }
+    // Servidor limpo: limpa também o aparelho e recarrega o app inteiro (a memória do app some junto) no Login.
+    limparDadosLocais();
+    window.location.replace('/login');
+  };
 
   const executar = async (qual: Exclude<Pergunta, null>) => {
     setSaindo(true);
@@ -73,7 +117,66 @@ export function Ajustes() {
         </div>
       </div>
 
-      {confirmar ? (
+      {apagar === 'aviso' ? (
+        <div className="cartao confirmacao" role="alertdialog" aria-labelledby="apagar-titulo" aria-describedby="apagar-aviso">
+          <p id="apagar-titulo">Apagar todos os meus dados?</p>
+          <p id="apagar-aviso" className="texto-2">
+            Isso apaga para sempre suas conversas, memórias, tarefas e metas, e tira você de todos os aparelhos. Não dá para desfazer.
+          </p>
+          <div className="confirmacao__acoes">
+            <Botao onClick={fecharApagar}>Cancelar</Botao>
+            <Botao variante="perigo" onClick={() => setApagar('digitar')}>
+              Continuar
+            </Botao>
+          </div>
+        </div>
+      ) : apagar === 'digitar' ? (
+        <form
+          className="cartao confirmacao"
+          role="alertdialog"
+          aria-labelledby="apagar-titulo"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void apagarTudo();
+          }}
+        >
+          <p id="apagar-titulo">Para confirmar, digite {PALAVRA_APAGAR_TUDO}</p>
+          <label className="so-leitor" htmlFor="apagar-campo">
+            Digite {PALAVRA_APAGAR_TUDO} para apagar tudo
+          </label>
+          <input
+            id="apagar-campo"
+            ref={campoApagar}
+            className="confirmacao__campo"
+            type="text"
+            value={digitado}
+            disabled={apagando}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            enterKeyHint="done"
+            placeholder={PALAVRA_APAGAR_TUDO}
+            onChange={(e) => {
+              setDigitado(e.target.value);
+              setErroApagar(false);
+            }}
+          />
+          {erroApagar && (
+            <p className="mensagem-erro" role="alert">
+              Não foi possível apagar agora. Nada foi apagado. Tente de novo.
+            </p>
+          )}
+          <div className="confirmacao__acoes">
+            <Botao onClick={fecharApagar} disabled={apagando}>
+              Cancelar
+            </Botao>
+            <Botao type="submit" variante="perigo" carregando={apagando} disabled={digitado !== PALAVRA_APAGAR_TUDO || !online}>
+              {apagando ? 'Apagando…' : 'Apagar tudo'}
+            </Botao>
+          </div>
+        </form>
+      ) : confirmar ? (
         <div className="cartao confirmacao" role="alertdialog" aria-labelledby="confirmacao-titulo">
           <p id="confirmacao-titulo">{confirmar === 'sair' ? 'Sair deste aparelho?' : 'Sair de todos os aparelhos?'}</p>
           <div className="confirmacao__acoes">
@@ -109,6 +212,9 @@ export function Ajustes() {
           </Botao>
           <Botao onClick={() => setConfirmar('sair')}>Sair</Botao>
           <Botao onClick={() => setConfirmar('sair-todos')}>Sair de todos os aparelhos</Botao>
+          <Botao variante="perigo" disabled={!online} onClick={() => setApagar('aviso')}>
+            Apagar todos os meus dados
+          </Botao>
         </div>
       )}
 

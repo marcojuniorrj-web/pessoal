@@ -142,3 +142,7 @@ html[data-teclado='aberto'] .toast {
 .confirmacao { display: grid; gap: 16px; }
 .confirmacao__acoes { display: flex; gap: 12px; justify-content: flex-end; }
 .versao { font-size: var(--pequeno); text-align: center; margin-top: auto; }
+.confirmacao__campo {
+  width: 100%; min-height: var(--alvo-minimo); padding: 0 12px; box-sizing: border-box; letter-spacing: 0.08em;
+  background: var(--fundo); color: var(--texto); border: 1px solid var(--borda); border-radius: 12px; font: inherit;
+}
