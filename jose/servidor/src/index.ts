@@ -11,6 +11,7 @@ import { rotasMemorias } from './modulos/memorias/rotas';
 import { rotasSugestoes } from './modulos/sugestoes/rotas';
 import { rotasMetas } from './modulos/tarefas/metas-rotas';
 import { rotasTarefas } from './modulos/tarefas/rotas';
+import { executarBackup } from './modulos/backup/backup';
 import { checarOrigem, exigirSessao, type AppEnv } from './modulos/auth/sessao';
 
 export function criarApp(deps: Dependencias = dependenciasPadrao) {
@@ -38,4 +39,10 @@ export function criarApp(deps: Dependencias = dependenciasPadrao) {
 }
 
 export const app = criarApp();
-export default app;
+
+/** Cron Trigger semanal (wrangler.toml [triggers]): backup do D1 no R2. */
+export function aoAgendar(evento: ScheduledController, env: Ambiente, ctx: ExecutionContext) {
+  ctx.waitUntil(executarBackup(env, new Date(evento.scheduledTime)));
+}
+
+export default { fetch: app.fetch, scheduled: aoAgendar };

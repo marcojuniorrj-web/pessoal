@@ -30,6 +30,15 @@ database_name = "jose"
 database_id = "44bc8c56-0e72-4aa8-8da7-e45749d90673"
 migrations_dir = "migracoes"
 
+# Backup semanal do D1: toda semana (domingo 06:00 UTC = 03:00 em São Paulo) o Worker grava um .sql no R2.
+# Exige o R2 ativado na conta e `wrangler r2 bucket create jose-backups` (ver README, "Backup semanal").
+[triggers]
+crons = ["0 6 * * 0"]
+
+[[r2_buckets]]
+binding = "BACKUPS"
+bucket_name = "jose-backups"
+
 [vars]
 MODELO_PADRAO = "claude-haiku-5-5"
 MODELO_PROFUNDO = "claude-sonnet-5-5"
