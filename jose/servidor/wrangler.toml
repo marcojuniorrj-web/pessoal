@@ -4,6 +4,9 @@ compatibility_date = "2026-06-01"
 workers_dev = true
 preview_urls = false
 
+# Endereço próprio (a rede Wi-Fi de casa não alcança *.workers.dev). O DNS é criado pela Cloudflare.
+routes = [{ pattern = "jose.corretormarcojunior.com.br", custom_domain = true }]
+
 # Interface (build do Vite) servida pelo mesmo Worker.
 [assets]
 directory = "../app/dist"
