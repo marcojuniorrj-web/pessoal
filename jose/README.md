@@ -78,6 +78,16 @@ npm run backup        # gera backups/jose-AAAA-MM-DD.sql e mantém as 4 cópias 
 ```
 Agende uma vez por semana (cron/launchd ou um lembrete). O Time Travel do D1 guarda mais 30 dias.
 
+## Métricas de uso (tarefa 7.3)
+`servidor/scripts/metricas.sql` só lê o banco e devolve 4 tabelas: dias ativos seguidos (atual, maior e total), taxa de sugestões salvas, tarefas concluídas por semana e tokens por modelo por dia.
+```bash
+npx wrangler d1 execute jose --remote --config servidor/wrangler.toml --file servidor/scripts/metricas.sql   # banco real (só leitura)
+npx wrangler d1 execute jose --local --config servidor/wrangler.dev.toml --file servidor/scripts/metricas.sql  # banco local de teste
+```
+- **Dia ativo** = pelo menos 1 mensagem do Marco no dia local (São Paulo = UTC-3; outro fuso é tratado como UTC). Meta: 30 seguidos. A taxa de sugestões salvas é salvas ÷ (salvas + descartadas); referência saudável: 50% ou mais.
+- **Tokens:** vêm do `usage` gravado em cada resposta (`mensagens.modelo`, `tokens_entrada`, `tokens_cache`, `tokens_saida`). O banco não tem preços: multiplique pelos preços atuais da Anthropic. Limites: apagar uma mensagem ou conversa apaga também o consumo dela, e a chamada do título automático não é gravada. Para um custo exato e permanente seria preciso uma tabela de consumo (migração + SPEC), que não foi criada.
+- O teste `servidor/scripts/metricas.test.ts` roda o script num banco em memória com dados conhecidos e confere os números.
+
 ## Roteiro de teste no iPhone (aceite das tarefas 1.12 e da entrega da onda 1)
 1. No Safari, abra o link e toque em **Entrar com Google**: deve cair no Chat com "Bom dia/Boa tarde/Boa noite, Marco.".
 2. Compartilhar > **Adicionar à Tela de Início**. Abra pelo ícone "J": deve continuar logado (risco: Safari e PWA podem não dividir cookies; se pedir login de novo, anote e avise).
