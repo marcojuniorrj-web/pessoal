@@ -162,10 +162,16 @@ export function Ajustes() {
               setErroApagar(false);
             }}
           />
-          {erroApagar && (
+          {!online ? (
             <p className="mensagem-erro" role="alert">
-              Não foi possível apagar agora. Nada foi apagado. Tente de novo.
+              Sem conexão. Nada foi apagado. Volte a ficar online para apagar.
             </p>
+          ) : (
+            erroApagar && (
+              <p className="mensagem-erro" role="alert">
+                Não foi possível apagar agora. Nada foi apagado. Tente de novo.
+              </p>
+            )
           )}
           <div className="confirmacao__acoes">
             <Botao onClick={fecharApagar} disabled={apagando}>
