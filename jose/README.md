@@ -82,18 +82,44 @@ Marque um por um antes de dizer "publicado". Nada aqui apaga dados; só o item 7
 - [ ] 6. Conferir: `curl -i https://jose.<subdominio>.workers.dev/saude` responde 200 `{"ok":true}`; abrir o app no celular, entrar, mandar uma mensagem e ver a resposta; Ajustes mostra a versão nova.
 - [ ] 7. (Só se uma conta nova precisar disso) marcar as boas-vindas: ver "Boas-vindas e modo decisão".
 - [ ] 8. Logs: no painel da Cloudflare (Workers › jose › Logs) ou `npx wrangler tail jose --config servidor/wrangler.toml`: só ids, tempos, tokens e erros; se aparecer texto de mensagem, é um defeito (os testes de `seguranca.test.ts` existem para impedir isso).
-- [ ] 9. Backup semanal agendado (abaixo) e restauração testada pelo menos uma vez num banco de teste.
+- [ ] 9. Backup semanal ativo (R2 ligado, bucket `jose-backups` criado, Cron `0 6 * * 0` aparecendo no Worker; abaixo) e restauração testada pelo menos uma vez num banco de teste.
 
-### Backup semanal
+### Backup semanal (automático, no R2)
+O próprio Worker faz o backup: todo **domingo às 03:00 (horário de São Paulo; Cron `0 6 * * 0`, 06:00 UTC)** ele gera um arquivo SQL com o banco inteiro e grava no bucket R2 **`jose-backups`** como `backups/jose-AAAA-MM-DD.sql` (data de São Paulo). Ficam as **8 cópias mais recentes** (8 semanas); as mais antigas são apagadas sozinhas. O código está em `servidor/src/modulos/backup/` e o agendamento em `[triggers]` do `wrangler.toml`. O log da execução (`backup ok` com bytes, nº de tabelas, nº de linhas e cópias mantidas; ou `backup falhou` com o tipo do erro) não leva nenhum conteúdo; veja em Workers › jose › Logs ou `npx wrangler tail jose --config servidor/wrangler.toml`.
+
+**Ativar (uma vez, antes do próximo deploy):** o `wrangler.toml` já declara o bucket, então o deploy falha enquanto o R2 não estiver ativo e o bucket não existir.
+1. No painel da Cloudflare: R2 Object Storage › ativar (pede forma de pagamento; 10 GB e as operações deste backup cabem no plano gratuito).
+2. `npx wrangler r2 bucket create jose-backups --config servidor/wrangler.toml`
+3. `npm run deploy` (ou `npm run deploy:embutido`). A partir daí o Cron roda sozinho; na tela do Worker (Triggers) aparece `0 6 * * 0`. Para ver o primeiro backup sem esperar o domingo: painel › Workers › jose › Settings › Triggers › Cron Triggers, ou `npx wrangler dev --test-scheduled --config servidor/wrangler.dev.toml` e `curl "http://localhost:8787/__scheduled?cron=0+6+*+*+0"` (local: sem o binding `BACKUPS` ele só registra `backup sem destino`, sem quebrar nada).
+
+**Listar e baixar:** o wrangler não tem comando de listar objetos; veja os nomes no painel (R2 › `jose-backups` › pasta `backups/`) ou use o nome do domingo desejado:
 ```bash
-npm run backup        # gera backups/jose-AAAA-MM-DD.sql (wrangler d1 export --remote) e mantém as 4 cópias mais recentes
+npx wrangler r2 object get jose-backups/backups/jose-AAAA-MM-DD.sql --remote --file ./jose-AAAA-MM-DD.sql --config servidor/wrangler.toml
 ```
-- Agende uma vez por semana (cron/launchd ou um lembrete no celular). A pasta `backups/` fica fora do git: o arquivo tem todas as conversas e memórias, então guarde-a num lugar privado.
-- O `wrangler d1 export jose --remote --config servidor/wrangler.toml --output arquivo.sql` é o mesmo comando por baixo; ele só lê o banco.
-- **Segunda camada, Time Travel do D1** (últimos 30 dias, sem agendar nada):
-  `npx wrangler d1 time-travel info jose --config servidor/wrangler.toml` mostra os bookmarks e
-  `npx wrangler d1 time-travel restore jose --timestamp=2026-11-18T12:00:00Z --config servidor/wrangler.toml` volta o banco àquele momento (**sobrescreve o banco atual**: confira a data com `info` antes e faça um `npm run backup` primeiro, pois o restore também guarda um bookmark para desfazer).
-- **Restaurar de um arquivo `.sql`** (banco novo ou vazio): `npx wrangler d1 create jose-restaurado`, depois `npx wrangler d1 execute jose-restaurado --remote --file backups/jose-AAAA-MM-DD.sql` e, só depois de conferir, trocar o `database_id` no `wrangler.toml`. Nunca rode isso por cima do banco em uso.
+O arquivo tem **todas as conversas e memórias**: guarde-o num lugar privado e não o coloque no git (a pasta `backups/` já está ignorada).
+
+**O que o arquivo contém:** o esquema completo (tabelas e índices, lidos do próprio banco: tabela nova entra no backup sozinha) e as linhas de todas as tabelas, **exceto a `sessoes`**. As sessões não são salvas de propósito: restaurar uma cópia nunca reabre um login já encerrado (depois de restaurar, entre de novo com o Google). O conteúdo vem dentro de `BEGIN TRANSACTION; ... COMMIT;`.
+
+**Restaurar num banco NOVO** (nunca por cima do banco em uso):
+```bash
+npx wrangler d1 create jose-restaurado --config servidor/wrangler.toml
+npx wrangler d1 execute jose-restaurado --remote --file ./jose-AAAA-MM-DD.sql --config servidor/wrangler.toml
+npx wrangler d1 execute jose-restaurado --remote --command "SELECT COUNT(*) FROM mensagens" --config servidor/wrangler.toml   # conferir
+```
+Só depois de conferir, troque o `database_id` no `wrangler.toml` e publique. Se o D1 recusar o `BEGIN`/`COMMIT` do arquivo (o D1 não aceita transações escritas à mão em alguns caminhos), remova essas duas linhas (`grep -v -x -E 'BEGIN TRANSACTION;|COMMIT;' jose-AAAA-MM-DD.sql > sem-transacao.sql`) e execute o arquivo novo. Para testar o arquivo sem tocar na nuvem: `sqlite3 teste.db < jose-AAAA-MM-DD.sql`.
+
+> **Privacidade: "Apagar todos os meus dados" NÃO apaga as cópias do R2.** O botão do app apaga o banco, mas os arquivos `backups/jose-*.sql` continuam no bucket por até 8 semanas, com o conteúdo de antes do apagamento. Para apagá-los de verdade:
+> ```bash
+> npx wrangler r2 object delete jose-backups/backups/jose-AAAA-MM-DD.sql --remote --config servidor/wrangler.toml   # um por um
+> npx wrangler r2 bucket delete jose-backups --config servidor/wrangler.toml   # o bucket inteiro (precisa estar vazio; apague os objetos antes pelo painel)
+> ```
+> Se for apagar tudo de vez, apague as cópias **antes** do próximo domingo, ou o Cron cria uma nova (já sem dados, mas ainda com o esquema). Para parar os backups, remova `[triggers]` e `[[r2_buckets]]` do `wrangler.toml` e publique de novo.
+
+**Cópia manual (opcional):** `npm run backup` continua existindo: gera `backups/jose-AAAA-MM-DD.sql` no computador (`wrangler d1 export --remote`, só lê o banco; esse export inclui as sessões) e mantém as 4 cópias mais recentes. Use antes de uma migração (item 3 do checklist).
+
+**Segunda camada, Time Travel do D1** (últimos 30 dias, sem agendar nada):
+`npx wrangler d1 time-travel info jose --config servidor/wrangler.toml` mostra os bookmarks e
+`npx wrangler d1 time-travel restore jose --timestamp=2026-11-18T12:00:00Z --config servidor/wrangler.toml` volta o banco àquele momento (**sobrescreve o banco atual**: confira a data com `info` antes e faça um `npm run backup` primeiro, pois o restore também guarda um bookmark para desfazer).
 
 ## Emergência: celular perdido ou roubado
 1. **Pelo app, em outro aparelho:** Ajustes › **Sair de todos os aparelhos** (derruba todas as sessões na hora; o cookie antigo passa a dar 401).
@@ -101,7 +127,7 @@ npm run backup        # gera backups/jose-AAAA-MM-DD.sql (wrangler d1 export --r
    `npx wrangler d1 execute jose --remote --config servidor/wrangler.toml --command "DELETE FROM sessoes"`
    (o efeito é o mesmo; depois é só entrar de novo com o Google).
 3. No Google (myaccount.google.com › Segurança › Seus dispositivos) saia do aparelho perdido e troque a senha da conta se houver risco.
-4. Se o aparelho estiver desbloqueado e com os dados à vista e você quiser apagar tudo do servidor: Ajustes › **Apagar todos os meus dados** (pede digitar APAGAR; não tem volta, só o backup).
+4. Se o aparelho estiver desbloqueado e com os dados à vista e você quiser apagar tudo do servidor: Ajustes › **Apagar todos os meus dados** (pede digitar APAGAR; não tem volta, só o backup; as cópias do backup no R2 **não** são apagadas: ver "Backup semanal").
 5. Chave da IA exposta? Gere outra no console da Anthropic e troque: `npx wrangler secret put ANTHROPIC_API_KEY --config servidor/wrangler.toml`. A chave nunca vai para o celular, então perder o aparelho não a expõe.
 
 ## Métricas de uso (tarefa 7.3)
