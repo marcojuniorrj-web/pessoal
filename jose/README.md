@@ -82,15 +82,15 @@ Marque um por um antes de dizer "publicado". Nada aqui apaga dados; só o item 7
 - [ ] 6. Conferir: `curl -i https://jose.<subdominio>.workers.dev/saude` responde 200 `{"ok":true}`; abrir o app no celular, entrar, mandar uma mensagem e ver a resposta; Ajustes mostra a versão nova.
 - [ ] 7. (Só se uma conta nova precisar disso) marcar as boas-vindas: ver "Boas-vindas e modo decisão".
 - [ ] 8. Logs: no painel da Cloudflare (Workers › jose › Logs) ou `npx wrangler tail jose --config servidor/wrangler.toml`: só ids, tempos, tokens e erros; se aparecer texto de mensagem, é um defeito (os testes de `seguranca.test.ts` existem para impedir isso).
-- [ ] 9. Backup semanal ativo (R2 ligado, bucket `jose-backups` criado, Cron `0 6 * * 0` aparecendo no Worker; abaixo) e restauração testada pelo menos uma vez num banco de teste.
+- [ ] 9. Backup semanal ativo (R2 ligado, bucket `jose-backups` criado, Cron `0 6 * * SUN` aparecendo no Worker; abaixo) e restauração testada pelo menos uma vez num banco de teste.
 
 ### Backup semanal (automático, no R2)
-O próprio Worker faz o backup: todo **domingo às 03:00 (horário de São Paulo; Cron `0 6 * * 0`, 06:00 UTC)** ele gera um arquivo SQL com o banco inteiro e grava no bucket R2 **`jose-backups`** como `backups/jose-AAAA-MM-DD.sql` (data de São Paulo). Ficam as **8 cópias mais recentes** (8 semanas); as mais antigas são apagadas sozinhas. O código está em `servidor/src/modulos/backup/` e o agendamento em `[triggers]` do `wrangler.toml`. O log da execução (`backup ok` com bytes, nº de tabelas, nº de linhas e cópias mantidas; ou `backup falhou` com o tipo do erro) não leva nenhum conteúdo; veja em Workers › jose › Logs ou `npx wrangler tail jose --config servidor/wrangler.toml`.
+O próprio Worker faz o backup: todo **domingo às 03:00 (horário de São Paulo; Cron `0 6 * * SUN`, 06:00 UTC)** ele gera um arquivo SQL com o banco inteiro e grava no bucket R2 **`jose-backups`** como `backups/jose-AAAA-MM-DD.sql` (data de São Paulo). Ficam as **8 cópias mais recentes** (8 semanas); as mais antigas são apagadas sozinhas. O código está em `servidor/src/modulos/backup/` e o agendamento em `[triggers]` do `wrangler.toml`. O log da execução (`backup ok` com bytes, nº de tabelas, nº de linhas e cópias mantidas; ou `backup falhou` com o tipo do erro) não leva nenhum conteúdo; veja em Workers › jose › Logs ou `npx wrangler tail jose --config servidor/wrangler.toml`.
 
 **Ativar (uma vez, antes do próximo deploy):** o `wrangler.toml` já declara o bucket, então o deploy falha enquanto o R2 não estiver ativo e o bucket não existir.
 1. No painel da Cloudflare: R2 Object Storage › ativar (pede forma de pagamento; 10 GB e as operações deste backup cabem no plano gratuito).
 2. `npx wrangler r2 bucket create jose-backups --config servidor/wrangler.toml`
-3. `npm run deploy` (ou `npm run deploy:embutido`). A partir daí o Cron roda sozinho; na tela do Worker (Triggers) aparece `0 6 * * 0`. Para ver o primeiro backup sem esperar o domingo: painel › Workers › jose › Settings › Triggers › Cron Triggers, ou `npx wrangler dev --test-scheduled --config servidor/wrangler.dev.toml` e `curl "http://localhost:8787/__scheduled?cron=0+6+*+*+0"` (local: sem o binding `BACKUPS` ele só registra `backup sem destino`, sem quebrar nada).
+3. `npm run deploy` (ou `npm run deploy:embutido`). A partir daí o Cron roda sozinho; na tela do Worker (Triggers) aparece `0 6 * * SUN`. Para ver o primeiro backup sem esperar o domingo: painel › Workers › jose › Settings › Triggers › Cron Triggers, ou `npx wrangler dev --test-scheduled --config servidor/wrangler.dev.toml` e `curl "http://localhost:8787/__scheduled?cron=0+6+*+*+SUN"` (local: sem o binding `BACKUPS` ele só registra `backup sem destino`, sem quebrar nada).
 
 **Listar e baixar:** o wrangler não tem comando de listar objetos; veja os nomes no painel (R2 › `jose-backups` › pasta `backups/`) ou use o nome do domingo desejado:
 ```bash
@@ -155,3 +155,5 @@ npx wrangler d1 execute jose --local --config servidor/wrangler.dev.toml --file 
 - `DELETE /api/eu` com `{"confirmacao":"APAGAR"}` apaga, numa transação, todas as linhas do usuário em todas as tabelas (sugestões, mensagens, conversas, tarefas, metas, memórias, uso diário, sessões e o usuário) e limpa o cookie. O app também apaga o que guarda no aparelho (`localStorage` `jose:*`) e recarrega no Login.
 - Testes: `servidor/src/seguranca.test.ts` (isolamento com 2 usuários em todas as rotas `/:id`, Origin, cookies, cabeçalhos, logs sem conteúdo ou segredo) e `scripts/segredos.test.ts` (nenhum segredo versionado).
 - Desempenho no celular (medido em Chromium com CPU 4x e Slow 4G): `npm run build && node scripts/medir-desempenho.mjs` (ou `npm run medir`). Os números estão em `docs/jose/plan/execucao.md`.
+
+> **Cron na Cloudflare:** o dia da semana não aceita `0` para domingo (erro `invalid cron string`); use `SUN`. O deploy mostra esse erro só como "Trigger configuration ... partially updated".

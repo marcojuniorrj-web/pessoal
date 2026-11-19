@@ -222,7 +222,7 @@ describe('Cron no Worker', () => {
     const promessas: Promise<unknown>[] = [];
     const ctx = { waitUntil: (p: Promise<unknown>) => promessas.push(p) } as unknown as ExecutionContext;
     const env = { DB: db, BACKUPS: bucket } as never;
-    aoAgendar({ scheduledTime: Date.parse('2026-11-22T06:00:00Z'), cron: '0 6 * * 0' } as ScheduledController, env, ctx);
+    aoAgendar({ scheduledTime: Date.parse('2026-11-22T06:00:00Z'), cron: '0 6 * * SUN' } as ScheduledController, env, ctx);
     await Promise.all(promessas);
     expect([...objetos.keys()]).toEqual(['backups/jose-2026-11-22.sql']);
   });
