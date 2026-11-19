@@ -15,7 +15,7 @@ Fases 1 a 6.
 - [x] 7.1 `DELETE /api/eu` com `{confirmacao: "APAGAR"}`: apaga todas as tabelas numa transação e limpa o cookie. **Aceite:** depois de apagar, nenhuma linha do usuário sobra (teste conta as linhas de todas as tabelas).
 - [x] 7.2 Ajustes → "Apagar todos os meus dados": aviso, depois digitar "APAGAR", estados apagando e erro, e volta ao Login. **Aceite:** teste Playwright.
 - [x] 7.3 Script `servidor/scripts/metricas.sql` (rodado com `wrangler d1 execute`): dias ativos seguidos, taxa de sugestões salvas, tarefas concluídas por semana e tokens por modelo por dia. **Aceite:** com dados de teste conhecidos, devolve os números esperados.
-- [ ] 7.4 Revisão de segurança: isolamento (teste com 2 usuários em **todas** as rotas `/:id` → 404), Origin, cookies, logs sem conteúdo e segredos fora do repositório. **Aceite:** a suíte de isolamento passa e não há segredo no git.
+- [x] 7.4 Revisão de segurança: isolamento (teste com 2 usuários em **todas** as rotas `/:id` → 404), Origin, cookies, logs sem conteúdo e segredos fora do repositório. **Aceite:** a suíte de isolamento passa e não há segredo no git.
 - [ ] 7.5 Suíte e2e no Playwright cobrindo as 10 histórias de `usuarios.md`, no celular (390px) e no computador. **Aceite:** tudo verde, com `--trace off`.
 - [ ] 7.6 Performance: o campo de texto fica utilizável em até 3 s com o app instalado; peso do JS medido; consultas lentas no D1 revisadas. **Aceite:** medição registrada em `execucao.md`.
 - [ ] 7.7 Ajuste fino do prompt depois de rodar os casos golden de novo, com a revisão de estímulo visual (cartões e avisos) junto com o Marco. **Aceite:** o Marco aprova o tom.

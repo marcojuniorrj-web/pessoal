@@ -38,6 +38,7 @@ Alternativa avaliada e descartada: Gemini. A assinatura Google One não inclui a
 - "Acesso por perfil" aqui é **isolamento por `usuario_id`** em toda consulta (há um só perfil). Um helper de posse é usado em todas as rotas `/:id`. As sugestões são checadas pelo caminho mensagem → conversa → usuário.
 - Segredos (`ANTHROPIC_API_KEY`, `GOOGLE_CLIENT_ID/SECRET`, `SESSION_SECRET`, `OWNER_EMAIL`) via `wrangler secret`; `.dev.vars.exemplo` versionado.
 - Logs sem conteúdo de mensagens (só ids, tempos e erros) — o conteúdo é sensível.
+- Respostas de `/api/*` e `/auth/*` saem com `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` e `X-Frame-Options: DENY` (revisão de segurança da onda 7). Os arquivos estáticos do app não têm CSP no MVP (risco baixo: não há conteúdo de terceiros nem HTML vindo de usuário; ver `plan/execucao.md`).
 - Backup: exportação semanal do D1 (`wrangler d1 export`), com 4 cópias, mais o Time Travel do D1 (30 dias). *(V1.1: botão "Exportar meus dados".)*
 
 ## 3. Organização interna (pastas)
